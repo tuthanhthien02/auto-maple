@@ -34,7 +34,7 @@ KEY_MAP = {
     'enter': 0x0D,
     'shift': 0x10,
     'ctrl': 0x11,
-    'alt': 0x12,
+    'alt': 0xA4,            # LEFT ALT (changed from 0x12 for MapleStory compatibility)
     'caps lock': 0x14,
     'esc': 0x1B,
     'space': 0x20,

@@ -61,8 +61,10 @@ class Bot(Configurable):
         :return:    None
         """
 
-        self.update_submodules()
-        print('\n[~] Started main bot loop')
+        # tạm tắt cập nhật recoures
+        
+        # self.update_submodules()
+        # print('\n[~] Started main bot loop')
         self.thread.start()
 
     def _main(self):
@@ -72,8 +74,9 @@ class Bot(Configurable):
         """
 
         print('\n[~] Initializing detection algorithm:\n')
-        model = detection.load_model()
-        print('\n[~] Initialized detection algorithm')
+        # model = detection.load_model()  # Disabled: rune solving turned off
+        model = None
+        print('\n[~] Detection algorithm disabled (rune solving off)')
 
         self.ready = True
         config.listener.enabled = True
@@ -81,14 +84,15 @@ class Bot(Configurable):
         while True:
             if config.enabled and len(config.routine) > 0:
                 # Buff and feed pets
-                self.command_book.buff.main()
-                pet_settings = config.gui.settings.pets
-                auto_feed = pet_settings.auto_feed.get()
-                num_pets = pet_settings.num_pets.get()
-                now = time.time()
-                if auto_feed and now - last_fed > 1200 / num_pets:
-                    press(self.config['Feed pet'], 1)
-                    last_fed = now
+                # self.command_book.buff.main()  # Disabled: auto buff turned off
+                # Auto feed pet - Disabled
+                # pet_settings = config.gui.settings.pets
+                # auto_feed = pet_settings.auto_feed.get()
+                # num_pets = pet_settings.num_pets.get()
+                # now = time.time()
+                # if auto_feed and now - last_fed > 1200 / num_pets:
+                #     press(self.config['Feed pet'], 1)
+                #     last_fed = now
 
                 # Highlight the current Point
                 config.gui.view.routine.select(config.routine.index)
@@ -96,9 +100,10 @@ class Bot(Configurable):
 
                 # Execute next Point in the routine
                 element = config.routine[config.routine.index]
-                if self.rune_active and isinstance(element, Point) \
-                        and element.location == self.rune_closest_pos:
-                    self._solve_rune(model)
+                # Disabled: rune solving turned off
+                # if self.rune_active and isinstance(element, Point) \
+                #         and element.location == self.rune_closest_pos:
+                #     self._solve_rune(model)
                 element.execute()
                 config.routine.step()
             else:
