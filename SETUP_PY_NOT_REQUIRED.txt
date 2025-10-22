@@ -1,0 +1,58 @@
+============================================================
+QUAN TRONG: setup.py KHONG BAT BUOC!
+============================================================
+
+Ban gap loi khi chay: python setup.py
+Loi: ModuleNotFoundError: No module named 'win32com'
+
+============================================================
+GIAI THICH
+============================================================
+
+setup.py CHI de tao desktop shortcut.
+Bot VAN CHAY BINH THUONG ma khong can no!
+
+
+============================================================
+CHAY BOT NGAY (Khong can setup.py)
+============================================================
+
+Cach 1: Double-click file:
+   
+   run_bot_conda.bat
+
+
+Cach 2: Anaconda Prompt:
+
+   conda activate automaple
+   python main.py
+
+
+============================================================
+NEU VAN MUON TAO DESKTOP SHORTCUT
+============================================================
+
+Option A: Dung script don gian (Khong can win32com)
+   
+   Double-click:  create_shortcut_simple.bat
+
+
+Option B: Fix pywin32 roi chay setup.py
+
+   Double-click:  fix_pywin32.bat
+   
+   Sau do:
+   python setup.py
+
+
+============================================================
+TOM TAT
+============================================================
+
+1. BO QUA setup.py
+2. Chay bot bang: run_bot_conda.bat
+3. That don gian!
+
+
+============================================================
+

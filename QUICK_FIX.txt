@@ -1,0 +1,52 @@
+============================================================
+LOI CAI OPENCV - GIAI PHAP NHANH
+============================================================
+
+Loi: "WinError 32: The process cannot access the file"
+
+CAU 1: DONG TAT CA TERMINAL/COMMAND PROMPT
+       (Keo tat, khong duoc chi click X)
+
+CAU 2: DOI 20 GIAY
+       (De Windows unlock file)
+
+CAU 3: CHAY 1 TRONG 2 FILE SAU:
+
+       Double-click:  fix_opencv.bat
+       
+       Hoac:
+       
+       Double-click:  install_opencv_manual.bat
+
+
+NEU VAN LOI:
+
+1. Tat antivirus tam thoi
+2. Right-click fix_opencv.bat → Run as Administrator
+3. Chay lai
+
+
+NEU VAN KHONG DUOC:
+
+Xem file:  FIX_OPENCV_ERROR.md
+
+
+============================================================
+HOAC CHAY THU CONG:
+============================================================
+
+1. Mo Anaconda Prompt
+
+2. Chay tung lenh:
+
+   conda activate automaple
+   pip cache purge
+   conda install opencv -y
+   
+3. Kiem tra:
+
+   python -c "import cv2; print(cv2.__version__)"
+
+
+============================================================
+
