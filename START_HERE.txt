@@ -1,0 +1,85 @@
+============================================================
+AUTO MAPLE - HUONG DAN CAI DAT NHANH (VM)
+============================================================
+
+BUOC 1: CAI MINICONDA
+------------------------------------------------------------
+1. Tai Miniconda:
+   https://docs.conda.io/en/latest/miniconda.html
+   
+2. Chon: Miniconda3 Windows 64-bit
+
+3. Cai dat:
+   - Double-click file .exe
+   - QUAN TRONG: Tick [✓] "Add Miniconda3 to PATH"
+   - Install
+   
+4. Restart terminal
+
+
+BUOC 2: CHAY SCRIPT TU DONG
+------------------------------------------------------------
+Double-click file:
+
+   setup_conda.bat
+
+Hoac:
+   
+   setup_conda.bat
+
+Doi 5-10 phut de script cai dat het packages.
+
+
+BUOC 3: CHAY BOT
+------------------------------------------------------------
+Double-click file:
+
+   run_bot_conda.bat
+
+Hoac:
+
+   1. Mo Anaconda Prompt
+   2. Chay: conda activate automaple
+   3. Chay: python main.py
+
+
+============================================================
+CAC FILE QUAN TRONG
+============================================================
+
+setup_conda.bat       - Setup environment (chay 1 lan)
+run_bot_conda.bat     - Chay bot (chay moi khi muon dung bot)
+check_conda_env.bat   - Kiem tra environment (debug)
+CONDA_SETUP_GUIDE.md  - Huong dan chi tiet
+
+
+============================================================
+TROUBLESHOOTING
+============================================================
+
+Loi: "conda is not recognized"
+  -> Dung Anaconda Prompt thay vi Command Prompt
+  -> Hoac restart may sau khi cai Miniconda
+
+Loi: Import error khi chay bot
+  -> Chay: check_conda_env.bat
+  -> Chay lai: setup_conda.bat
+
+Loi khac:
+  -> Xem file: CONDA_SETUP_GUIDE.md
+
+
+============================================================
+HUONG DAN DAY DU
+============================================================
+Doc file: CONDA_SETUP_GUIDE.md
+
+
+BAT DAU NGAY!
+1. Cai Miniconda
+2. Double-click: setup_conda.bat
+3. Double-click: run_bot_conda.bat
+
+CHUC BAN AUTO THANH CONG! 🚀
+============================================================
+
