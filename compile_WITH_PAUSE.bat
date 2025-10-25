@@ -40,8 +40,8 @@ echo.
 echo 🔨 Compiling...
 echo.
 
-REM Compile the script
-"%COMPILER%" /in "multiplicity_jitter_WITH_PAUSE.ahk" /out "multiplicity_jitter_WITH_PAUSE.exe" /icon "C:\Program Files\AutoHotkey\AutoHotkey.exe,2"
+REM Compile the script (no custom icon to avoid errors)
+"%COMPILER%" /in "multiplicity_jitter_WITH_PAUSE.ahk" /out "multiplicity_jitter_WITH_PAUSE.exe"
 
 if errorlevel 1 (
     echo.

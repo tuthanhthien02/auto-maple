@@ -76,8 +76,8 @@ echo.
 echo 🔨 Compiling as: %OBFNAME%
 echo.
 
-REM Compile the script with obfuscated name
-"%COMPILER%" /in "multiplicity_jitter_CUSTOM.ahk" /out "%OBFNAME%" /icon "C:\Program Files\AutoHotkey\AutoHotkey.exe,2"
+REM Compile the script with obfuscated name (no custom icon to avoid errors)
+"%COMPILER%" /in "multiplicity_jitter_CUSTOM.ahk" /out "%OBFNAME%"
 
 if errorlevel 1 (
     echo.
