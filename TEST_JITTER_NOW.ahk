@@ -36,8 +36,8 @@ q::
     Random, jitter, %MinJitter%, %MaxJitter%
     Sleep, %jitter%
     
-    ; Send Q
-    Send, {q}
+    ; Send Q (using SendInput for reliability)
+    SendInput, q
     return
 
 ; ════ EXIT HOTKEY ════

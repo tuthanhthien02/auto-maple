@@ -193,8 +193,8 @@ ApplyJitterAndSend(key) {
     ; SLEEP FIRST (add jitter delay)
     Sleep, %jitter%
     
-    ; THEN send key
-    Send, {%key%}
+    ; THEN send key (using SendInput for reliability)
+    SendInput, {%key%}
 }
 
 GaussianRandom(mean, stddev) {
