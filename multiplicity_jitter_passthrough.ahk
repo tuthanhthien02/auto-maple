@@ -1,87 +1,174 @@
 ; ═══════════════════════════════════════════════════════════
-; CLIENT 3 - Jitter-Only (Slow) + PowerToys Remap
+; JITTER WITH PASSTHROUGH - Keys work normally!
 ; ═══════════════════════════════════════════════════════════
-; Jitter: 90-150ms (slowest)
-; Remap: Handled by PowerToys (driver-level)
+; Uses ~ prefix to PASSTHROUGH keys + add jitter
+; Keys will work normally with slight delay
 ; ═══════════════════════════════════════════════════════════
 
 #SingleInstance Force
 #NoEnv
 SetWorkingDir %A_ScriptDir%
 Random, Seed, A_TickCount
+#MaxHotkeysPerInterval 200
 
 ; ════════════════════════════════════════════════════════════
-; ⚙️ CLIENT 3 CONFIGURATION
+; ⚙️ CONFIGURATION
 ; ════════════════════════════════════════════════════════════
 
-global MinJitter := 90
-global MaxJitter := 150
+global MinJitter := 30
+global MaxJitter := 80
 global UseGaussian := true
 
+MsgBox, 
+(
+MULTIPLICITY JITTER - PASSTHROUGH MODE
+
+Configuration:
+- Jitter Range: %MinJitter%-%MaxJitter%ms
+- Gaussian Distribution: Enabled
+- Mode: Global (all windows)
+
+Keys will passthrough with jitter delay!
+
+Press CTRL+SHIFT+Q to exit script.
+)
+
 ; ════════════════════════════════════════════════════════════
-; 🎮 ACTIVE ONLY IN MAPLESTORY
+; 🎯 PASSTHROUGH KEYS WITH JITTER
 ; ════════════════════════════════════════════════════════════
-#IfWinActive, MapleStory
 
-; Letter keys (A-Z)
-a:: b:: c:: d:: e:: f:: g:: h:: i:: j:: k:: l:: m::
-n:: o:: p:: q:: r:: s:: t:: u:: v:: w:: x:: y:: z::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Letter keys (a-z) - PASSTHROUGH with jitter
+~a::
+~b::
+~c::
+~d::
+~e::
+~f::
+~g::
+~h::
+~i::
+~j::
+~k::
+~l::
+~m::
+~n::
+~o::
+~p::
+~q::
+~r::
+~s::
+~t::
+~u::
+~v::
+~w::
+~x::
+~y::
+~z::
+    ApplyJitterOnly()
     return
 
-; Number keys (0-9)
-0:: 1:: 2:: 3:: 4:: 5:: 6:: 7:: 8:: 9::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Number keys (0-9) - PASSTHROUGH with jitter
+~0::
+~1::
+~2::
+~3::
+~4::
+~5::
+~6::
+~7::
+~8::
+~9::
+    ApplyJitterOnly()
     return
 
-; Function keys (F1-F12)
-F1:: F2:: F3:: F4:: F5:: F6:: F7:: F8:: F9:: F10:: F11:: F12::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Arrow keys - PASSTHROUGH with jitter
+~Left::
+~Right::
+~Up::
+~Down::
+    ApplyJitterOnly()
     return
 
-; Arrow keys
-Left:: Right:: Up:: Down::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Function keys - PASSTHROUGH with jitter
+~F1::
+~F2::
+~F3::
+~F4::
+~F5::
+~F6::
+~F7::
+~F8::
+~F9::
+~F10::
+~F11::
+~F12::
+    ApplyJitterOnly()
     return
 
-; Modifier keys
-Alt:: Space:: Ctrl:: Shift:: Tab:: CapsLock::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Modifier keys - PASSTHROUGH with jitter
+~Alt::
+~Space::
+~Ctrl::
+~Shift::
+~Tab::
+    ApplyJitterOnly()
     return
 
-; Special keys
-Enter:: Backspace:: Delete:: Insert:: Home:: End:: PgUp:: PgDn:: Esc::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Special keys - PASSTHROUGH with jitter
+~Enter::
+~Backspace::
+~Delete::
+~Insert::
+~Home::
+~End::
+~PgUp::
+~PgDn::
+~Esc::
+    ApplyJitterOnly()
     return
 
-; Numpad keys
-Numpad0:: Numpad1:: Numpad2:: Numpad3:: Numpad4:: Numpad5:: Numpad6:: Numpad7:: Numpad8:: Numpad9::
-NumpadAdd:: NumpadSub:: NumpadMult:: NumpadDiv:: NumpadEnter:: NumpadDot::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Numpad keys - PASSTHROUGH with jitter
+~Numpad0::
+~Numpad1::
+~Numpad2::
+~Numpad3::
+~Numpad4::
+~Numpad5::
+~Numpad6::
+~Numpad7::
+~Numpad8::
+~Numpad9::
+~NumpadAdd::
+~NumpadSub::
+~NumpadMult::
+~NumpadDiv::
+~NumpadEnter::
+~NumpadDot::
+    ApplyJitterOnly()
     return
 
-; Symbol keys
-`;:: ':: ,:: .:: /:: [:: ]:: \:: -:: =::
-    key := A_ThisHotkey
-    ApplyJitterPassthrough(key)
+; Symbol keys - PASSTHROUGH with jitter
+~`;::
+~'::
+~,::
+~.::
+~/::
+~[::
+~]::
+~\::
+~-::
+~=::
+    ApplyJitterOnly()
     return
-
-#IfWinActive
 
 ; ════════════════════════════════════════════════════════════
 ; 🔧 CORE FUNCTIONS
 ; ════════════════════════════════════════════════════════════
 
-ApplyJitterPassthrough(key) {
+ApplyJitterOnly() {
     global MinJitter, MaxJitter, UseGaussian
     
+    ; Calculate jitter
     if (UseGaussian) {
         mean := (MinJitter + MaxJitter) / 2
         stddev := (MaxJitter - MinJitter) / 4
@@ -95,8 +182,9 @@ ApplyJitterPassthrough(key) {
         Random, jitter, %MinJitter%, %MaxJitter%
     }
     
+    ; Apply jitter delay
+    ; Key already sent due to ~ prefix!
     Sleep, %jitter%
-    Send {%key%}
 }
 
 GaussianRandom(mean, stddev) {
@@ -112,4 +200,14 @@ GaussianRandom(mean, stddev) {
     result := Round(mean + stddev * z)
     return result
 }
+
+; ════════════════════════════════════════════════════════════
+; 🚪 EXIT HOTKEY
+; ════════════════════════════════════════════════════════════
+
+^+q::
+    MsgBox, Exiting Multiplicity Jitter script...
+    ExitApp
+    return
+
 
