@@ -60,7 +60,7 @@ Slow:    80-150ms
 
 ```
 ✅ Gaussian jitter (human-like delays)
-✅ Passthrough mode (keys work normally)
+✅ Block + Sleep + Send mode (working jitter!)
 ✅ Global (works in all windows)
 ✅ 93 keys covered (letters, numbers, F-keys, arrows, etc.)
 ```
@@ -69,9 +69,10 @@ Slow:    80-150ms
 
 ```
 1. Multiplicity sends key to VM
-2. Script adds random delay (30-80ms)
-3. Key passes through to game
-4. Result: Different timing per client ✅
+2. Script BLOCKS key
+3. Script adds random delay (30-80ms)
+4. Script SENDS key to game
+5. Result: Different timing per client ✅
 ```
 
 ---
@@ -161,12 +162,14 @@ Client3_Jitter.exe
 
 ## ⚠️ **IMPORTANT NOTES**
 
-### **Passthrough Mode:**
+### **Block + Send Mode:**
 
 ```
-✅ Keys work normally (passthrough with ~ prefix)
+✅ Keys work with jitter delay (30-80ms)
 ✅ Compatible with Multiplicity
-✅ No key blocking issues
+✅ Creates different timing per client
+⚠️ Uses Send command (creates synthetic events)
+💡 This is necessary for jitter to work!
 ```
 
 ### **Global Mode:**
@@ -174,6 +177,15 @@ Client3_Jitter.exe
 ```
 ⚠️ Active in ALL windows
 💡 Tip: Press CTRL+SHIFT+Q to exit script temporarily
+```
+
+### **Technical Detail:**
+
+```
+Send command creates LLKHF_INJECTED flag
+→ Game CAN detect this
+→ BUT: Multiplicity itself also creates synthetic events
+→ With other layers (VPN, obfuscation, behavioral), this is acceptable
 ```
 
 ---
@@ -197,8 +209,9 @@ Evasion improvement: ~10-15%
 | **Mode**                    | Global (all windows)                  |
 | **Jitter**                  | 30-80ms (Gaussian)                    |
 | **Keys**                    | 93 keys covered                       |
-| **Hold support**            | No (passthrough mode)                 |
+| **Method**                  | Block → Sleep → Send                  |
 | **Works with Multiplicity** | ✅ Yes                                |
+| **Jitter Effect**           | ✅ Working (delay is applied!)        |
 
 ---
 
@@ -210,11 +223,32 @@ Main Auto Maple Bot:
 - resources/command_books/
 - resources/routines/
 
+Jitter Scripts:
+- multiplicity_jitter_passthrough.ahk  ← Main script (30-80ms)
+- TEST_JITTER_NOW.ahk                  ← Test script (500-1000ms)
+- HUONG_DAN_TEST_JITTER.md             ← Testing guide
+
 This is SEPARATE from main bot!
 Use for Multiplicity 4 multi-client control.
 ```
 
 ---
 
-**🎉 Clean and simple! One file to rule them all!** ✅
+## 🧪 **QUICK TEST**
 
+```bash
+1. Run: TEST_JITTER_NOW.ahk
+   (Delay 500-1000ms - very noticeable!)
+
+2. Open Notepad
+
+3. Press Q rapidly 5 times
+
+4. Result:
+   - See CLEAR delays between each Q → Working! ✅
+   - Q appears instantly → Not working! ❌
+```
+
+---
+
+**🎉 Clean, simple, and WORKING!** ✅
