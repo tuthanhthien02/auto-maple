@@ -61,77 +61,77 @@ Press CTRL+SHIFT+Q to exit
 ; 🎯 GAME KEYS - VM1 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host Q → VM1 sends P
-q::
+$q::
     ApplyJitterAndSend("p")
     return
 
 ; Host W → VM1 sends [
-w::
+$w::
     ApplyJitterAndSend("[")
     return
 
 ; Host E → VM1 sends ]
-e::
+$e::
     ApplyJitterAndSend("]")
     return
 
 ; Host R → VM1 sends \
-r::
+$r::
     ApplyJitterAndSend("\")
     return
 
 ; Host T → VM1 sends -
-t::
+$t::
     ApplyJitterAndSend("-")
     return
 
 ; Host Y → VM1 sends =
-y::
+$y::
     ApplyJitterAndSend("=")
     return
 
 ; Host U → VM1 sends F10
-u::
+$u::
     ApplyJitterAndSend("F10")
     return
 
 ; Host I → VM1 sends F11
-i::
+$i::
     ApplyJitterAndSend("F11")
     return
 
 ; Host O → VM1 sends F12
-o::
+$o::
     ApplyJitterAndSend("F12")
     return
 
 ; Host P → VM1 sends Home
-p::
+$p::
     ApplyJitterAndSend("Home")
     return
 
 ; Host Z → VM1 sends End
-z::
+$z::
     ApplyJitterAndSend("End")
     return
 
 ; Host X → VM1 sends PgUp
-x::
+$x::
     ApplyJitterAndSend("PgUp")
     return
 
 ; Host C → VM1 sends PgDn
-c::
+$c::
     ApplyJitterAndSend("PgDn")
     return
 
 ; Host V → VM1 sends Insert
-v::
+$v::
     ApplyJitterAndSend("Insert")
     return
 
 ; Host B → VM1 sends Delete
-b::
+$b::
     ApplyJitterAndSend("Delete")
     return
 
@@ -139,43 +139,43 @@ b::
 ; 🔢 NUMBER KEYS - VM1 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host 1 → VM1 sends Numpad1
-1::
+$1::
     ApplyJitterAndSend("Numpad1")
     return
 
-2::
+$2::
     ApplyJitterAndSend("Numpad2")
     return
 
-3::
+$3::
     ApplyJitterAndSend("Numpad3")
     return
 
-4::
+$4::
     ApplyJitterAndSend("Numpad4")
     return
 
-5::
+$5::
     ApplyJitterAndSend("Numpad5")
     return
 
-6::
+$6::
     ApplyJitterAndSend("Numpad6")
     return
 
-7::
+$7::
     ApplyJitterAndSend("Numpad7")
     return
 
-8::
+$8::
     ApplyJitterAndSend("Numpad8")
     return
 
-9::
+$9::
     ApplyJitterAndSend("Numpad9")
     return
 
-0::
+$0::
     ApplyJitterAndSend("Numpad0")
     return
 

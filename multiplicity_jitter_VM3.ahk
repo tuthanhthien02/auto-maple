@@ -61,77 +61,77 @@ Press CTRL+SHIFT+Q to exit
 ; 🎯 GAME KEYS - VM3 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host Q → VM3 sends I
-q::
+$q::
     ApplyJitterAndSend("i")
     return
 
 ; Host W → VM3 sends U
-w::
+$w::
     ApplyJitterAndSend("u")
     return
 
 ; Host E → VM3 sends Y
-e::
+$e::
     ApplyJitterAndSend("y")
     return
 
 ; Host R → VM3 sends T
-r::
+$r::
     ApplyJitterAndSend("t")
     return
 
 ; Host T → VM3 sends G
-t::
+$t::
     ApplyJitterAndSend("g")
     return
 
 ; Host Y → VM3 sends H
-y::
+$y::
     ApplyJitterAndSend("h")
     return
 
 ; Host U → VM3 sends J
-u::
+$u::
     ApplyJitterAndSend("j")
     return
 
 ; Host I → VM3 sends K
-i::
+$i::
     ApplyJitterAndSend("k")
     return
 
 ; Host O → VM3 sends M
-o::
+$o::
     ApplyJitterAndSend("m")
     return
 
 ; Host P → VM3 sends N
-p::
+$p::
     ApplyJitterAndSend("n")
     return
 
 ; Host Z → VM3 sends B
-z::
+$z::
     ApplyJitterAndSend("b")
     return
 
 ; Host X → VM3 sends V
-x::
+$x::
     ApplyJitterAndSend("v")
     return
 
 ; Host C → VM3 sends C (same - can't remap to itself, use Left)
-c::
+$c::
     ApplyJitterAndSend("Left")
     return
 
 ; Host V → VM3 sends Right
-v::
+$v::
     ApplyJitterAndSend("Right")
     return
 
 ; Host B → VM3 sends Up
-b::
+$b::
     ApplyJitterAndSend("Up")
     return
 
@@ -139,43 +139,43 @@ b::
 ; 🔢 NUMBER KEYS - VM3 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host 1 → VM3 sends 6
-1::
+$1::
     ApplyJitterAndSend("6")
     return
 
-2::
+$2::
     ApplyJitterAndSend("7")
     return
 
-3::
+$3::
     ApplyJitterAndSend("8")
     return
 
-4::
+$4::
     ApplyJitterAndSend("9")
     return
 
-5::
+$5::
     ApplyJitterAndSend("0")
     return
 
-6::
+$6::
     ApplyJitterAndSend("1")
     return
 
-7::
+$7::
     ApplyJitterAndSend("2")
     return
 
-8::
+$8::
     ApplyJitterAndSend("3")
     return
 
-9::
+$9::
     ApplyJitterAndSend("4")
     return
 
-0::
+$0::
     ApplyJitterAndSend("5")
     return
 

@@ -61,77 +61,77 @@ Press CTRL+SHIFT+Q to exit
 ; 🎯 GAME KEYS - VM2 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host Q → VM2 sends O
-q::
+$q::
     ApplyJitterAndSend("o")
     return
 
 ; Host W → VM2 sends K
-w::
+$w::
     ApplyJitterAndSend("k")
     return
 
 ; Host E → VM2 sends L
-e::
+$e::
     ApplyJitterAndSend("l")
     return
 
 ; Host R → VM2 sends ;
-r::
+$r::
     ApplyJitterAndSend(";")
     return
 
 ; Host T → VM2 sends '
-t::
+$t::
     ApplyJitterAndSend("'")
     return
 
 ; Host Y → VM2 sends `
-y::
+$y::
     ApplyJitterAndSend("``")
     return
 
 ; Host U → VM2 sends ,
-u::
+$u::
     ApplyJitterAndSend(",")
     return
 
 ; Host I → VM2 sends .
-i::
+$i::
     ApplyJitterAndSend(".")
     return
 
 ; Host O → VM2 sends /
-o::
+$o::
     ApplyJitterAndSend("/")
     return
 
 ; Host P → VM2 sends Numpad+
-p::
+$p::
     ApplyJitterAndSend("NumpadAdd")
     return
 
 ; Host Z → VM2 sends Numpad-
-z::
+$z::
     ApplyJitterAndSend("NumpadSub")
     return
 
 ; Host X → VM2 sends Numpad*
-x::
+$x::
     ApplyJitterAndSend("NumpadMult")
     return
 
 ; Host C → VM2 sends Numpad/
-c::
+$c::
     ApplyJitterAndSend("NumpadDiv")
     return
 
 ; Host V → VM2 sends NumpadDot
-v::
+$v::
     ApplyJitterAndSend("NumpadDot")
     return
 
 ; Host B → VM2 sends NumpadEnter
-b::
+$b::
     ApplyJitterAndSend("NumpadEnter")
     return
 
@@ -139,43 +139,43 @@ b::
 ; 🔢 NUMBER KEYS - VM2 MAPPING
 ; ════════════════════════════════════════════════════════════
 ; Host 1 → VM2 sends F1
-1::
+$1::
     ApplyJitterAndSend("F1")
     return
 
-2::
+$2::
     ApplyJitterAndSend("F2")
     return
 
-3::
+$3::
     ApplyJitterAndSend("F3")
     return
 
-4::
+$4::
     ApplyJitterAndSend("F4")
     return
 
-5::
+$5::
     ApplyJitterAndSend("F5")
     return
 
-6::
+$6::
     ApplyJitterAndSend("F6")
     return
 
-7::
+$7::
     ApplyJitterAndSend("F7")
     return
 
-8::
+$8::
     ApplyJitterAndSend("F8")
     return
 
-9::
+$9::
     ApplyJitterAndSend("F9")
     return
 
-0::
+$0::
     ApplyJitterAndSend("F10")
     return
 
