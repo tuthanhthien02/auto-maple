@@ -90,45 +90,120 @@ d::
 ; ⚔️ SKILL KEYS (SINGLE PRESS) ⭐
 ; ════════════════════════════════════════════════════════════
 ; Letter keys (excluding movement WASD)
-b:: c:: e:: f:: g:: h:: i:: j:: k:: l:: m::
-n:: o:: p:: q:: r:: t:: u:: v:: x:: y:: z::
+b::
+c::
+e::
+f::
+g::
+h::
+i::
+j::
+k::
+l::
+m::
+n::
+o::
+p::
+q::
+r::
+t::
+u::
+v::
+x::
+y::
+z::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Number keys (0-9) - potions, buffs
-0:: 1:: 2:: 3:: 4:: 5:: 6:: 7:: 8:: 9::
+0::
+1::
+2::
+3::
+4::
+5::
+6::
+7::
+8::
+9::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Function keys (F1-F12) - buffs
-F1:: F2:: F3:: F4:: F5:: F6:: F7:: F8:: F9:: F10:: F11:: F12::
+F1::
+F2::
+F3::
+F4::
+F5::
+F6::
+F7::
+F8::
+F9::
+F10::
+F11::
+F12::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Modifier keys
-Alt:: Space:: Ctrl:: Shift:: Tab::
+Alt::
+Space::
+Ctrl::
+Shift::
+Tab::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Special keys
-Enter:: Backspace:: Delete:: Insert:: Home:: End:: PgUp:: PgDn:: Esc::
+Enter::
+Backspace::
+Delete::
+Insert::
+Home::
+End::
+PgUp::
+PgDn::
+Esc::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Numpad keys
-Numpad0:: Numpad1:: Numpad2:: Numpad3:: Numpad4:: Numpad5:: Numpad6:: Numpad7:: Numpad8:: Numpad9::
-NumpadAdd:: NumpadSub:: NumpadMult:: NumpadDiv:: NumpadEnter:: NumpadDot::
+Numpad0::
+Numpad1::
+Numpad2::
+Numpad3::
+Numpad4::
+Numpad5::
+Numpad6::
+Numpad7::
+Numpad8::
+Numpad9::
+NumpadAdd::
+NumpadSub::
+NumpadMult::
+NumpadDiv::
+NumpadEnter::
+NumpadDot::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
 
 ; Symbol keys
-`;:: ':: ,:: .:: /:: [:: ]:: \:: -:: =::
+`;::
+'::
+,::
+.::
+/::
+[::
+]::
+\::
+-::
+=::
     key := A_ThisHotkey
     ApplyJitterSinglePress(key)
     return
