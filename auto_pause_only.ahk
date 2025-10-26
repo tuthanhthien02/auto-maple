@@ -68,6 +68,12 @@ global MaxPauseInterval := 300000
 global MinPauseDuration := 800
 global MaxPauseDuration := 2500
 
+; ━━━ QUICK TEST MODE (Pause mỗi 10-20 giây để test - ĐỂ TEST!) ━━━
+; global MinPauseInterval := 10000
+; global MaxPauseInterval := 20000
+; global MinPauseDuration := 2000
+; global MaxPauseDuration := 4000
+
 ; ━━━ PAUSE ÍT (Pause ít, rủi ro cao hơn) ━━━
 ; global MinPauseInterval := 300000
 ; global MaxPauseInterval := 600000
@@ -147,9 +153,12 @@ StartBehavioralPause() {
     global IsPaused, MinPauseDuration, MaxPauseDuration
     IsPaused := true
     
+    ; BLOCK ALL INPUT
+    BlockInput, On
+    
     ; Show tooltip during pause
     Random, duration, %MinPauseDuration%, %MaxPauseDuration%
-    ToolTip, PAUSE: %duration%ms, 0, 0
+    ToolTip, BLOCKED! PAUSE: %duration%ms, 0, 0
     
     SetTimer, EndBehavioralPause, %duration%
 }
@@ -157,6 +166,10 @@ StartBehavioralPause() {
 EndBehavioralPause:
     global IsPaused
     IsPaused := false
+    
+    ; UNBLOCK INPUT
+    BlockInput, Off
+    
     ToolTip  ; Hide tooltip
     SetTimer, EndBehavioralPause, Off
     ScheduleNextPause()
