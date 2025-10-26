@@ -1,341 +1,173 @@
-# 🎉 START HERE - MULTIPLICITY JITTER SETUP!
+# ⚡ BẮT ĐẦU TỪ ĐÂY!
 
-## ✅ **BIG NEWS: SOLUTION WORKING!**
+## 🎯 Bạn muốn gì?
 
-You just confirmed that **blocking a DIFFERENT key and sending a TARGET key WORKS!**
+### ✅ Tôi vội, muốn chạy ngay! (KHUYẾN NGHỊ cho 95% người dùng)
+
+**→ ĐỌC FILE NÀY:** `CHAY_NGAY_KHONG_CUSTOM.md`
+
+**→ CHẠY FILE NÀY:** `COMPILE_MAC_DINH_NGAY.bat`
+
+**⏱️ Thời gian:** 30 giây
+
+**💡 Lý do:** Đã có setting mặc định tối ưu sẵn, không cần sửa gì!
+
+---
+
+### ✏️ Tôi muốn custom setting (mức training, pause, key remap)
+
+**→ ĐỌC FILE NÀY:** `HUONG_DAN_CUSTOM_DON_GIAN.md`
+
+**→ SỬA FILE NÀY:** `multiplicity_jitter_DESYNC_EASY_CUSTOM.ahk`
+
+**→ CHẠY FILE NÀY:** `compile_EASY_CUSTOM_obfuscate.bat`
+
+**⏱️ Thời gian:** 5-10 phút
+
+**💡 Lý do:** Muốn training > 8 giờ/ngày, hoặc game dùng phím khác QWER
+
+---
+
+### 🔍 Tôi muốn xem danh sách tất cả file
+
+**→ ĐỌC FILE NÀY:** `DESYNC_FILES_INDEX.md`
+
+**💡 Lý do:** Hiểu rõ cấu trúc toàn bộ hệ thống
+
+---
+
+## 🚀 Quick Start - 3 bước nhanh (30 giây)
+
+### Bước 1: Compile
 
 ```
-TEST RESULTS:
-  A → Q: ✅
-  S → Q: ✅
-  D → Q: ✅
-  F → Q: ✅
+Double click: COMPILE_MAC_DINH_NGAY.bat
+```
 
-This means our solution is VIABLE! 🎉
+### Bước 2: Test
+
+```
+Double click: SystemAudioService.exe
+Mở Notepad → Ấn Q W E R → Kiểm tra delay và remap
+```
+
+### Bước 3: Setup autostart
+
+```
+Double click: setup_autostart_EASY_CUSTOM.bat
+```
+
+**✅ XONG! Training thôi!**
+
+---
+
+## ⚙️ Setting mặc định là gì?
+
+### 🎚️ Mức training: TRUNG BÌNH
+
+-   **Thời gian:** 4-6 giờ/ngày
+-   **Desync:** 0-500ms
+-   **Phù hợp:** Hầu hết người dùng
+
+### ⏸️ Mức pause: VỪA PHẢI
+
+-   **Tần suất:** Mỗi 3-5 phút
+-   **Thời lượng:** 0.8-2.5 giây
+-   **Phù hợp:** Cân bằng giữa an toàn và hiệu quả
+
+### 🎮 Key remap: MAPLESTORY
+
+-   **Q → A**, **W → S**, **E → D**, **R → F**
+-   Arrow keys + Space (giữ nguyên, có desync+jitter)
+-   **Phù hợp:** MapleStory và hầu hết game MMORPG
+
+---
+
+## ❓ Khi nào CẦN custom?
+
+| Tình huống                            | Dùng mặc định? | Custom gì?        |
+| ------------------------------------- | -------------- | ----------------- |
+| Training MapleStory 4-6 giờ/ngày      | ✅ CÓ          | Không cần         |
+| Training game MMORPG khác (dùng QWER) | ✅ CÓ          | Không cần         |
+| Training > 8 giờ/ngày                 | ❌ KHÔNG       | Đổi sang MỨC NẶNG |
+| Training < 2 giờ/ngày                 | ❌ KHÔNG       | Đổi sang MỨC NHẸ  |
+| Game dùng phím khác QWER              | ❌ KHÔNG       | Custom key remap  |
+| Muốn pause nhiều hơn                  | ❌ KHÔNG       | Đổi mức pause     |
+
+---
+
+## 📁 File quan trọng nhất
+
+| Xếp hạng | File                                         | Mục đích                                 |
+| -------- | -------------------------------------------- | ---------------------------------------- |
+| 🥇       | `COMPILE_MAC_DINH_NGAY.bat`                  | Compile nhanh nhất (có setting mặc định) |
+| 🥈       | `CHAY_NGAY_KHONG_CUSTOM.md`                  | Hướng dẫn nhanh nhất (2 bước, 30 giây)   |
+| 🥉       | `multiplicity_jitter_DESYNC_EASY_CUSTOM.ahk` | Script chính (đã có setting mặc định)    |
+
+---
+
+## 💡 Tips
+
+### ✅ ĐÚNG:
+
+```
+1. Chạy COMPILE_MAC_DINH_NGAY.bat
+2. Test file .exe
+3. Setup autostart
+4. Training!
+```
+
+### ❌ SAI:
+
+```
+❌ Chạy file .ahk trực tiếp (dễ bị phát hiện)
+❌ Custom khi không cần (setting mặc định đã tốt)
+❌ Quên test trước khi dùng thật
 ```
 
 ---
 
-## 🎯 **WHAT YOU NEED TO DO**
+## 🎯 Tóm tắt
 
-### **3 SIMPLE STEPS:**
+**95% người dùng:** Dùng setting mặc định → Chạy `COMPILE_MAC_DINH_NGAY.bat` → Done!
 
-```
-1️⃣ Install PowerToys on HOST PC (10 min)
-   → Remap keys: Q→A, W→S, E→D, etc.
-   
-2️⃣ Copy AHK scripts to VMs (5 min)
-   → CLIENT1, CLIENT2, CLIENT3
-   
-3️⃣ Test & Play! (10 min)
-   → Test in Notepad first
-   → Then test in MapleStory
-```
-
-**Total time:** ~25 minutes to full setup! ⚡
+**5% người dùng:** Cần custom → Đọc `HUONG_DAN_CUSTOM_DON_GIAN.md` → Custom → Compile
 
 ---
 
-## 📚 **DOCUMENTATION**
+## ⚠️ Yêu cầu hệ thống
 
-### **👉 START WITH THIS:**
-
-```
-POWERTOYS_REMAP_CONFIG.md
-  ✅ Step-by-step PowerToys installation
-  ✅ Complete key mapping table
-  ✅ Testing instructions
-  ✅ Troubleshooting guide
-  
-  ⏱️ Time: 15 minutes
-  💡 Follow this first!
-```
-
-### **Then read:**
-
-```
-SOLUTION_SUCCESS.md
-  ✅ Complete architecture explanation
-  ✅ How everything works together
-  ✅ Expected results & ban rates
-  ✅ Anti-detection layers
-  
-  ⏱️ Time: 10 minutes
-  💡 Understand the system
-```
-
-### **Quick reference:**
-
-```
-MULTIPLICITY_JITTER_README.md
-  ✅ Quick start guide
-  ✅ File structure
-  ✅ Configuration tips
-  
-  ⏱️ Time: 5 minutes
-  💡 Quick lookup
-```
+-   ✅ Windows 7/8/10/11
+-   ✅ AutoHotkey v1.1 ([Tải tại đây](https://www.autohotkey.com/download/ahk-install.exe))
+-   ✅ Multiplicity 4 Pro đã cài đặt
 
 ---
 
-## 📦 **FILES TO USE**
+## 🚨 Lỗi thường gặp
 
-### **For your VMs:**
+### Compile lỗi?
 
-```
-VM1: multiplicity_jitter_REMAP_CLIENT1.ahk
-     → Fast player (30-80ms jitter)
-     
-VM2: multiplicity_jitter_REMAP_CLIENT2.ahk
-     → Medium player (60-120ms jitter)
-     
-VM3: multiplicity_jitter_REMAP_CLIENT3.ahk
-     → Slow player (90-150ms jitter)
-```
+→ Cài AutoHotkey v1.1 (KHÔNG phải v2)
 
-**All scripts:**
-- ✅ Auto-elevate to admin
-- ✅ Gaussian distribution
-- ✅ Full keyboard support
-- ✅ Exit hotkey: CTRL+SHIFT+Q
+### Phím không hoạt động?
+
+→ Chạy file .exe với quyền Administrator
+
+### File not found?
+
+→ Đảm bảo tất cả file ở cùng 1 folder
 
 ---
 
-## 🚀 **QUICK START** (Do this now!)
+## 📖 Đọc thêm
 
-### **Step 1: PowerToys (HOST PC)** ⏱️ 10 min
-
-```bash
-1. Download PowerToys:
-   https://github.com/microsoft/PowerToys/releases
-   Or: Microsoft Store → "PowerToys"
-
-2. Install & Launch
-
-3. Settings → Keyboard Manager → Enable
-
-4. Click "Remap a key"
-
-5. Add mappings:
-   Q → A
-   W → S
-   E → D
-   R → F
-   (See POWERTOYS_REMAP_CONFIG.md for complete list)
-
-6. Click OK
-
-7. Test in Notepad:
-   Type Q → Should see A ✅
-```
+-   `CHAY_NGAY_KHONG_CUSTOM.md` - Hướng dẫn 2 bước, 30 giây
+-   `HUONG_DAN_CUSTOM_DON_GIAN.md` - Hướng dẫn custom chi tiết
+-   `DESYNC_FILES_INDEX.md` - Danh sách tất cả file
+-   `DESYNC_EASY_CUSTOM_README.md` - Tổng quan hệ thống
 
 ---
 
-### **Step 2: AHK Scripts (VMs)** ⏱️ 5 min
+**🎉 BẮT ĐẦU NGAY!**
 
-```bash
-VM1:
-  1. Copy multiplicity_jitter_REMAP_CLIENT1.ahk
-  2. Double-click
-  3. UAC → Click Yes
-  4. Popup confirms running ✅
-
-VM2:
-  1. Copy multiplicity_jitter_REMAP_CLIENT2.ahk
-  2. Double-click
-  3. UAC → Click Yes
-  4. Popup confirms running ✅
-
-VM3:
-  1. Copy multiplicity_jitter_REMAP_CLIENT3.ahk
-  2. Double-click
-  3. UAC → Click Yes
-  4. Popup confirms running ✅
-```
-
----
-
-### **Step 3: Test** ⏱️ 10 min
-
-```bash
-TEST IN NOTEPAD FIRST:
-
-1. All VMs: Open Notepad
-
-2. Multiplicity: Enable broadcast mode
-
-3. HOST: Type "Q W E R" quickly
-
-4. EXPECTED in VMs:
-   VM1: Q W E R (with ~50ms delays)
-   VM2: Q W E R (with ~90ms delays)
-   VM3: Q W E R (with ~120ms delays)
-   
-   → Different timing visible! ✅
-
-5. If YES → TEST IN MAPLESTORY:
-   - Launch MapleStory on all VMs
-   - Use skills (Q, W, E, R)
-   - All characters respond ✅
-   - Slight delays visible ✅
-   - Different timing per character ✅
-
-6. If all work → YOU'RE READY! 🎉
-```
-
----
-
-## 🎯 **HOW IT WORKS** (Simple Explanation)
-
-```
-You press Q on HOST
-    ↓
-PowerToys changes it to A (instantly)
-    ↓
-Multiplicity sends A to all VMs
-    ↓
-Each VM's AHK script:
-  - Blocks A
-  - Waits random time (30-150ms)
-  - Sends Q to game
-    ↓
-Game receives Q with different timing!
-    ↓
-Anti-cheat sees:
-  "3 different players with different reaction times"
-  → Harder to detect! ✅
-```
-
----
-
-## 📊 **EXPECTED RESULTS**
-
-### **Without This Solution:**
-
-```
-❌ Perfect synchronization
-❌ 100% ban rate within 48 hours
-❌ All accounts banned together
-```
-
-### **With This Solution:**
-
-```
-✅ Different timing per character
-✅ 60-70% ban rate in 2 weeks
-✅ Some accounts survive
-✅ 30-40% improvement!
-```
-
-### **With Full Anti-Detection Stack:**
-
-```
-✅ Jitter (this solution)
-✅ Different VPN per VM
-✅ Behavioral randomization
-✅ Account rotation (15 days)
-✅ 30-40% ban rate in 2 weeks
-✅ 60-70% improvement! ✅✅
-```
-
----
-
-## ⚠️ **IMPORTANT REMINDERS**
-
-```
-✅ PowerToys on HOST only (not on VMs!)
-✅ AHK scripts need admin rights (auto-elevate)
-✅ Test in Notepad before game
-✅ Don't remap arrow keys, Space, Ctrl, Alt, Shift
-✅ If banned, adjust jitter ranges (increase)
-```
-
----
-
-## 🎮 **TESTED & WORKING**
-
-```
-✅ TEST_BLOCK_DIFFERENT_KEY.ahk confirmed:
-   All 4 methods (A, S, D, F) successfully send Q!
-   
-✅ Architecture validated:
-   PowerToys → Multiplicity → AHK → Game
-   
-✅ Jitter effective:
-   Different timing achieved per VM
-   
-✅ Ready for production deployment! 🚀
-```
-
----
-
-## 📁 **FILE SUMMARY**
-
-```
-📂 PRODUCTION (Use these!):
-   ├─ multiplicity_jitter_REMAP_CLIENT1.ahk
-   ├─ multiplicity_jitter_REMAP_CLIENT2.ahk
-   └─ multiplicity_jitter_REMAP_CLIENT3.ahk
-
-📂 DOCUMENTATION (Read these!):
-   ├─ START_HERE.md (this file) ⭐
-   ├─ POWERTOYS_REMAP_CONFIG.md ⭐⭐
-   ├─ SOLUTION_SUCCESS.md
-   └─ MULTIPLICITY_JITTER_README.md
-
-📂 TESTS (For debugging):
-   ├─ TEST_BLOCK_DIFFERENT_KEY.ahk ⭐ (Breakthrough!)
-   ├─ TEST_ALL_METHODS.ahk
-   ├─ TEST_DEBUG_ADMIN.ahk
-   └─ Many others...
-```
-
----
-
-## 🎊 **CONGRATULATIONS!**
-
-```
-╔════════════════════════════════════════════════╗
-║                                                ║
-║    🎉🎉🎉 SOLUTION COMPLETE! 🎉🎉🎉            ║
-║                                                ║
-║  After extensive testing and debugging,        ║
-║  we discovered the key blocking limitation     ║
-║  and designed a working solution!              ║
-║                                                ║
-║  ✅ PowerToys kernel-level remapping           ║
-║  ✅ Multiplicity broadcasting                  ║
-║  ✅ AHK jitter with Gaussian distribution      ║
-║  ✅ Different personalities per VM             ║
-║  ✅ Anti-detection working!                    ║
-║                                                ║
-║  Time to deploy and farm! 🚀                   ║
-║                                                ║
-╚════════════════════════════════════════════════╝
-```
-
----
-
-## 🚀 **NEXT ACTION**
-
-```
-👉 OPEN: POWERTOYS_REMAP_CONFIG.md
-
-Follow the step-by-step guide to:
-1. Install PowerToys (10 min)
-2. Configure remapping (10 min)
-3. Deploy AHK scripts (5 min)
-4. Test & verify (10 min)
-5. Launch MapleStory N! 🎮
-
-Total time: ~35 minutes to full setup!
-```
-
----
-
-**🎯 YOU'RE READY TO START!**
-
-**Next file to read: `POWERTOYS_REMAP_CONFIG.md`** ⭐
-
-**Good luck và happy farming! 🚀✨**
-
+Chạy file: `COMPILE_MAC_DINH_NGAY.bat`
