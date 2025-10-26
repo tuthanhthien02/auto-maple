@@ -85,9 +85,8 @@ echo.
 echo 🔨 Compiling as: %OBFNAME%
 echo.
 
-REM Compile the script with obfuscated name + Windows system icon
-REM Using shell32.dll (more compatible) for legitimate-looking Windows icon
-"%COMPILER%" /in "multiplicity_jitter_WITH_PAUSE.ahk" /out "%OBFNAME%" /icon "%SystemRoot%\System32\shell32.dll,3"
+REM Compile the script with obfuscated name (no icon to avoid format errors)
+"%COMPILER%" /in "multiplicity_jitter_WITH_PAUSE.ahk" /out "%OBFNAME%"
 
 if errorlevel 1 (
     echo.
