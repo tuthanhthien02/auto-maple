@@ -47,36 +47,57 @@ echo.
 
 REM Rename to look like Windows system service
 set "OBFUSCATED_NAME=SystemAudioService.exe"
-if exist "%OBFUSCATED_NAME%" (
-    del "%OBFUSCATED_NAME%"
-)
-ren "multiplicity_jitter_DESYNC_EASY_CUSTOM.exe" "%OBFUSCATED_NAME%"
 
+REM Delete old file if exists
 if exist "%OBFUSCATED_NAME%" (
-    echo.
-    echo ========================================
-    echo   COMPILATION SUCCESS!
-    echo ========================================
-    echo.
-    echo Output: %OBFUSCATED_NAME%
-    echo.
-    echo ANTI-DETECTION FEATURES:
-    echo - Obfuscated filename (looks like Windows service)
-    echo - Compiled to .exe (harder to detect than .ahk)
-    echo - Desync delay breaks Multiplicity synchronization
-    echo - Jitter makes timing unpredictable
-    echo - Behavioral pauses mimic human breaks
-    echo.
-    echo Next steps:
-    echo 1. Test %OBFUSCATED_NAME%
-    echo 2. Run setup_autostart_EASY_CUSTOM.bat to enable auto-start
-    echo 3. Use remove_autostart_EASY_CUSTOM.bat to disable if needed
-    echo.
-) else (
+    del "%OBFUSCATED_NAME%" 2>nul
+)
+
+REM Use MOVE instead of REN for more reliable operation
+move /Y "multiplicity_jitter_DESYNC_EASY_CUSTOM.exe" "%OBFUSCATED_NAME%" >nul 2>&1
+
+REM Wait a moment for file system
+timeout /t 1 /nobreak >nul 2>&1
+
+REM Check if move was successful
+if not exist "%OBFUSCATED_NAME%" (
     echo.
     echo ERROR: Obfuscation failed!
+    echo File multiplicity_jitter_DESYNC_EASY_CUSTOM.exe may be locked or in use.
     echo.
+    echo TRY THIS:
+    echo 1. Close any running SystemAudioService.exe
+    echo 2. Run this batch file again
+    echo.
+    pause
+    exit /b 1
 )
+
+REM Double check old file is gone
+if exist "multiplicity_jitter_DESYNC_EASY_CUSTOM.exe" (
+    del "multiplicity_jitter_DESYNC_EASY_CUSTOM.exe" /F /Q >nul 2>&1
+)
+
+REM Success!
+echo.
+echo ========================================
+echo   COMPILATION SUCCESS!
+echo ========================================
+echo.
+echo Output: %OBFUSCATED_NAME%
+echo.
+echo ANTI-DETECTION FEATURES:
+echo - Obfuscated filename (looks like Windows service)
+echo - Compiled to .exe (harder to detect than .ahk)
+echo - Desync delay breaks Multiplicity synchronization
+echo - Jitter makes timing unpredictable
+echo - Behavioral pauses mimic human breaks
+echo.
+echo Next steps:
+echo 1. Test %OBFUSCATED_NAME%
+echo 2. Run setup_autostart_EASY_CUSTOM.bat to enable auto-start
+echo 3. Use remove_autostart_EASY_CUSTOM.bat to disable if needed
+echo.
 
 pause
 
