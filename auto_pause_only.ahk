@@ -63,8 +63,8 @@ Menu, Tray, NoIcon
 ; global MaxPauseDuration := 3000
 
 ; ━━━ PAUSE VỪA PHẢI (Cân bằng - KHUYẾN NGHỊ! ⭐) ━━━
-global MinPauseInterval := 180000
-global MaxPauseInterval := 300000
+global MinPauseInterval := 8000
+global MaxPauseInterval := 8000
 global MinPauseDuration := 800
 global MaxPauseDuration := 2500
 
