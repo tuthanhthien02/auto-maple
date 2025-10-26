@@ -108,6 +108,7 @@ global MaxPauseDuration := 2500
 ; global MaxPauseDuration := 1
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
+global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -207,8 +208,42 @@ ScheduleNextPause()
 
 Return
 
+; ═══════════════════════════════════════════════════════════════════════
+; 🎛️ TOGGLE SCRIPT ON/OFF
+; ═══════════════════════════════════════════════════════════════════════
+
+; Ctrl+Alt+T - Toggle script ON/OFF
+^!t::
+    global ScriptEnabled
+    ScriptEnabled := !ScriptEnabled
+    
+    if (ScriptEnabled) {
+        SoundBeep, 1000, 100
+        ToolTip, SCRIPT ENABLED, 0, 0
+    } else {
+        SoundBeep, 500, 100
+        ToolTip, SCRIPT DISABLED (Passthrough mode), 0, 0
+    }
+    
+    SetTimer, RemoveToggleTooltip, 2000
+Return
+
+RemoveToggleTooltip:
+    ToolTip
+    SetTimer, RemoveToggleTooltip, Off
+Return
+
 ; Xử lý phím
 HandleKey:
+    global ScriptEnabled, IsPaused
+    
+    ; Nếu script bị tắt, passthrough phím gốc
+    if (!ScriptEnabled) {
+        pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        SendInput, {%pressedKey%}
+        return
+    }
+    
     ; Kiểm tra xem có đang pause không
     if (IsPaused) {
         return ; Block input khi đang pause
