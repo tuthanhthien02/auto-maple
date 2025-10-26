@@ -5,6 +5,9 @@ REM ═════════════════════════�
 REM This sets up the compiled .exe to run on Windows startup
 REM ═══════════════════════════════════════════════════════════
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ╔════════════════════════════════════════════════════════╗
 echo ║                                                        ║

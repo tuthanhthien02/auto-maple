@@ -3,6 +3,9 @@ REM ═════════════════════════�
 REM SETUP AUTOSTART FOR WITH_PAUSE SCRIPT
 REM ═══════════════════════════════════════════════════════════
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ╔════════════════════════════════════════════════════════╗
 echo ║                                                        ║

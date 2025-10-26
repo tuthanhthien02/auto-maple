@@ -3,12 +3,19 @@ REM ═════════════════════════�
 REM COMPILE + OBFUSCATE MULTIPLICITY JITTER WITH PAUSE
 REM ═══════════════════════════════════════════════════════════
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ╔════════════════════════════════════════════════════════╗
 echo ║                                                        ║
 echo ║   🔧 COMPILE + OBFUSCATE (ANTI-DETECTION!) 🔧         ║
 echo ║                                                        ║
 echo ╚════════════════════════════════════════════════════════╝
+echo.
+
+REM DEBUG: Show current directory
+echo 📂 Current directory: %CD%
 echo.
 
 REM Check if AHK compiler exists
@@ -29,6 +36,11 @@ if not exist "%COMPILER%" (
 REM Check if source script exists
 if not exist "multiplicity_jitter_WITH_PAUSE.ahk" (
     echo ❌ ERROR: multiplicity_jitter_WITH_PAUSE.ahk not found!
+    echo.
+    echo Looking in: %CD%
+    echo.
+    echo 📋 Files in this directory:
+    dir /b *.ahk
     echo.
     pause
     exit /b 1

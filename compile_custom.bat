@@ -5,6 +5,9 @@ REM ═════════════════════════�
 REM This compiles the .ahk script to .exe for anti-detection
 REM ═══════════════════════════════════════════════════════════
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ╔════════════════════════════════════════════════════════╗
 echo ║                                                        ║

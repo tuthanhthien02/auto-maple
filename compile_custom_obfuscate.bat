@@ -6,6 +6,9 @@ REM This compiles AND renames to a legitimate-sounding name
 REM to avoid anti-cheat detection!
 REM ═══════════════════════════════════════════════════════════
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ╔════════════════════════════════════════════════════════╗
 echo ║                                                        ║
