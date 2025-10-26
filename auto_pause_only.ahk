@@ -113,6 +113,90 @@ Return
 ; ⌨️ HOTKEYS
 ; ═══════════════════════════════════════════════════════════════════════
 
+; ═══════════════════════════════════════════════════════════════════════
+; 🎮 GAME KEY HOOKS - Block input during pause
+; ═══════════════════════════════════════════════════════════════════════
+; These hooks intercept keys and block them during pause
+
+; Letter keys (common for skills)
+~a::
+~b::
+~c::
+~d::
+~e::
+~f::
+~g::
+~h::
+~i::
+~j::
+~k::
+~l::
+~m::
+~n::
+~o::
+~p::
+~q::
+~r::
+~s::
+~t::
+~u::
+~v::
+~w::
+~x::
+~y::
+~z::
+    if (IsPaused)
+        return  ; Block key during pause
+Return
+
+; Number keys
+~0::
+~1::
+~2::
+~3::
+~4::
+~5::
+~6::
+~7::
+~8::
+~9::
+    if (IsPaused)
+        return
+Return
+
+; Arrow keys (movement)
+~Left::
+~Right::
+~Up::
+~Down::
+    if (IsPaused)
+        return
+Return
+
+; Special keys
+~Space::
+~Enter::
+~Tab::
+~Escape::
+~Shift::
+~Ctrl::
+~Alt::
+    if (IsPaused)
+        return
+Return
+
+; Mouse buttons
+~LButton::
+~RButton::
+~MButton::
+    if (IsPaused)
+        return
+Return
+
+; ═══════════════════════════════════════════════════════════════════════
+; 🎛️ CONTROL HOTKEYS
+; ═══════════════════════════════════════════════════════════════════════
+
 ; Ctrl+Alt+S - Show Status
 ^!s::
     global NextPauseTime
@@ -153,12 +237,9 @@ StartBehavioralPause() {
     global IsPaused, MinPauseDuration, MaxPauseDuration
     IsPaused := true
     
-    ; BLOCK ALL INPUT
-    BlockInput, On
-    
     ; Show tooltip during pause
     Random, duration, %MinPauseDuration%, %MaxPauseDuration%
-    ToolTip, BLOCKED! PAUSE: %duration%ms, 0, 0
+    ToolTip, PAUSE: %duration%ms, 0, 0
     
     SetTimer, EndBehavioralPause, %duration%
 }
@@ -166,9 +247,6 @@ StartBehavioralPause() {
 EndBehavioralPause:
     global IsPaused
     IsPaused := false
-    
-    ; UNBLOCK INPUT
-    BlockInput, Off
     
     ToolTip  ; Hide tooltip
     SetTimer, EndBehavioralPause, Off
