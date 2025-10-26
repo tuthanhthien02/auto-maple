@@ -27,6 +27,18 @@
 #SingleInstance Force
 SetBatchLines, -1
 Process, Priority,, High
+#Persistent
+
+; ═══════════════════════════════════════════════════════════════════════
+; 🔒 STEALTH MODE - KHÔNG CÓ TRAY ICON
+; ═══════════════════════════════════════════════════════════════════════
+; Hotkeys:
+;   Ctrl+Alt+S → Show status (xem next pause khi nào)
+;   Ctrl+Alt+Q → Quit script
+; ═══════════════════════════════════════════════════════════════════════
+
+; Ẩn tray icon hoàn toàn
+Menu, Tray, NoIcon
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -76,10 +88,49 @@ global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 ; Đây là code xử lý, chỉ sửa nếu bạn biết AutoHotkey
 ; ═══════════════════════════════════════════════════════════════════════
 
-; Bắt đầu timer cho behavioral pause
+; Start timer for behavioral pause
 SetTimer, CheckBehavioralPause, 1000
 ScheduleNextPause()
 
+; Startup notification
+ToolTip, AUTO PAUSE STARTED (Stealth Mode), 0, 0
+SetTimer, RemoveStartupTooltip, 3000
+
+Return
+
+RemoveStartupTooltip:
+    ToolTip
+    SetTimer, RemoveStartupTooltip, Off
+Return
+
+; ═══════════════════════════════════════════════════════════════════════
+; ⌨️ HOTKEYS
+; ═══════════════════════════════════════════════════════════════════════
+
+; Ctrl+Alt+S - Show Status
+^!s::
+    global NextPauseTime
+    timeLeft := (NextPauseTime - A_TickCount) / 1000
+    if (timeLeft < 0)
+        timeLeft := 0
+    
+    minutes := Floor(timeLeft / 60)
+    seconds := Floor(Mod(timeLeft, 60))
+    
+    ToolTip, RUNNING | Next pause in: %minutes%m %seconds%s, 0, 0
+    SetTimer, RemoveStatusTooltip, 2000
+Return
+
+RemoveStatusTooltip:
+    ToolTip
+    SetTimer, RemoveStatusTooltip, Off
+Return
+
+; Ctrl+Alt+Q - Quit Script
+^!q::
+    ToolTip, EXITING..., 0, 0
+    Sleep, 500
+    ExitApp
 Return
 
 ; ═══════════════════════════════════════════════════════════════════════
@@ -96,9 +147,9 @@ StartBehavioralPause() {
     global IsPaused, MinPauseDuration, MaxPauseDuration
     IsPaused := true
     
-    ; Hiển thị tooltip khi pause
+    ; Show tooltip during pause
     Random, duration, %MinPauseDuration%, %MaxPauseDuration%
-    ToolTip, ⏸️ PAUSE: %duration%ms, 0, 0
+    ToolTip, PAUSE: %duration%ms, 0, 0
     
     SetTimer, EndBehavioralPause, %duration%
 }
@@ -106,7 +157,7 @@ StartBehavioralPause() {
 EndBehavioralPause:
     global IsPaused
     IsPaused := false
-    ToolTip  ; Ẩn tooltip
+    ToolTip  ; Hide tooltip
     SetTimer, EndBehavioralPause, Off
     ScheduleNextPause()
 Return
