@@ -145,8 +145,12 @@ Return
 ~x::
 ~y::
 ~z::
-    if (IsPaused)
+    global IsPaused
+    if (IsPaused) {
+        ; DEBUG: Show that we're blocking
+        SoundBeep, 750, 100
         return  ; Block key during pause
+    }
 Return
 
 ; Number keys
@@ -237,9 +241,14 @@ StartBehavioralPause() {
     global IsPaused, MinPauseDuration, MaxPauseDuration
     IsPaused := true
     
-    ; Show tooltip during pause
+    ; DEBUG: Beep to confirm pause started
+    SoundBeep, 1000, 200
+    
+    ; Force block input
+    BlockInput, On
+    
     Random, duration, %MinPauseDuration%, %MaxPauseDuration%
-    ToolTip, PAUSE: %duration%ms, 0, 0
+    ToolTip, *** PAUSED *** BLOCKING *** %duration%ms, 0, 0, 1
     
     SetTimer, EndBehavioralPause, %duration%
 }
@@ -247,6 +256,12 @@ StartBehavioralPause() {
 EndBehavioralPause:
     global IsPaused
     IsPaused := false
+    
+    ; DEBUG: Beep to confirm pause ended
+    SoundBeep, 500, 200
+    
+    ; Unblock input
+    BlockInput, Off
     
     ToolTip  ; Hide tooltip
     SetTimer, EndBehavioralPause, Off

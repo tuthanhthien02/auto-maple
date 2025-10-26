@@ -17,27 +17,31 @@
 ## 📈 DETECTION VECTORS & RISK SCORES
 
 ### 1. **File Name Detection** - Risk: 2/10 ✅
+
 ```
 File: WindowsUpdateHelper.exe
 Location: C:\Users\...\auto-maple\
 ```
 
 **Analysis:**
-- ✅ Generic Windows-like name
-- ✅ Common helper process name
-- ⚠️ Not in System32 (slightly suspicious)
-- ⚠️ Digital signature missing
+
+-   ✅ Generic Windows-like name
+-   ✅ Common helper process name
+-   ⚠️ Not in System32 (slightly suspicious)
+-   ⚠️ Digital signature missing
 
 **Mitigation:**
-- Rename to common location patterns
-- Use obfuscated names
-- Multiple different names per VM
+
+-   Rename to common location patterns
+-   Use obfuscated names
+-   Multiple different names per VM
 
 **Verdict:** Low risk - Many legit software use similar names
 
 ---
 
 ### 2. **Process Signature Detection** - Risk: 5/10 ⚠️
+
 ```
 Signature: None (compiled AHK)
 Certificate: None
@@ -45,33 +49,38 @@ Publisher: Unknown
 ```
 
 **Analysis:**
-- ⚠️ No digital signature
-- ⚠️ Compiled with AutoHotkey
-- ✅ Common for small utilities
-- ⚠️ Anti-cheat can flag unsigned executables
+
+-   ⚠️ No digital signature
+-   ⚠️ Compiled with AutoHotkey
+-   ✅ Common for small utilities
+-   ⚠️ Anti-cheat can flag unsigned executables
 
 **Mitigation:**
-- Many legit tools are unsigned
-- Run from user directory (not suspicious)
-- Don't inject into game process
+
+-   Many legit tools are unsigned
+-   Run from user directory (not suspicious)
+-   Don't inject into game process
 
 **Verdict:** Medium risk - Flaggable but common
 
 ---
 
 ### 3. **Hotkey Hook Detection** - Risk: 6/10 ⚠️⚠️
+
 ```
 Method: AutoHotkey keyboard hooks
 Hook Type: Low-level keyboard hook (SetWindowsHookEx)
 ```
 
 **Analysis:**
-- ⚠️⚠️ Uses Windows keyboard hooks (detectable)
-- ⚠️ Anti-cheat can enumerate all hooks
-- ✅ Doesn't inject into game process
-- ✅ Common for many legit apps (Discord, OBS, etc.)
+
+-   ⚠️⚠️ Uses Windows keyboard hooks (detectable)
+-   ⚠️ Anti-cheat can enumerate all hooks
+-   ✅ Doesn't inject into game process
+-   ✅ Common for many legit apps (Discord, OBS, etc.)
 
 **Detectable by:**
+
 ```cpp
 // Anti-cheat can detect hooks:
 HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, ...);
@@ -79,16 +88,18 @@ HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, ...);
 ```
 
 **Mitigation:**
-- ✅ No code injection
-- ✅ Hooks are global (not game-specific)
-- ✅ Many legit apps use hooks
-- ⚠️ But AHK pattern is recognizable
+
+-   ✅ No code injection
+-   ✅ Hooks are global (not game-specific)
+-   ✅ Many legit apps use hooks
+-   ⚠️ But AHK pattern is recognizable
 
 **Verdict:** Medium-High risk - Technically detectable but widely used
 
 ---
 
 ### 4. **Timing Pattern Detection** - Risk: 3/10 ✅
+
 ```
 Pause Interval: 180000-300000ms (3-5 min) - Random
 Pause Duration: 800-2500ms - Random
@@ -96,12 +107,14 @@ Distribution: Uniform random
 ```
 
 **Analysis:**
-- ✅ Random intervals (good variance)
-- ✅ Human-like break patterns
-- ✅ Not perfectly synchronized
-- ⚠️ Lacks Gaussian distribution (slightly robotic)
+
+-   ✅ Random intervals (good variance)
+-   ✅ Human-like break patterns
+-   ✅ Not perfectly synchronized
+-   ⚠️ Lacks Gaussian distribution (slightly robotic)
 
 **Statistical Detection:**
+
 ```
 Variance: Good (120 seconds range)
 Predictability: Low
@@ -110,15 +123,17 @@ Risk: Low
 ```
 
 **Improvement suggestions:**
-- Add Gaussian distribution for more natural randomness
-- Vary pause frequency based on time of day
-- Add occasional longer breaks (5-10 min)
+
+-   Add Gaussian distribution for more natural randomness
+-   Vary pause frequency based on time of day
+-   Add occasional longer breaks (5-10 min)
 
 **Verdict:** Low risk - Good randomization
 
 ---
 
 ### 5. **Memory Signature Detection** - Risk: 2/10 ✅
+
 ```
 Memory Pattern: AutoHotkey runtime
 Strings: AHK-specific strings in memory
@@ -126,12 +141,14 @@ Process: Separate process (not injected)
 ```
 
 **Analysis:**
-- ✅ Separate process (no injection)
-- ✅ Doesn't read/write game memory
-- ✅ No DLL injection
-- ⚠️ AHK strings visible in process memory
+
+-   ✅ Separate process (no injection)
+-   ✅ Doesn't read/write game memory
+-   ✅ No DLL injection
+-   ⚠️ AHK strings visible in process memory
 
 **Anti-cheat checks:**
+
 ```
 - ReadProcessMemory() - Can't scan our process (different process)
 - Module enumeration - Won't find our DLLs in game
@@ -143,6 +160,7 @@ Process: Separate process (not injected)
 ---
 
 ### 6. **Network/Communication Detection** - Risk: 1/10 ✅✅
+
 ```
 Network: None
 IPC: None
@@ -150,16 +168,18 @@ Sockets: None
 ```
 
 **Analysis:**
-- ✅✅ No network communication
-- ✅✅ No inter-process communication
-- ✅✅ No suspicious connections
-- ✅✅ Purely local operation
+
+-   ✅✅ No network communication
+-   ✅✅ No inter-process communication
+-   ✅✅ No suspicious connections
+-   ✅✅ Purely local operation
 
 **Verdict:** Negligible risk - No network activity
 
 ---
 
 ### 7. **Behavior Pattern Detection** - Risk: 4/10 ⚠️
+
 ```
 Behavior: Random pauses only
 Input blocking: Yes (during pause)
@@ -167,12 +187,14 @@ Pattern: Periodic breaks
 ```
 
 **Analysis:**
-- ✅ Natural human behavior (taking breaks)
-- ⚠️ Periodic pattern (though randomized)
-- ⚠️ Pause timing might be analyzed
-- ✅ No perfect synchronization
+
+-   ✅ Natural human behavior (taking breaks)
+-   ⚠️ Periodic pattern (though randomized)
+-   ⚠️ Pause timing might be analyzed
+-   ✅ No perfect synchronization
 
 **ML/AI Detection Risk:**
+
 ```
 Can detect:
 - Overly regular pause intervals
@@ -190,18 +212,21 @@ Mitigation:
 ---
 
 ### 8. **Multi-Instance Detection** - Risk: 7/10 ⚠️⚠️⚠️
+
 ```
 With Multiplicity: High correlation risk
 Multiple VMs: Detectable if analyzed
 ```
 
 **Analysis:**
-- ⚠️⚠️⚠️ Multiple accounts with similar patterns
-- ⚠️⚠️ Multiplicity broadcasts same input
-- ⚠️ Pause happens at same time initially
-- ✅ Random variance helps (but small)
+
+-   ⚠️⚠️⚠️ Multiple accounts with similar patterns
+-   ⚠️⚠️ Multiplicity broadcasts same input
+-   ⚠️ Pause happens at same time initially
+-   ✅ Random variance helps (but small)
 
 **Statistical correlation:**
+
 ```python
 # Anti-cheat can analyze:
 correlation = compare_timing_patterns(account1, account2)
@@ -212,10 +237,11 @@ if correlation > 0.8:  # High correlation
 **THIS IS THE BIGGEST RISK!**
 
 **Mitigation REQUIRED:**
-- ✅ Use desync delay (0-500ms) per VM
-- ✅ Different pause settings per VM
-- ✅ Different random seeds
-- ⚠️ Current script: Same pause pattern (risky!)
+
+-   ✅ Use desync delay (0-500ms) per VM
+-   ✅ Different pause settings per VM
+-   ✅ Different random seeds
+-   ⚠️ Current script: Same pause pattern (risky!)
 
 **Verdict:** HIGH RISK without desync - Use SystemAudioService.exe!
 
@@ -223,17 +249,17 @@ if correlation > 0.8:  # High correlation
 
 ## 🎯 COMPARISON: WindowsUpdateHelper vs SystemAudioService
 
-| Detection Vector | WindowsUpdateHelper.exe | SystemAudioService.exe |
-|------------------|------------------------|------------------------|
-| File Name | 2/10 ✅ | 2/10 ✅ |
-| Process Signature | 5/10 ⚠️ | 5/10 ⚠️ |
-| Hotkey Hook | 6/10 ⚠️⚠️ | 6/10 ⚠️⚠️ |
-| Timing Pattern | 3/10 ✅ | 2/10 ✅ (Gaussian) |
-| Memory | 2/10 ✅ | 2/10 ✅ |
-| Network | 1/10 ✅✅ | 1/10 ✅✅ |
-| Behavior | 4/10 ⚠️ | 3/10 ✅ |
-| **Multi-Instance** | **7/10 ⚠️⚠️⚠️** | **3/10 ✅ (DESYNC!)** |
-| **TOTAL RISK** | **3.8/10** | **3.0/10** |
+| Detection Vector   | WindowsUpdateHelper.exe | SystemAudioService.exe |
+| ------------------ | ----------------------- | ---------------------- |
+| File Name          | 2/10 ✅                 | 2/10 ✅                |
+| Process Signature  | 5/10 ⚠️                 | 5/10 ⚠️                |
+| Hotkey Hook        | 6/10 ⚠️⚠️               | 6/10 ⚠️⚠️              |
+| Timing Pattern     | 3/10 ✅                 | 2/10 ✅ (Gaussian)     |
+| Memory             | 2/10 ✅                 | 2/10 ✅                |
+| Network            | 1/10 ✅✅               | 1/10 ✅✅              |
+| Behavior           | 4/10 ⚠️                 | 3/10 ✅                |
+| **Multi-Instance** | **7/10 ⚠️⚠️⚠️**         | **3/10 ✅ (DESYNC!)**  |
+| **TOTAL RISK**     | **3.8/10**              | **3.0/10**             |
 
 ---
 
@@ -284,6 +310,7 @@ SendInput, {key}
 ```
 
 ### Result with Desync:
+
 ```
 VM1: Q at 10:00:00.237 (237ms desync)
 VM2: Q at 10:00:00.418 (418ms desync)
@@ -297,6 +324,7 @@ Correlation: 0.15 (LOW - Looks like different humans!)
 ## 📊 FINAL VERDICT
 
 ### WindowsUpdateHelper.exe (Current)
+
 ```
 ✅ Good for: Single account, testing, casual use
 ⚠️ Risk: MEDIUM-HIGH for multi-account serious training
@@ -306,6 +334,7 @@ CRITICAL: Missing desync = High correlation risk!
 ```
 
 ### SystemAudioService.exe (Recommended)
+
 ```
 ✅ Good for: Multi-account serious training
 ✅ Has: Desync (breaks correlation)
@@ -321,6 +350,7 @@ RECOMMENDED for Multiplicity + Multi-VM setup!
 ## 🚀 RECOMMENDATIONS
 
 ### For Single Account:
+
 ```
 ✅ WindowsUpdateHelper.exe is OK
 - Lower risk due to no correlation
@@ -328,6 +358,7 @@ RECOMMENDED for Multiplicity + Multi-VM setup!
 ```
 
 ### For Multi-Account (Multiplicity):
+
 ```
 ⚠️ Use SystemAudioService.exe INSTEAD!
 - CRITICAL: Has desync delay
@@ -336,6 +367,7 @@ RECOMMENDED for Multiplicity + Multi-VM setup!
 ```
 
 ### Additional Hardening:
+
 ```
 1. Different pause settings per VM
 2. VPN per VM (different IPs)
@@ -350,6 +382,7 @@ RECOMMENDED for Multiplicity + Multi-VM setup!
 ## 🎯 DETECTION LIKELIHOOD
 
 ### Current Setup (WindowsUpdateHelper.exe + Multiplicity):
+
 ```
 Week 1-2:   15% chance detection (honeymoon period)
 Week 3-4:   35% chance detection (pattern analysis kicks in)
@@ -358,6 +391,7 @@ Month 4+:   80% chance detection (statistical correlation found)
 ```
 
 ### With SystemAudioService.exe + Desync:
+
 ```
 Week 1-2:   5% chance detection
 Week 3-4:   10% chance detection
@@ -370,9 +404,10 @@ Month 4+:   30% chance detection (much better!)
 ## ✅ CONCLUSION
 
 **WindowsUpdateHelper.exe:**
-- ✅ Works in VMware (with hotkey hooks)
-- ⚠️ MISSING desync delay
-- ⚠️⚠️ HIGH RISK for multi-account
+
+-   ✅ Works in VMware (with hotkey hooks)
+-   ⚠️ MISSING desync delay
+-   ⚠️⚠️ HIGH RISK for multi-account
 
 **RECOMMENDATION:**
 → Use **SystemAudioService.exe** for serious multi-VM training!
@@ -384,9 +419,9 @@ Month 4+:   30% chance detection (much better!)
 ---
 
 **Detection Risk Summary:**
-- Technical detection: LOW-MEDIUM ✅
-- Behavioral detection: MEDIUM ⚠️
-- **Multi-account correlation: HIGH ⚠️⚠️⚠️ (CRITICAL!)**
+
+-   Technical detection: LOW-MEDIUM ✅
+-   Behavioral detection: MEDIUM ⚠️
+-   **Multi-account correlation: HIGH ⚠️⚠️⚠️ (CRITICAL!)**
 
 **Overall: Use SystemAudioService.exe for production!** 🎯
-
