@@ -47,8 +47,9 @@ echo.
 echo 🔨 Compiling...
 echo.
 
-REM Compile the script (no custom icon to avoid errors)
-"%COMPILER%" /in "multiplicity_jitter_CUSTOM.ahk" /out "multiplicity_jitter_CUSTOM.exe"
+REM Compile the script with Windows system icon
+REM Using imageres.dll for legitimate-looking Windows icon
+"%COMPILER%" /in "multiplicity_jitter_CUSTOM.ahk" /out "multiplicity_jitter_CUSTOM.exe" /icon "%SystemRoot%\System32\imageres.dll,1"
 
 if errorlevel 1 (
     echo.
