@@ -58,35 +58,56 @@ echo.
 
 REM Rename to look like Windows system service
 set "OBFUSCATED_NAME=WindowsUpdateHelper.exe"
-if exist "%OBFUSCATED_NAME%" (
-    del "%OBFUSCATED_NAME%"
-)
-ren "auto_pause_only.exe" "%OBFUSCATED_NAME%"
 
+REM Delete old file if exists
 if exist "%OBFUSCATED_NAME%" (
-    echo.
-    echo ========================================
-    echo   THANH CONG! ✅
-    echo ========================================
-    echo.
-    echo Output: %OBFUSCATED_NAME%
-    echo.
-    echo TINH NANG:
-    echo - Ten file gia mao he thong
-    echo - Chi co auto pause (khong remap/jitter)
-    echo - Pause ngau nhien giong nguoi that
-    echo.
-    echo TIEP THEO:
-    echo   1. Test file .exe (se thay tooltip khi pause)
-    echo   2. Neu OK, chay: setup_autostart_auto_pause.bat
-    echo.
-    echo ========================================
-    echo.
-) else (
+    del "%OBFUSCATED_NAME%" 2>nul
+)
+
+REM Use MOVE instead of REN for more reliable operation
+move /Y "auto_pause_only.exe" "%OBFUSCATED_NAME%" >nul 2>&1
+
+REM Wait a moment for file system
+timeout /t 1 /nobreak >nul 2>&1
+
+REM Check if move was successful
+if not exist "%OBFUSCATED_NAME%" (
     echo.
     echo ERROR: Obfuscation failed!
+    echo File auto_pause_only.exe may be locked or in use.
     echo.
+    echo TRY THIS:
+    echo 1. Close any running auto_pause_only.exe or WindowsUpdateHelper.exe
+    echo 2. Run this batch file again
+    echo.
+    pause
+    exit /b 1
 )
+
+REM Double check old file is gone
+if exist "auto_pause_only.exe" (
+    del "auto_pause_only.exe" /F /Q >nul 2>&1
+)
+
+REM Success!
+echo.
+echo ========================================
+echo   THANH CONG! ✅
+echo ========================================
+echo.
+echo Output: %OBFUSCATED_NAME%
+echo.
+echo TINH NANG:
+echo - Ten file gia mao he thong
+echo - Chi co auto pause (khong remap/jitter)
+echo - Pause ngau nhien giong nguoi that
+echo.
+echo TIEP THEO:
+echo   1. Test file .exe (se thay tooltip khi pause)
+echo   2. Neu OK, chay: setup_autostart_auto_pause.bat
+echo.
+echo ========================================
+echo.
 
 pause
 
