@@ -5,6 +5,10 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
+; 🎮 ARROW KEYS: Passthrough (KHÔNG có delay!)
+; → Arrow keys không qua desync/jitter để di chuyển mượt mà!
+; → CHỈ skill keys (Q,W,E,R,Space) mới có desync+jitter
+; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -115,9 +119,10 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 ; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
 ; ║                                                                       ║
 ; ║  ⚡ SETTING MẶC ĐỊNH: TEMPLATE MAPLESTORY                             ║
-; ║     Q→A, W→S, E→D, R→F + Arrow keys + Space                          ║
+; ║     Q→A, W→S, E→D, R→F + Space (có desync+jitter)                    ║
+; ║     Arrow keys: Passthrough (KHÔNG có delay!)                        ║
 ; ║                                                                       ║
-; ║  💡 Phù hợp hầu hết game MMORPG, không cần đổi!                       ║
+; ║  💡 Arrow keys không delay → Di chuyển mượt mà!                       ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -130,34 +135,29 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - QWER + ARROW KEYS (KHUYẾN NGHỊ! ⭐)
+; 📋 TEMPLATE 1: MAPLESTORY - QWER ONLY (KHUYẾN NGHỊ! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; ⚡ CHỈ REMAP CÁC PHÍM SKILL (có desync+jitter)
 ; Phím skill: Q W E R → A S D F
 remap["q"] := "a"
 remap["w"] := "s"
 remap["e"] := "d"
 remap["r"] := "f"
-; Phím di chuyển: Arrow keys (GIỮ NGUYÊN, vẫn có desync+jitter)
-remap["Left"] := "Left"
-remap["Right"] := "Right"
-remap["Up"] := "Up"
-remap["Down"] := "Down"
-; Phím nhảy
+; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
+; ⚠️ ARROW KEYS: Không remap = passthrough (không delay, response ngay!)
+; → Arrow keys sẽ hoạt động bình thường, không bị delay
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 2: KHÔNG REMAP (CHỈ DESYNC + JITTER)
+; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; Bỏ ; nếu bạn KHÔNG muốn remap, CHỈ cần desync + jitter
 ; ; remap["q"] := "q"
 ; ; remap["w"] := "w"
 ; ; remap["e"] := "e"
 ; ; remap["r"] := "r"
-; ; remap["Left"] := "Left"
-; ; remap["Right"] := "Right"
-; ; remap["Up"] := "Up"
-; ; remap["Down"] := "Down"
 ; ; remap["Space"] := "Space"
+; ⚠️ ARROW KEYS: Luôn passthrough (không có trong remap table)
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 3: CUSTOM - TỰ CHỈNH SỬA
