@@ -2,17 +2,17 @@
 
 ## 📊 Quick Comparison Table
 
-| **Feature**                  | **EASY CUSTOM** 👁️ | **STEALTH** 🥷 |
-|------------------------------|-------------------|---------------|
-| **Tray Icon**                | ✅ Visible        | ❌ Hidden     |
-| **Visibility**               | 👁️ Can see       | 🥷 Invisible  |
-| **Exit Method**              | Right-click tray  | `Ctrl+Alt+Q`  |
-| **Status Check**             | Click tray icon   | `Ctrl+Alt+S`  |
-| **Toggle ON/OFF**            | `Ctrl+Alt+T`      | `Ctrl+Alt+T`  |
-| **Startup Confirmation**     | Tray icon appears | Beep + Tooltip (1.5s) |
-| **Detection Risk**           | 🟡 Medium         | 🟢 Lower      |
-| **User-Friendliness**        | ⭐⭐⭐ Easy        | ⭐⭐ Moderate  |
-| **Obfuscated Name**          | `SystemAudioService.exe` | `WindowsSecurityHelper.exe` |
+| **Feature**              | **EASY CUSTOM** 👁️       | **STEALTH** 🥷              |
+| ------------------------ | ------------------------ | --------------------------- |
+| **Tray Icon**            | ✅ Visible               | ❌ Hidden                   |
+| **Visibility**           | 👁️ Can see               | 🥷 Invisible                |
+| **Exit Method**          | Right-click tray         | `Ctrl+Alt+Q`                |
+| **Status Check**         | Click tray icon          | `Ctrl+Alt+S`                |
+| **Toggle ON/OFF**        | `Ctrl+Alt+T`             | `Ctrl+Alt+T`                |
+| **Startup Confirmation** | Tray icon appears        | Beep + Tooltip (1.5s)       |
+| **Detection Risk**       | 🟡 Medium                | 🟢 Lower                    |
+| **User-Friendliness**    | ⭐⭐⭐ Easy              | ⭐⭐ Moderate               |
+| **Obfuscated Name**      | `SystemAudioService.exe` | `WindowsSecurityHelper.exe` |
 
 ---
 
@@ -26,13 +26,15 @@
 4. **Bạn muốn nhanh chóng toggle ON/OFF** bằng cách click
 
 **📝 Compilation:**
+
 ```batch
 compile_EASY_CUSTOM_obfuscate.bat
 ```
 
 **🔑 Hotkeys:**
-- `Ctrl+Alt+T`: Toggle ON/OFF
-- Right-click tray icon: Exit
+
+-   `Ctrl+Alt+T`: Toggle ON/OFF
+-   Right-click tray icon: Exit
 
 ---
 
@@ -44,14 +46,16 @@ compile_EASY_CUSTOM_obfuscate.bat
 4. **Bạn muốn script chạy ngầm hoàn toàn** (invisible)
 
 **📝 Compilation:**
+
 ```batch
 compile_STEALTH_obfuscate.bat
 ```
 
 **🔑 Hotkeys:**
-- `Ctrl+Alt+T`: Toggle ON/OFF
-- `Ctrl+Alt+S`: Check status (quan trọng!)
-- `Ctrl+Alt+Q`: Exit script (quan trọng!)
+
+-   `Ctrl+Alt+T`: Toggle ON/OFF
+-   `Ctrl+Alt+S`: Check status (quan trọng!)
+-   `Ctrl+Alt+Q`: Exit script (quan trọng!)
 
 ---
 
@@ -62,27 +66,30 @@ compile_STEALTH_obfuscate.bat
 **STEALTH không có tray icon**, vậy nên:
 
 1. **PHẢI NHỚ `Ctrl+Alt+Q` để thoát!**
-   - Nếu quên → Phải mở Task Manager → End task
-   - Tìm process: `WindowsSecurityHelper.exe`
+
+    - Nếu quên → Phải mở Task Manager → End task
+    - Tìm process: `WindowsSecurityHelper.exe`
 
 2. **PHẢI NHỚ `Ctrl+Alt+S` để check status!**
-   - Nếu không → Không biết script có đang chạy không
-   - Tooltip sẽ hiện:
-     ```
-     === STEALTH SCRIPT STATUS ===
-     
-     State: ENABLED
-     Pause: NOT ACTIVE
-     Next pause: 3m 45s
-     
-     Ctrl+Alt+T = Toggle ON/OFF
-     Ctrl+Alt+Q = Exit script
-     ```
+
+    - Nếu không → Không biết script có đang chạy không
+    - Tooltip sẽ hiện:
+
+        ```
+        === STEALTH SCRIPT STATUS ===
+
+        State: ENABLED
+        Pause: NOT ACTIVE
+        Next pause: 3m 45s
+
+        Ctrl+Alt+T = Toggle ON/OFF
+        Ctrl+Alt+Q = Exit script
+        ```
 
 3. **Startup confirmation chỉ 1.5 giây!**
-   - Beep 1 tiếng (800Hz)
-   - Tooltip hiện 1.5s rồi tự tắt
-   - Sau đó → Invisible hoàn toàn!
+    - Beep 1 tiếng (800Hz)
+    - Tooltip hiện 1.5s rồi tự tắt
+    - Sau đó → Invisible hoàn toàn!
 
 ---
 
@@ -99,8 +106,9 @@ compile_STEALTH_obfuscate.bat
 7. ✅ **Hold key support** (giữ phím = hold liên tục)
 
 **Chỉ khác:**
-- STEALTH: Không tray icon + thêm hotkeys `Ctrl+Alt+S` (status) và `Ctrl+Alt+Q` (exit)
-- EASY CUSTOM: Có tray icon + có thể exit bằng right-click
+
+-   STEALTH: Không tray icon + thêm hotkeys `Ctrl+Alt+S` (status) và `Ctrl+Alt+Q` (exit)
+-   EASY CUSTOM: Có tray icon + có thể exit bằng right-click
 
 ---
 
@@ -109,15 +117,18 @@ compile_STEALTH_obfuscate.bat
 ### 🔹 EASY CUSTOM Setup (3 Steps)
 
 1. **Compile:**
-   ```batch
-   compile_EASY_CUSTOM_obfuscate.bat
-   ```
-   → Output: `SystemAudioService.exe`
+
+    ```batch
+    compile_EASY_CUSTOM_obfuscate.bat
+    ```
+
+    → Output: `SystemAudioService.exe`
 
 2. **(Optional) Setup autostart:**
-   ```batch
-   setup_autostart_EASY_CUSTOM.bat
-   ```
+
+    ```batch
+    setup_autostart_EASY_CUSTOM.bat
+    ```
 
 3. **Done!** Run `SystemAudioService.exe` and check tray icon!
 
@@ -126,20 +137,23 @@ compile_STEALTH_obfuscate.bat
 ### 🔹 STEALTH Setup (3 Steps)
 
 1. **Compile:**
-   ```batch
-   compile_STEALTH_obfuscate.bat
-   ```
-   → Output: `WindowsSecurityHelper.exe`
+
+    ```batch
+    compile_STEALTH_obfuscate.bat
+    ```
+
+    → Output: `WindowsSecurityHelper.exe`
 
 2. **(Optional) Setup autostart:**
-   ```batch
-   setup_autostart_STEALTH.bat
-   ```
+
+    ```batch
+    setup_autostart_STEALTH.bat
+    ```
 
 3. **Done!** Run `WindowsSecurityHelper.exe`
-   - You'll hear a beep + see tooltip for 1.5s
-   - Then it goes invisible!
-   - Press `Ctrl+Alt+S` to check status
+    - You'll hear a beep + see tooltip for 1.5s
+    - Then it goes invisible!
+    - Press `Ctrl+Alt+S` to check status
 
 ---
 
@@ -147,27 +161,27 @@ compile_STEALTH_obfuscate.bat
 
 ### 💡 TIP 1: Start with EASY CUSTOM
 
-- Dùng **EASY CUSTOM** để làm quen
-- Test settings, remap table
-- Khi đã quen → Chuyển sang **STEALTH**
+-   Dùng **EASY CUSTOM** để làm quen
+-   Test settings, remap table
+-   Khi đã quen → Chuyển sang **STEALTH**
 
 ### 💡 TIP 2: Test STEALTH hotkeys TRƯỚC KHI training!
 
-- Chạy `WindowsSecurityHelper.exe`
-- Test `Ctrl+Alt+S` (status) → Phải hiện tooltip!
-- Test `Ctrl+Alt+T` (toggle) → Phải nghe beep!
-- Test `Ctrl+Alt+Q` (exit) → Phải nghe beep 2 lần → Script thoát!
+-   Chạy `WindowsSecurityHelper.exe`
+-   Test `Ctrl+Alt+S` (status) → Phải hiện tooltip!
+-   Test `Ctrl+Alt+T` (toggle) → Phải nghe beep!
+-   Test `Ctrl+Alt+Q` (exit) → Phải nghe beep 2 lần → Script thoát!
 
 ### 💡 TIP 3: STEALTH cho serious training
 
-- EASY CUSTOM: 1-4 giờ/ngày (casual)
-- STEALTH: 6-10 giờ/ngày (serious)
+-   EASY CUSTOM: 1-4 giờ/ngày (casual)
+-   STEALTH: 6-10 giờ/ngày (serious)
 
 ### 💡 TIP 4: Đổi settings GIỐNG NHAU cho cả 2 versions
 
-- Cả 2 files `.ahk` có cùng settings
-- Đổi settings ở 1 file → Copy sang file kia
-- Hoặc: Chọn 1 version rồi custom settings trong đó
+-   Cả 2 files `.ahk` có cùng settings
+-   Đổi settings ở 1 file → Copy sang file kia
+-   Hoặc: Chọn 1 version rồi custom settings trong đó
 
 ---
 
@@ -177,8 +191,8 @@ compile_STEALTH_obfuscate.bat
 
 **❌ KHÔNG!** Chỉ chạy 1 version tại 1 thời điểm!
 
-- Nếu chạy cả 2 → Keys sẽ conflict!
-- Thoát version cũ trước khi chạy version mới
+-   Nếu chạy cả 2 → Keys sẽ conflict!
+-   Thoát version cũ trước khi chạy version mới
 
 ---
 
@@ -187,16 +201,18 @@ compile_STEALTH_obfuscate.bat
 **✅ 3 CÁCH:**
 
 1. **Nhấn `Ctrl+Alt+S`**
-   - Nếu hiện tooltip → Đang chạy!
-   - Nếu không hiện gì → Script chưa chạy
+
+    - Nếu hiện tooltip → Đang chạy!
+    - Nếu không hiện gì → Script chưa chạy
 
 2. **Nhấn `Ctrl+Alt+T`** (toggle)
-   - Nghe beep → Đang chạy!
-   - Không nghe gì → Script chưa chạy
+
+    - Nghe beep → Đang chạy!
+    - Không nghe gì → Script chưa chạy
 
 3. **Mở Task Manager** (`Ctrl+Shift+Esc`)
-   - Tìm `WindowsSecurityHelper.exe`
-   - Nếu thấy → Đang chạy!
+    - Tìm `WindowsSecurityHelper.exe`
+    - Nếu thấy → Đang chạy!
 
 ---
 
@@ -209,12 +225,14 @@ compile_STEALTH_obfuscate.bat
 3. **Obfuscated filename** (`WindowsSecurityHelper.exe`) → Giống Windows service
 
 **Nhưng:**
-- STEALTH khó dùng hơn (phải nhớ hotkeys)
-- EASY CUSTOM dễ dùng hơn (có tray icon)
+
+-   STEALTH khó dùng hơn (phải nhớ hotkeys)
+-   EASY CUSTOM dễ dùng hơn (có tray icon)
 
 **Trade-off:**
-- STEALTH: 🔒 An toàn cao, 🎮 Khó dùng
-- EASY CUSTOM: 🎮 Dễ dùng, 🔒 An toàn vừa
+
+-   STEALTH: 🔒 An toàn cao, 🎮 Khó dùng
+-   EASY CUSTOM: 🎮 Dễ dùng, 🔒 An toàn vừa
 
 ---
 
@@ -223,14 +241,15 @@ compile_STEALTH_obfuscate.bat
 **✅ 2 CÁCH:**
 
 1. **Thử nhấn `Ctrl+Alt+Q`** (exit hotkey)
-   - Nếu nghe beep 2 tiếng → Script thoát!
+
+    - Nếu nghe beep 2 tiếng → Script thoát!
 
 2. **Mở Task Manager:**
-   ```
-   Ctrl+Shift+Esc
-   → Tìm "WindowsSecurityHelper.exe"
-   → Right-click → End task
-   ```
+    ```
+    Ctrl+Shift+Esc
+    → Tìm "WindowsSecurityHelper.exe"
+    → Right-click → End task
+    ```
 
 ---
 
@@ -238,24 +257,25 @@ compile_STEALTH_obfuscate.bat
 
 **❌ KHÔNG!** Beep chỉ là sound từ speaker, không phải từ game!
 
-- Anti-cheat KHÔNG thể detect beep
-- Beep chỉ để bạn biết script đã toggle/check
-- Nếu lo lắng → Có thể comment dòng `SoundBeep` trong code
+-   Anti-cheat KHÔNG thể detect beep
+-   Beep chỉ để bạn biết script đã toggle/check
+-   Nếu lo lắng → Có thể comment dòng `SoundBeep` trong code
 
 ---
 
 ## 🎉 Summary
 
-| **Use Case**              | **Recommended Version** |
-|---------------------------|------------------------|
-| 🆕 First time user        | EASY CUSTOM ⭐         |
-| 🎮 Casual training (1-4h) | EASY CUSTOM ⭐         |
-| 🏋️ Serious training (6-10h) | STEALTH ⭐           |
-| 🔒 Maximum anti-detect    | STEALTH ⭐             |
-| 🎯 Easy to use            | EASY CUSTOM ⭐         |
-| 🥷 Invisible background   | STEALTH ⭐             |
+| **Use Case**                | **Recommended Version** |
+| --------------------------- | ----------------------- |
+| 🆕 First time user          | EASY CUSTOM ⭐          |
+| 🎮 Casual training (1-4h)   | EASY CUSTOM ⭐          |
+| 🏋️ Serious training (6-10h) | STEALTH ⭐              |
+| 🔒 Maximum anti-detect      | STEALTH ⭐              |
+| 🎯 Easy to use              | EASY CUSTOM ⭐          |
+| 🥷 Invisible background     | STEALTH ⭐              |
 
 **💡 Đề xuất:**
+
 1. Start với **EASY CUSTOM** để test
 2. Khi đã quen → Chuyển sang **STEALTH** cho serious training
 
@@ -264,6 +284,7 @@ compile_STEALTH_obfuscate.bat
 ## 📁 Files Summary
 
 ### EASY CUSTOM Files:
+
 ```
 multiplicity_jitter_DESYNC_EASY_CUSTOM.ahk   (Source code)
 compile_EASY_CUSTOM_obfuscate.bat            (Compile script)
@@ -273,6 +294,7 @@ remove_autostart_EASY_CUSTOM.bat             (Remove autostart)
 ```
 
 ### STEALTH Files:
+
 ```
 multiplicity_jitter_DESYNC_STEALTH.ahk       (Source code)
 compile_STEALTH_obfuscate.bat                (Compile script)
@@ -284,4 +306,3 @@ remove_autostart_STEALTH.bat                 (Remove autostart)
 ---
 
 **🎉 ENJOY YOUR TRAINING! 🚀**
-
