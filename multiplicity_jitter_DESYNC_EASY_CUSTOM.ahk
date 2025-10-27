@@ -430,13 +430,26 @@ ApplyDesyncJitterAndSend(pressedKey, targetKey) {
     }
     Sleep, %jitter%
     
-    ; BƯỚC 3: HOLD KEY khi giữ, thả khi nhả!
-    ; ━━━ MỚI: Giờ skill keys cũng HOLD được! ━━━
-    ; VD: Giữ Q → Skill spam liên tục (cho skill charge hoặc spam attack)
-    ;     Nhả Q → Skill dừng lại
-    SendInput, {%targetKey% down}  ; Giữ phím xuống
-    KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
-    SendInput, {%targetKey% up}    ; Thả phím lên
+    ; BƯỚC 3: KIỂM TRA XEM PHÍM CÓ ĐANG ĐƯỢC GIỮ SAU DELAY?
+    ; ━━━ FIX: Sau delay 0-580ms, user có thể đã nhả phím rồi! ━━━
+    ; → Nếu phím VẪN ĐANG GIỮ: Hold cho đến khi nhả
+    ; → Nếu phím ĐÃ ĐƯỢC NHẢ: Cast 1 lần nhanh (40-70ms)
+    
+    ; Kiểm tra xem phím có đang được giữ không (sau delay)
+    GetKeyState, keyState, %pressedKey%, P
+    
+    if (keyState = "D") {
+        ; CASE 1: Phím VẪN ĐANG GIỮ → HOLD cho đến khi nhả!
+        SendInput, {%targetKey% down}  ; Giữ phím xuống
+        KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
+        SendInput, {%targetKey% up}    ; Thả phím lên
+    } else {
+        ; CASE 2: Phím ĐÃ NHẢ (trong lúc delay) → Cast 1 lần nhanh
+        SendInput, {%targetKey% down}
+        Random, quickPress, 40, 70  ; Press nhanh 40-70ms
+        Sleep, %quickPress%
+        SendInput, {%targetKey% up}
+    }
 }
 
 ; Hàm tạo số ngẫu nhiên Gaussian
