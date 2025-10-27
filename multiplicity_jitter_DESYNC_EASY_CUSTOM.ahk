@@ -7,10 +7,10 @@
 ; ═══════════════════════════════════════════════════════════════════════
 ; 🎮 SENDINPUT MODE: GIỐNG AUTO-MAPLE BOT 100%!
 ; → SendMode Input = user32.SendInput API (CHÍNH XÁC như Python bot!)
-; → TẤT CẢ KEYS đều HOLD được khi giữ phím! ✅
-;   • Arrow keys (Numpad): Hold ngay lập tức (0ms delay nếu jitter = false)
-;   • Skill keys (Q/W/E/R...): Hold sau desync+jitter delay
-; → Nhả phím → Game nhận "key up" ngay lập tức!
+; → TẤT CẢ KEYS hoạt động REALISTIC khi giữ phím! ✅
+;   • Arrow keys: HOLD (down → wait → up) - Character di chuyển liên tục
+;   • Skill keys: SPAM (down→up→down→up...) - Skill cast liên tục ~7-10 lần/giây
+; → Giữ Q trong 2s → Spam skill ~15 lần! (sau delay 0.5s đầu)
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -430,19 +430,33 @@ ApplyDesyncJitterAndSend(pressedKey, targetKey) {
     }
     Sleep, %jitter%
     
-    ; BƯỚC 3: KIỂM TRA XEM PHÍM CÓ ĐANG ĐƯỢC GIỮ SAU DELAY?
-    ; ━━━ FIX: Sau delay 0-580ms, user có thể đã nhả phím rồi! ━━━
-    ; → Nếu phím VẪN ĐANG GIỮ: Hold cho đến khi nhả
-    ; → Nếu phím ĐÃ ĐƯỢC NHẢ: Cast 1 lần nhanh (40-70ms)
+    ; BƯỚC 3: SPAM KEY PRESS (KHÔNG HOLD!)
+    ; ━━━ FIX: Game KHÔNG spam skill khi hold key! ━━━
+    ; → Cần SPAM key press liên tục: Press → Release → Press → Release...
+    ; → LOOP cho đến khi user nhả phím!
     
     ; Kiểm tra xem phím có đang được giữ không (sau delay)
     GetKeyState, keyState, %pressedKey%, P
     
     if (keyState = "D") {
-        ; CASE 1: Phím VẪN ĐANG GIỮ → HOLD cho đến khi nhả!
-        SendInput, {%targetKey% down}  ; Giữ phím xuống
-        KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
-        SendInput, {%targetKey% up}    ; Thả phím lên
+        ; CASE 1: Phím VẪN ĐANG GIỮ → SPAM KEY cho đến khi nhả!
+        Loop {
+            ; Check xem phím còn giữ không?
+            GetKeyState, stillPressed, %pressedKey%, P
+            if (stillPressed != "D") {
+                break  ; Phím đã nhả → Thoát loop
+            }
+            
+            ; SPAM: Press → Release (giống auto-maple bot!)
+            SendInput, {%targetKey% down}
+            Random, holdTime, 40, 70  ; Hold 40-70ms
+            Sleep, %holdTime%
+            SendInput, {%targetKey% up}
+            
+            ; Delay ngắn giữa các lần press (giống human spam skill!)
+            Random, spamDelay, 50, 100  ; 50-100ms giữa các lần cast
+            Sleep, %spamDelay%
+        }
     } else {
         ; CASE 2: Phím ĐÃ NHẢ (trong lúc delay) → Cast 1 lần nhanh
         SendInput, {%targetKey% down}
