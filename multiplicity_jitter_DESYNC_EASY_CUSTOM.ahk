@@ -37,19 +37,15 @@
 ; │ 🎯 MUỐN CUSTOM? (Chỉ 3 BƯỚC - Cực dễ!)                              │
 ; └─────────────────────────────────────────────────────────────────────┘
 ; 
-; ━━━ BƯỚC 1: Chọn setting muốn thay đổi (kéo xuống section tương ứng) ━━━
+; ━━━ BƯỚC 1: Kéo xuống Line 105 - TẤT CẢ SETTINGS Ở ĐÓ! ━━━
 ; 
-;   📌 PHẦN 1 (Line 46): Mức độ training (training nhiều/ít?)
-;      → BỎ ; ở mức muốn dùng (1-2 giờ/4-6 giờ/8-10 giờ...)
-;      → THÊM ; vào mức hiện tại
+; 🔍 Tìm phần "⚙️ ⚙️ ⚙️  TẤT CẢ SETTINGS Ở ĐÂY" (Line 105-315)
 ; 
-;   📌 PHẦN 1.5 (Line 120): Arrow keys có jitter không? (mượt hay giật?)
-;      → BỎ ; ở dòng "global ArrowKeysUseJitter := true/false"
-;      → THÊM ; vào dòng còn lại
-; 
-;   📌 PHẦN 2 (Line 145): Template game (MapleStory/Khác?)
-;      → BỎ ; ở tất cả dòng remap["..."] của template muốn dùng
-;      → THÊM ; vào tất cả dòng remap["..."] của template cũ
+; Có 4 SETTINGS ở gần nhau:
+;   1️⃣ Mức độ training (Line 117): 1-2 giờ? 4-6 giờ? 8-10 giờ?
+;   2️⃣ Arrow keys jitter (Line 192): Movement mượt hay giật?
+;   3️⃣ Behavioral pause (Line 158): Pause nhiều hay ít?
+;   4️⃣ Key remap (Line 231): Template MapleStory hay game khác?
 ; 
 ; ━━━ BƯỚC 2: Lưu file (Ctrl+S) ━━━
 ; 
@@ -76,7 +72,7 @@
 ; 
 ; ❌ VẤN ĐỀ: Di chuyển bị giật
 ;    ✅ GIẢI PHÁP: ArrowKeysUseJitter đang = true, đổi sang false
-;    → Xem hướng dẫn ở PHẦN 1.5 (Line 155)
+;    → Xem hướng dẫn ở SETTING 2️⃣ (Line 192)
 ; 
 ; ❌ VẤN ĐỀ: Phím không hoạt động sau khi custom
 ;    ✅ GIẢI PHÁP: Kiểm tra lại:
@@ -104,12 +100,20 @@ SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
-; ║  📝 PHẦN 1: MỨC ĐỘ TRAINING (OPTIONAL - Đã có mặc định) ✏️            ║
+; ║  ⚙️ ⚙️ ⚙️  TẤT CẢ SETTINGS Ở ĐÂY - DỄ TÌM, DỄ CUSTOM!  ⚙️ ⚙️ ⚙️       ║
 ; ║                                                                       ║
-; ║  ⚡ SETTING MẶC ĐỊNH: MỨC TRUNG BÌNH (4-6 giờ/ngày)                   ║
-; ║  💡 Nếu muốn đổi, bỏ ; ở mức khác, thêm ; vào mức hiện tại           ║
+; ║  📍 4 SETTINGS CHÍNH (Tất cả ở gần nhau!):                            ║
+; ║     1️⃣ Mức độ training (Desync delay 0-500ms)                        ║
+; ║     2️⃣ Arrow keys jitter (Movement mượt/giật?)                       ║
+; ║     3️⃣ Behavioral pause (Auto pause giống người)                     ║
+; ║     4️⃣ Key remap (Template game)                                     ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
+
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 1️⃣ MỨC ĐỘ TRAINING (Desync Delay - QUAN TRỌNG!)                    ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; ⚡ SETTING MẶC ĐỊNH: MỨC TRUNG BÌNH (0-500ms) - 4-6 giờ/ngày
 
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ 🎚️ CHỌN MỨC ĐỘ TRAINING (Bỏ ; ở 2 DÒNG bạn muốn dùng)              │
@@ -147,12 +151,10 @@ global MinJitter := 30     ; Jitter tối thiểu (ms) - KHÔNG THAY ĐỔI
 global MaxJitter := 80     ; Jitter tối đa (ms) - KHÔNG THAY ĐỔI
 global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
 
-; ┌─────────────────────────────────────────────────────────────────────┐
-; │ ⏸️ MỨC ĐỘ PAUSE (OPTIONAL - Đã có mặc định VỪA PHẢI)               │
-; └─────────────────────────────────────────────────────────────────────┘
-; ⚡ SETTING MẶC ĐỊNH: PAUSE VỪA PHẢI (3-5 phút, pause 0.8-2.5 giây)
-; ✅ CÁCH ĐỔI: Bỏ dấu ; ở ĐẦU 4 DÒNG của mức khác, thêm ; vào mức hiện tại
-; ⚠️ CHỈ BỎ ; Ở 1 MỨC ĐỘ!
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 3️⃣ BEHAVIORAL PAUSE (Auto pause giống người thật)                  ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; ⚡ SETTING MẶC ĐỊNH: PAUSE VỪA PHẢI (3-5 phút, pause 0.8-2.5s)
 
 ; ━━━ PAUSE THƯỜNG XUYÊN (Pause nhiều, an toàn) ━━━
 ; global MinPauseInterval := 120000
@@ -181,15 +183,10 @@ global MaxPauseDuration := 2500
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 
-; ╔═══════════════════════════════════════════════════════════════════════╗
-; ║                                                                       ║
-; ║  📝 PHẦN 1.5: ARROW KEYS JITTER (Mượt hay Giật?)                     ║
-; ║                                                                       ║
-; ╚═══════════════════════════════════════════════════════════════════════╝
-;
-; ┌─────────────────────────────────────────────────────────────────────┐
-; │ ⚡ ARROW KEYS JITTER SETTING (Dễ dàng bật/tắt!)                     │
-; └─────────────────────────────────────────────────────────────────────┘
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 2️⃣ ARROW KEYS JITTER (Movement mượt hay giật?)                     ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; ⚡ SETTING MẶC ĐỊNH: BẬT JITTER (0-500ms delay - Anti-detect)
 ; 
 ; 📊 SO SÁNH 2 OPTIONS:
 ; ┌──────────────────┬─────────────────┬──────────────────────┐
@@ -227,17 +224,13 @@ global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐ ĐANG D
 ; ✅ Ưu điểm: Anti-detect tốt hơn (random timing)
 ; ⚠️ Nhược điểm: Delay 0-500ms KHI ẤN XUỐNG (hơi lag khi bắt đầu di chuyển)
 
-; ╔═══════════════════════════════════════════════════════════════════════╗
-; ║                                                                       ║
-; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
-; ║                                                                       ║
-; ║  ⚡ SETTING MẶC ĐỊNH: NUMPAD MOVEMENT                                 ║
-; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (desync+jitter)            ║
-; ║     Movement: Numpad1→Left, 2→Down, 3→Right, 5→Up (instant!)        ║
-; ║                                                                       ║
-; ║  💡 Dùng NUMPAD để di chuyển thay vì arrow keys! 🎮                   ║
-; ║                                                                       ║
-; ╚═══════════════════════════════════════════════════════════════════════╝
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 4️⃣ KEY REMAP (Phím nguồn → Phím đích)                              ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; ⚡ SETTING MẶC ĐỊNH: MapleStory Template
+; • Skill keys: Q→A, W→S, E→D, R→F, Space→Space (có desync+jitter)
+; • Movement: Numpad1→Left, 2→Down, 3→Right, 5→Up (có/không jitter tùy setting)
+; 💡 Dùng NUMPAD để di chuyển thay vì arrow keys! 🎮
 
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ 🎮 CHỌN TEMPLATE GAME (Bỏ ; ở template bạn muốn dùng)               │
