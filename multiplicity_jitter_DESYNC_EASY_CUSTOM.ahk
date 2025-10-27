@@ -5,11 +5,11 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 SENDEVENT MODE: Giống auto-maple bot!
-; → SendMode Event = Windows Event Queue (giống Python user32.SendInput)
-; → Arrow keys: SendEvent instant (0ms delay, movement mượt!)
+; 🎮 NUMPAD MOVEMENT: Test bypass VMware detection!
+; → SendMode Event = Windows Event Queue
+; → Numpad 1,2,3,5 → Arrow keys (instant, 0ms delay!)
 ; → Skill keys: SendEvent + desync (0-500ms) + jitter (30-80ms)
-; → WORK trong VMware giống auto-maple bot! ✅
+; → TEST xem numpad INPUT có bypass được VMware anti-cheat! 🧪
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -116,17 +116,17 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
-global instantKeys := {"Left": true, "Right": true, "Up": true, "Down": true}  ; ⚠️ Arrow keys: instant (no delay)!
+global instantKeys := {"Numpad1": true, "Numpad2": true, "Numpad3": true, "Numpad5": true}  ; ⚠️ Numpad: instant (no delay)!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
 ; ║                                                                       ║
-; ║  ⚡ SETTING MẶC ĐỊNH: TEMPLATE MAPLESTORY                             ║
-; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (SendEvent + desync)       ║
-; ║     Arrow keys: Left, Right, Up, Down (SendEvent instant!)           ║
+; ║  ⚡ SETTING MẶC ĐỊNH: NUMPAD MOVEMENT                                 ║
+; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (desync+jitter)            ║
+; ║     Movement: Numpad1→Left, 2→Down, 3→Right, 5→Up (instant!)        ║
 ; ║                                                                       ║
-; ║  💡 SendEvent giống auto-maple bot, work trong VMware! ✅             ║
+; ║  💡 Dùng NUMPAD để di chuyển thay vì arrow keys! 🎮                   ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -139,7 +139,7 @@ global instantKeys := {"Left": true, "Right": true, "Up": true, "Down": true}  ;
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - ALL KEYS (KHUYẾN NGHỊ! ⭐)
+; 📋 TEMPLATE 1: MAPLESTORY - NUMPAD TO ARROW (TEST! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; ⚡ SKILL KEYS: Có desync+jitter (anti-detect)
 ; Phím skill: Q W E R → A S D F
@@ -149,13 +149,15 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚡ ARROW KEYS: SendEvent (instant, giống auto-maple bot!)
-; → SendEvent = Windows Event Queue (giống Python user32.SendInput)
-; → Work trong VMware!
-remap["Left"] := "Left"
-remap["Right"] := "Right"
-remap["Up"] := "Up"
-remap["Down"] := "Down"
+; ⚡ NUMPAD → ARROW KEYS (TEST xem numpad input bypass VMware detection!)
+; → Nhấn Numpad1 → Game nhận Left
+; → Nhấn Numpad2 → Game nhận Down
+; → Nhấn Numpad3 → Game nhận Right
+; → Nhấn Numpad5 → Game nhận Up
+remap["Numpad1"] := "Left"
+remap["Numpad2"] := "Down"
+remap["Numpad3"] := "Right"
+remap["Numpad5"] := "Up"
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
