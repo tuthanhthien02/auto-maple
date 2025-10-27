@@ -331,9 +331,13 @@ remap["Numpad5"] := "Up"     ; Numpad5 → Up
 ; Đây là code xử lý, chỉ sửa nếu bạn biết AutoHotkey
 ; ═══════════════════════════════════════════════════════════════════════
 
-; Tự động tạo hotkeys từ bảng remap
+; ━━━ REWRITE: Tạo hotkeys DOWN và UP riêng biệt! ━━━
+; Tự động tạo hotkeys DOWN và UP cho mỗi key
 For sourceKey, targetKey in remap {
-    Hotkey, $%sourceKey%, HandleKey
+    ; DOWN event
+    Hotkey, $%sourceKey%, HandleKeyDown
+    ; UP event  
+    Hotkey, $%sourceKey% up, HandleKeyUp
 }
 
 ; Bắt đầu timer cho behavioral pause
@@ -367,14 +371,18 @@ RemoveToggleTooltip:
     SetTimer, RemoveToggleTooltip, Off
 Return
 
-; Xử lý phím
-HandleKey:
-    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🔽 HANDLE KEY DOWN EVENT
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HandleKeyDown:
+    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DELAY_JITTER, remap
+    global MinJitter, MaxJitter, UseGaussian
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
         pressedKey := StrReplace(A_ThisHotkey, "$", "")
-        SendInput, {%pressedKey%}
+        pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
+        SendInput, {%pressedKey% down}
         return
     }
     
@@ -385,62 +393,83 @@ HandleKey:
     
     ; Lấy phím được ấn
     pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
     
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
+    ; ━━━ DEBUG ━━━
+    ToolTip, DOWN: %pressedKey% -> %targetKey%, 0, 0
+    
     ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
     isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
     
-    ; ⚡ ARROW KEYS: HOLD KEY (giữ phím khi ấn, thả khi nhả!)
+    ; ━━━ ARROW KEYS: Instant response (nếu không jitter) ━━━
     if (isArrowKey && !ArrowKeysUseJitter) {
-        ; ━━━ OPTION 1: KHÔNG JITTER (0ms delay - Mượt mà!) ━━━
-        ; → Ấn Numpad1 → Send {Left down} NGAY LẬP TỨC
-        ; → Giữ Numpad1 → {Left} vẫn đang down (character di chuyển!)
-        ; → Nhả Numpad1 → Send {Left up} → Dừng di chuyển
-        SendInput, {%targetKey% down}  ; Giữ phím xuống
-        
-        ; LOOP: Check xem phím còn giữ không?
-        Loop {
-            GetKeyState, keyState, %pressedKey%, P
-            if (keyState != "D") {
-                break  ; Phím đã nhả → Thoát
-            }
-            Sleep, 10  ; Check mỗi 10ms
-        }
-        
-        SendInput, {%targetKey% up}    ; Thả phím lên
+        SendInput, {%targetKey% down}
         return
     }
     
-    ; ⚡ ARROW KEYS VỚI JITTER: Vẫn hold, nhưng có delay
+    ; ━━━ ARROW KEYS WITH JITTER: Delay trước khi send ━━━
     if (isArrowKey && ArrowKeysUseJitter) {
-        ; ━━━ OPTION 2: CÓ JITTER (0-500ms delay - Anti-detect!) ━━━
-        ; → Ấn Numpad1 → Delay 0-500ms (desync!) → Send {Left down}
-        ; → Giữ Numpad1 → {Left} đang down (character di chuyển!)
-        ; → Nhả Numpad1 → Send {Left up} → Dừng di chuyển
-        ; ⚠️ LƯU Ý: Delay chỉ xảy ra KHI ẤN XUỐNG, không delay khi thả!
         Random, desync, %MinDesync%, %MaxDesync%
         Sleep, %desync%
-        
-        ; HOLD key
-        SendInput, {%targetKey% down}  ; Giữ phím xuống
-        
-        ; LOOP: Check xem phím còn giữ không?
-        Loop {
-            GetKeyState, keyState, %pressedKey%, P
-            if (keyState != "D") {
-                break  ; Phím đã nhả → Thoát
-            }
-            Sleep, 10  ; Check mỗi 10ms
-        }
-        
-        SendInput, {%targetKey% up}    ; Thả phím lên
+        SendInput, {%targetKey% down}
         return
     }
     
-    ; ⚡ SKILL KEYS: Áp dụng desync + jitter, và HOLD khi giữ phím!
-    ApplyDesyncJitterAndSend(pressedKey, targetKey)
+    ; ━━━ SKILL KEYS: Apply desync + jitter (nếu không disable) ━━━
+    if (!DISABLE_DELAY_JITTER) {
+        ; DESYNC
+        Random, desyncDelay, %MinDesync%, %MaxDesync%
+        Sleep, %desyncDelay%
+        
+        ; JITTER
+        if (UseGaussian) {
+            mean := (MinJitter + MaxJitter) / 2.0
+            stdDev := (MaxJitter - MinJitter) / 6.0
+            jitter := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
+        } else {
+            Random, jitter, %MinJitter%, %MaxJitter%
+        }
+        Sleep, %jitter%
+    }
+    
+    ; Send target key DOWN
+    SendInput, {%targetKey% down}
+Return
+
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🔼 HANDLE KEY UP EVENT  
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HandleKeyUp:
+    global ScriptEnabled, IsPaused, remap
+    
+    ; Nếu script bị tắt, passthrough
+    if (!ScriptEnabled) {
+        pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        pressedKey := StrReplace(pressedKey, " up", "")
+        SendInput, {%pressedKey% up}
+        return
+    }
+    
+    ; Nếu đang pause, bỏ qua
+    if (IsPaused) {
+        return
+    }
+    
+    ; Lấy phím được nhả
+    pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    pressedKey := StrReplace(pressedKey, " up", "")
+    
+    ; Lấy phím đích
+    targetKey := remap[pressedKey]
+    
+    ; ━━━ DEBUG ━━━
+    ToolTip
+    
+    ; Send target key UP (NGAY LẬP TỨC - KHÔNG DELAY!)
+    SendInput, {%targetKey% up}
 Return
 
 ; Hàm áp dụng desync + jitter (CHO SKILL KEYS)
