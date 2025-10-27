@@ -157,7 +157,7 @@ global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
 ; ⚠️ Chỉ bật khi test! BẮT BUỘC TẮT khi training thật!
 ; 
 ; ━━━ OPTION 1: BẬT DELAY/JITTER (Normal - Anti-detect!) ━━━
-global DISABLE_DELAY_JITTER := true  ; ⭐ KHUYẾN NGHỊ cho training!
+global DISABLE_DELAY_JITTER := false  ; ⭐ KHUYẾN NGHỊ cho training!
 ; 
 ; ━━━ OPTION 2: TẮT DELAY/JITTER (Test mode - 0ms instant!) ━━━
 ; global DISABLE_DELAY_JITTER := true   ; ⚠️ Chỉ để test hold key!
