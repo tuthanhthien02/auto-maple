@@ -5,11 +5,11 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 NUMPAD MOVEMENT: Test bypass VMware detection!
-; → SendMode Event = Windows Event Queue
-; → Numpad 1,2,3,5 → Arrow keys (instant, 0ms delay!)
-; → Skill keys: SendEvent + desync (0-500ms) + jitter (30-80ms)
-; → TEST xem numpad INPUT có bypass được VMware anti-cheat! 🧪
+; 🎮 SENDINPUT MODE: GIỐNG AUTO-MAPLE BOT 100%!
+; → SendMode Input = user32.SendInput API (CHÍNH XÁC như Python bot!)
+; → Arrow keys: Left/Right/Up/Down (instant, 0ms delay!) ✅ WORK!
+; → Skill keys: SendInput + desync (0-500ms) + jitter (30-80ms)
+; → HOLD keys: down → sleep 40-70ms → up (giống auto-maple!)
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -41,7 +41,7 @@
 #SingleInstance Force
 SetBatchLines, -1
 Process, Priority,, High
-SendMode Event  ; ← Dùng SendEvent giống auto-maple bot!
+SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -297,8 +297,14 @@ ApplyDesyncJitterAndSend(key) {
     }
     Sleep, %jitter%
     
-    ; BƯỚC 3: GỬI PHÍM
-    SendInput, {%key%}
+    ; BƯỚC 3: GỬI PHÍM (HOLD như auto-maple bot!)
+    ; Key down
+    SendInput, {%key% down}
+    ; Hold time: 40-70ms (giống auto-maple: 0.05s * (0.8-1.2))
+    Random, holdTime, 40, 70
+    Sleep, %holdTime%
+    ; Key up
+    SendInput, {%key% up}
 }
 
 ; Hàm tạo số ngẫu nhiên Gaussian
