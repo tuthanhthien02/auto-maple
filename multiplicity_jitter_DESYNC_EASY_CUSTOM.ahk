@@ -67,9 +67,10 @@
 ; │ ❓ TROUBLESHOOTING (Gặp vấn đề?)                                    │
 ; └─────────────────────────────────────────────────────────────────────┘
 ; 
-; ❌ VẤN ĐỀ: Arrow keys không di chuyển trong game
-;    ✅ GIẢI PHÁP: Dùng NUMPAD (1/2/3/5) thay vì arrow keys
-;    → Numpad đã remap sẵn sang arrow keys trong Template 1
+; ❌ VẤN ĐỀ: Numpad chỉ nhích 1 chút, không hold được
+;    ✅ GIẢI PHÁP: ĐÃ FIX! Numpad giờ HOLD key khi giữ
+;    → Ấn giữ Numpad1 → Character di chuyển Left liên tục
+;    → Nhả Numpad1 → Dừng di chuyển
 ; 
 ; ❌ VẤN ĐỀ: Di chuyển bị giật
 ;    ✅ GIẢI PHÁP: ArrowKeysUseJitter đang = true, đổi sang false
@@ -222,7 +223,7 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 ; ━━━ OPTION 2: CÓ JITTER (Anti-detect tốt hơn, nhưng giật!) ━━━
 global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐ ĐANG DÙNG
 ; ✅ Ưu điểm: Anti-detect tốt hơn (random timing)
-; ⚠️ Nhược điểm: Di chuyển hơi giật (delay 30-580ms)
+; ⚠️ Nhược điểm: Delay 0-500ms KHI ẤN XUỐNG (hơi lag khi bắt đầu di chuyển)
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -360,7 +361,7 @@ Return
 
 ; Xử lý phím
 HandleKey:
-    global ScriptEnabled, IsPaused, ArrowKeysUseJitter
+    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
@@ -383,14 +384,36 @@ HandleKey:
     ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
     isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
     
-    ; ⚡ ARROW KEYS: Check setting
+    ; ⚡ ARROW KEYS: HOLD KEY (giữ phím khi ấn, thả khi nhả!)
     if (isArrowKey && !ArrowKeysUseJitter) {
-        ; INSTANT: Không jitter (mượt mà!)
-        SendInput, {%targetKey%}
+        ; ━━━ OPTION 1: KHÔNG JITTER (0ms delay - Mượt mà!) ━━━
+        ; → Ấn Numpad1 → Send {Left down} NGAY LẬP TỨC
+        ; → Giữ Numpad1 → {Left} vẫn đang down (character di chuyển!)
+        ; → Nhả Numpad1 → Send {Left up} → Dừng di chuyển
+        SendInput, {%targetKey% down}  ; Giữ phím xuống
+        KeyWait, %pressedKey%          ; Chờ đến khi nhả Numpad
+        SendInput, {%targetKey% up}    ; Thả phím lên
         return
     }
     
-    ; ⚡ SKILL KEYS hoặc ARROW KEYS VỚI JITTER: Áp dụng desync + jitter
+    ; ⚡ ARROW KEYS VỚI JITTER: Vẫn hold, nhưng có delay
+    if (isArrowKey && ArrowKeysUseJitter) {
+        ; ━━━ OPTION 2: CÓ JITTER (0-500ms delay - Anti-detect!) ━━━
+        ; → Ấn Numpad1 → Delay 0-500ms (desync!) → Send {Left down}
+        ; → Giữ Numpad1 → {Left} đang down (character di chuyển!)
+        ; → Nhả Numpad1 → Send {Left up} → Dừng di chuyển
+        ; ⚠️ LƯU Ý: Delay chỉ xảy ra KHI ẤN XUỐNG, không delay khi thả!
+        Random, desync, %MinDesync%, %MaxDesync%
+        Sleep, %desync%
+        
+        ; HOLD key
+        SendInput, {%targetKey% down}  ; Giữ phím xuống
+        KeyWait, %pressedKey%          ; Chờ đến khi nhả Numpad
+        SendInput, {%targetKey% up}    ; Thả phím lên
+        return
+    }
+    
+    ; ⚡ SKILL KEYS: Áp dụng desync + jitter
     ApplyDesyncJitterAndSend(targetKey)
 Return
 
