@@ -7,9 +7,10 @@
 ; ═══════════════════════════════════════════════════════════════════════
 ; 🎮 SENDINPUT MODE: GIỐNG AUTO-MAPLE BOT 100%!
 ; → SendMode Input = user32.SendInput API (CHÍNH XÁC như Python bot!)
-; → Arrow keys: Left/Right/Up/Down (instant, 0ms delay!) ✅ WORK!
-; → Skill keys: SendInput + desync (0-500ms) + jitter (30-80ms)
-; → HOLD keys: down → sleep 40-70ms → up (giống auto-maple!)
+; → TẤT CẢ KEYS đều HOLD được khi giữ phím! ✅
+;   • Arrow keys (Numpad): Hold ngay lập tức (0ms delay nếu jitter = false)
+;   • Skill keys (Q/W/E/R...): Hold sau desync+jitter delay
+; → Nhả phím → Game nhận "key up" ngay lập tức!
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -67,10 +68,11 @@
 ; │ ❓ TROUBLESHOOTING (Gặp vấn đề?)                                    │
 ; └─────────────────────────────────────────────────────────────────────┘
 ; 
-; ❌ VẤN ĐỀ: Numpad chỉ nhích 1 chút, không hold được
-;    ✅ GIẢI PHÁP: ĐÃ FIX! Numpad giờ HOLD key khi giữ
-;    → Ấn giữ Numpad1 → Character di chuyển Left liên tục
-;    → Nhả Numpad1 → Dừng di chuyển
+; ❌ VẤN ĐỀ: Key chỉ nhích 1 chút, không hold được
+;    ✅ GIẢI PHÁP: ĐÃ FIX! TẤT CẢ keys giờ HOLD được khi giữ!
+;    → Giữ Numpad1 → Character di chuyển Left liên tục
+;    → Giữ Q → Skill spam liên tục (nếu skill hỗ trợ hold)
+;    → Nhả phím → Dừng ngay lập tức!
 ; 
 ; ❌ VẤN ĐỀ: Di chuyển bị giật
 ;    ✅ GIẢI PHÁP: ArrowKeysUseJitter đang = true, đổi sang false
@@ -413,19 +415,19 @@ HandleKey:
         return
     }
     
-    ; ⚡ SKILL KEYS: Áp dụng desync + jitter
-    ApplyDesyncJitterAndSend(targetKey)
+    ; ⚡ SKILL KEYS: Áp dụng desync + jitter, và HOLD khi giữ phím!
+    ApplyDesyncJitterAndSend(pressedKey, targetKey)
 Return
 
-; Hàm áp dụng desync + jitter
-ApplyDesyncJitterAndSend(key) {
+; Hàm áp dụng desync + jitter (CHO SKILL KEYS)
+ApplyDesyncJitterAndSend(pressedKey, targetKey) {
     global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
     
-    ; BƯỚC 1: DESYNC DELAY
+    ; BƯỚC 1: DESYNC DELAY (Phá vỡ Multiplicity sync!)
     Random, desyncDelay, %MinDesync%, %MaxDesync%
     Sleep, %desyncDelay%
     
-    ; BƯỚC 2: JITTER DELAY
+    ; BƯỚC 2: JITTER DELAY (Làm timing không đều!)
     if (UseGaussian) {
         mean := (MinJitter + MaxJitter) / 2.0
         stdDev := (MaxJitter - MinJitter) / 6.0
@@ -435,14 +437,13 @@ ApplyDesyncJitterAndSend(key) {
     }
     Sleep, %jitter%
     
-    ; BƯỚC 3: GỬI PHÍM (HOLD như auto-maple bot!)
-    ; Key down
-    SendInput, {%key% down}
-    ; Hold time: 40-70ms (giống auto-maple: 0.05s * (0.8-1.2))
-    Random, holdTime, 40, 70
-    Sleep, %holdTime%
-    ; Key up
-    SendInput, {%key% up}
+    ; BƯỚC 3: HOLD KEY khi giữ, thả khi nhả!
+    ; ━━━ MỚI: Giờ skill keys cũng HOLD được! ━━━
+    ; VD: Giữ Q → Skill spam liên tục (cho skill charge hoặc spam attack)
+    ;     Nhả Q → Skill dừng lại
+    SendInput, {%targetKey% down}  ; Giữ phím xuống
+    KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
+    SendInput, {%targetKey% up}    ; Thả phím lên
 }
 
 ; Hàm tạo số ngẫu nhiên Gaussian
