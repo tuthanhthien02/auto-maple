@@ -7,10 +7,10 @@
 ; ═══════════════════════════════════════════════════════════════════════
 ; 🎮 SENDINPUT MODE: GIỐNG AUTO-MAPLE BOT 100%!
 ; → SendMode Input = user32.SendInput API (CHÍNH XÁC như Python bot!)
-; → TẤT CẢ KEYS hoạt động REALISTIC khi giữ phím! ✅
+; → TẤT CẢ KEYS đều HOLD khi giữ phím! ✅
 ;   • Arrow keys: HOLD (down → wait → up) - Character di chuyển liên tục
-;   • Skill keys: SPAM (down→up→down→up...) - Skill cast liên tục ~7-10 lần/giây
-; → Giữ Q trong 2s → Spam skill ~15 lần! (sau delay 0.5s đầu)
+;   • Skill keys: HOLD (down → wait → up) - Giữ skill key (charge/hold skills)
+; → 🧪 TEST MODE: Có thể tắt delay/jitter để test (0ms instant response)
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -150,6 +150,19 @@ global MaxDesync := 500
 global MinJitter := 30     ; Jitter tối thiểu (ms) - KHÔNG THAY ĐỔI
 global MaxJitter := 80     ; Jitter tối đa (ms) - KHÔNG THAY ĐỔI
 global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
+
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 🧪 TEST MODE: TẮT DELAY/JITTER (Chỉ dùng để test!)                 ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; ⚠️ Chỉ bật khi test! BẮT BUỘC TẮT khi training thật!
+; 
+; ━━━ OPTION 1: BẬT DELAY/JITTER (Normal - Anti-detect!) ━━━
+global DISABLE_DELAY_JITTER := false  ; ⭐ KHUYẾN NGHỊ cho training!
+; 
+; ━━━ OPTION 2: TẮT DELAY/JITTER (Test mode - 0ms instant!) ━━━
+; global DISABLE_DELAY_JITTER := true   ; ⚠️ Chỉ để test hold key!
+; ✅ Dùng: Test xem hold key có work không (0ms delay)
+; ⚠️ RỦI RO: Dễ bị detect! KHÔNG dùng khi training thật!
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 3️⃣ BEHAVIORAL PAUSE (Auto pause giống người thật)                  ┃
@@ -414,56 +427,31 @@ Return
 
 ; Hàm áp dụng desync + jitter (CHO SKILL KEYS)
 ApplyDesyncJitterAndSend(pressedKey, targetKey) {
-    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
+    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian, DISABLE_DELAY_JITTER
     
-    ; BƯỚC 1: DESYNC DELAY (Phá vỡ Multiplicity sync!)
-    Random, desyncDelay, %MinDesync%, %MaxDesync%
-    Sleep, %desyncDelay%
-    
-    ; BƯỚC 2: JITTER DELAY (Làm timing không đều!)
-    if (UseGaussian) {
-        mean := (MinJitter + MaxJitter) / 2.0
-        stdDev := (MaxJitter - MinJitter) / 6.0
-        jitter := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
-    } else {
-        Random, jitter, %MinJitter%, %MaxJitter%
-    }
-    Sleep, %jitter%
-    
-    ; BƯỚC 3: SPAM KEY PRESS (KHÔNG HOLD!)
-    ; ━━━ FIX: Game KHÔNG spam skill khi hold key! ━━━
-    ; → Cần SPAM key press liên tục: Press → Release → Press → Release...
-    ; → LOOP cho đến khi user nhả phím!
-    
-    ; Kiểm tra xem phím có đang được giữ không (sau delay)
-    GetKeyState, keyState, %pressedKey%, P
-    
-    if (keyState = "D") {
-        ; CASE 1: Phím VẪN ĐANG GIỮ → SPAM KEY cho đến khi nhả!
-        Loop {
-            ; Check xem phím còn giữ không?
-            GetKeyState, stillPressed, %pressedKey%, P
-            if (stillPressed != "D") {
-                break  ; Phím đã nhả → Thoát loop
-            }
-            
-            ; SPAM: Press → Release (giống auto-maple bot!)
-            SendInput, {%targetKey% down}
-            Random, holdTime, 40, 70  ; Hold 40-70ms
-            Sleep, %holdTime%
-            SendInput, {%targetKey% up}
-            
-            ; Delay ngắn giữa các lần press (giống human spam skill!)
-            Random, spamDelay, 50, 100  ; 50-100ms giữa các lần cast
-            Sleep, %spamDelay%
+    ; ━━━ KIỂM TRA TEST MODE ━━━
+    if (!DISABLE_DELAY_JITTER) {
+        ; BƯỚC 1: DESYNC DELAY (Phá vỡ Multiplicity sync!)
+        Random, desyncDelay, %MinDesync%, %MaxDesync%
+        Sleep, %desyncDelay%
+        
+        ; BƯỚC 2: JITTER DELAY (Làm timing không đều!)
+        if (UseGaussian) {
+            mean := (MinJitter + MaxJitter) / 2.0
+            stdDev := (MaxJitter - MinJitter) / 6.0
+            jitter := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
+        } else {
+            Random, jitter, %MinJitter%, %MaxJitter%
         }
-    } else {
-        ; CASE 2: Phím ĐÃ NHẢ (trong lúc delay) → Cast 1 lần nhanh
-        SendInput, {%targetKey% down}
-        Random, quickPress, 40, 70  ; Press nhanh 40-70ms
-        Sleep, %quickPress%
-        SendInput, {%targetKey% up}
+        Sleep, %jitter%
     }
+    ; ━━━ NẾU TEST MODE: Bỏ qua delay (0ms instant!) ━━━
+    
+    ; BƯỚC 3: HOLD KEY (down → wait → up)
+    ; → Giữ phím xuống cho đến khi user nhả
+    SendInput, {%targetKey% down}  ; Giữ phím xuống
+    KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
+    SendInput, {%targetKey% up}    ; Thả phím lên
 }
 
 ; Hàm tạo số ngẫu nhiên Gaussian
