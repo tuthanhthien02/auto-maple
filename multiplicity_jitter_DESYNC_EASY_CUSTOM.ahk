@@ -157,7 +157,7 @@ global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
 ; ⚠️ Chỉ bật khi test! BẮT BUỘC TẮT khi training thật!
 ; 
 ; ━━━ OPTION 1: BẬT DELAY/JITTER (Normal - Anti-detect!) ━━━
-global DISABLE_DELAY_JITTER := false  ; ⭐ KHUYẾN NGHỊ cho training!
+global DISABLE_DELAY_JITTER := true  ; ⭐ KHUYẾN NGHỊ cho training!
 ; 
 ; ━━━ OPTION 2: TẮT DELAY/JITTER (Test mode - 0ms instant!) ━━━
 ; global DISABLE_DELAY_JITTER := true   ; ⚠️ Chỉ để test hold key!
@@ -399,7 +399,16 @@ HandleKey:
         ; → Giữ Numpad1 → {Left} vẫn đang down (character di chuyển!)
         ; → Nhả Numpad1 → Send {Left up} → Dừng di chuyển
         SendInput, {%targetKey% down}  ; Giữ phím xuống
-        KeyWait, %pressedKey%          ; Chờ đến khi nhả Numpad
+        
+        ; LOOP: Check xem phím còn giữ không?
+        Loop {
+            GetKeyState, keyState, %pressedKey%, P
+            if (keyState != "D") {
+                break  ; Phím đã nhả → Thoát
+            }
+            Sleep, 10  ; Check mỗi 10ms
+        }
+        
         SendInput, {%targetKey% up}    ; Thả phím lên
         return
     }
@@ -416,7 +425,16 @@ HandleKey:
         
         ; HOLD key
         SendInput, {%targetKey% down}  ; Giữ phím xuống
-        KeyWait, %pressedKey%          ; Chờ đến khi nhả Numpad
+        
+        ; LOOP: Check xem phím còn giữ không?
+        Loop {
+            GetKeyState, keyState, %pressedKey%, P
+            if (keyState != "D") {
+                break  ; Phím đã nhả → Thoát
+            }
+            Sleep, 10  ; Check mỗi 10ms
+        }
+        
         SendInput, {%targetKey% up}    ; Thả phím lên
         return
     }
@@ -448,10 +466,26 @@ ApplyDesyncJitterAndSend(pressedKey, targetKey) {
     ; ━━━ NẾU TEST MODE: Bỏ qua delay (0ms instant!) ━━━
     
     ; BƯỚC 3: HOLD KEY (down → wait → up)
-    ; → Giữ phím xuống cho đến khi user nhả
+    ; ━━━ FIX: KeyWait không work với $ hotkey! Dùng LOOP + GetKeyState! ━━━
+    
+    ; ━━━ DEBUG: Hiển thị info ━━━
+    ToolTip, Pressed: %pressedKey% -> Target: %targetKey% (HOLDING...), 0, 0
+    
     SendInput, {%targetKey% down}  ; Giữ phím xuống
-    KeyWait, %pressedKey%          ; Chờ đến khi nhả phím nguồn
+    
+    ; LOOP: Check liên tục xem phím còn giữ không?
+    Loop {
+        GetKeyState, keyState, %pressedKey%, P  ; P = Physical key state
+        if (keyState != "D") {
+            break  ; Phím đã nhả → Thoát loop
+        }
+        Sleep, 10  ; Check mỗi 10ms (đủ nhanh để responsive!)
+    }
+    
     SendInput, {%targetKey% up}    ; Thả phím lên
+    
+    ; ━━━ DEBUG: Xóa tooltip khi nhả ━━━
+    ToolTip
 }
 
 ; Hàm tạo số ngẫu nhiên Gaussian
