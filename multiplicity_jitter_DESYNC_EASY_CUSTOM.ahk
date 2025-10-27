@@ -5,9 +5,10 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 ARROW KEYS: Passthrough (KHÔNG có delay!)
-; → Arrow keys không qua desync/jitter để di chuyển mượt mà!
-; → CHỈ skill keys (Q,W,E,R,Space) mới có desync+jitter
+; 🎮 ARROW KEYS: Instant Send (QUA AHK nhưng KHÔNG delay!)
+; → Arrow keys: SendInput ngay lập tức (0ms delay!)
+; → Skill keys (Q,W,E,R,Space): Có desync (0-500ms) + jitter (30-80ms)
+; → Di chuyển mượt mà + Skill vẫn anti-detect!
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -113,16 +114,17 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
+global noDelayKeys := {"Left": true, "Right": true, "Up": true, "Down": true}  ; ⚠️ Arrow keys: NO delay!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
 ; ║                                                                       ║
 ; ║  ⚡ SETTING MẶC ĐỊNH: TEMPLATE MAPLESTORY                             ║
-; ║     Q→A, W→S, E→D, R→F + Space (có desync+jitter)                    ║
-; ║     Arrow keys: Passthrough (KHÔNG có delay!)                        ║
+; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (desync+jitter)            ║
+; ║     Arrow keys: Left, Right, Up, Down (instant 0ms!)                 ║
 ; ║                                                                       ║
-; ║  💡 Arrow keys không delay → Di chuyển mượt mà!                       ║
+; ║  💡 Arrow keys qua AHK (game nhận được) nhưng 0ms delay!              ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -135,9 +137,9 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - QWER ONLY (KHUYẾN NGHỊ! ⭐)
+; 📋 TEMPLATE 1: MAPLESTORY - QWER + ARROW KEYS (KHUYẾN NGHỊ! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; ⚡ CHỈ REMAP CÁC PHÍM SKILL (có desync+jitter)
+; ⚡ SKILL KEYS: Có desync+jitter (anti-detect)
 ; Phím skill: Q W E R → A S D F
 remap["q"] := "a"
 remap["w"] := "s"
@@ -145,8 +147,11 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚠️ ARROW KEYS: Không remap = passthrough (không delay, response ngay!)
-; → Arrow keys sẽ hoạt động bình thường, không bị delay
+; ⚡ ARROW KEYS: Qua AHK nhưng KHÔNG delay (instant response!)
+remap["Left"] := "Left"
+remap["Right"] := "Right"
+remap["Up"] := "Up"
+remap["Down"] := "Down"
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
@@ -157,7 +162,10 @@ remap["Space"] := "Space"
 ; ; remap["e"] := "e"
 ; ; remap["r"] := "r"
 ; ; remap["Space"] := "Space"
-; ⚠️ ARROW KEYS: Luôn passthrough (không có trong remap table)
+; ; remap["Left"] := "Left"
+; ; remap["Right"] := "Right"
+; ; remap["Up"] := "Up"
+; ; remap["Down"] := "Down"
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 3: CUSTOM - TỰ CHỈNH SỬA
@@ -235,7 +243,7 @@ Return
 
 ; Xử lý phím
 HandleKey:
-    global ScriptEnabled, IsPaused
+    global ScriptEnabled, IsPaused, noDelayKeys
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
@@ -255,7 +263,13 @@ HandleKey:
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
-    ; Áp dụng desync + jitter và gửi
+    ; ⚡ ARROW KEYS: Send ngay lập tức, KHÔNG delay!
+    if (noDelayKeys[pressedKey]) {
+        SendInput, {%targetKey%}
+        return
+    }
+    
+    ; ⚡ SKILL KEYS: Áp dụng desync + jitter
     ApplyDesyncJitterAndSend(targetKey)
 Return
 
