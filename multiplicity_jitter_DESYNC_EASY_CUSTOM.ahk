@@ -5,10 +5,10 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 ARROW KEYS: SendEvent (Giống auto-maple bot!)
-; → Arrow keys: SendEvent ngay lập tức (0ms delay!)
+; 🎮 ARROW KEYS: Send Down/Up (HOLD key như auto-maple bot!)
+; → Arrow keys: {Left down} → KeyWait → {Left up}
 ; → Skill keys: SendInput với desync (0-500ms) + jitter (30-80ms)
-; → SendEvent giống user32.SendInput của auto-maple bot, game nhận được!
+; → HOLD phím giống key_down/key_up của auto-maple bot!
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -122,9 +122,9 @@ global instantKeys := {"Left": true, "Right": true, "Up": true, "Down": true}  ;
 ; ║                                                                       ║
 ; ║  ⚡ SETTING MẶC ĐỊNH: TEMPLATE MAPLESTORY                             ║
 ; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (SendInput + desync)       ║
-; ║     Arrow keys: Left, Right, Up, Down (SendEvent instant!)           ║
+; ║     Arrow keys: Left, Right, Up, Down (Send down/up - HOLD!)         ║
 ; ║                                                                       ║
-; ║  💡 SendEvent cho arrow keys giống auto-maple bot, game nhận được!    ║
+; ║  💡 Arrow keys HOLD như auto-maple bot (key_down/key_up)!             ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -147,8 +147,8 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚡ ARROW KEYS: Dùng SendEvent (instant, no delay!)
-; → SendEvent giống auto-maple bot, game sẽ nhận được!
+; ⚡ ARROW KEYS: HOLD phím (giống auto-maple bot!)
+; → Send {Left down} → đợi user thả → Send {Left up}
 remap["Left"] := "Left"
 remap["Right"] := "Right"
 remap["Up"] := "Up"
@@ -264,9 +264,11 @@ HandleKey:
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
-    ; ⚡ ARROW KEYS: SendEvent ngay lập tức (giống auto-maple bot!)
+    ; ⚡ ARROW KEYS: Send DOWN (hold như auto-maple bot!)
     if (instantKeys[pressedKey]) {
-        SendEvent, {%targetKey%}
+        Send, {%targetKey% down}
+        KeyWait, %pressedKey%
+        Send, {%targetKey% up}
         return
     }
     
