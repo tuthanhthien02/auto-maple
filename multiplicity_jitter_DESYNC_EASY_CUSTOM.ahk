@@ -5,10 +5,10 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 ARROW KEYS: Hardware Passthrough (KHÔNG qua AHK!)
-; → Arrow keys: Multiplicity → Game trực tiếp (hardware input!)
-; → Game BLOCK software input (SendInput) cho movement keys!
-; → CHỈ skill keys (Q,W,E,R,Space) qua AHK với desync+jitter
+; 🎮 ARROW KEYS: SendEvent (Giống auto-maple bot!)
+; → Arrow keys: SendEvent ngay lập tức (0ms delay!)
+; → Skill keys: SendInput với desync (0-500ms) + jitter (30-80ms)
+; → SendEvent giống user32.SendInput của auto-maple bot, game nhận được!
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -114,16 +114,17 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
+global instantKeys := {"Left": true, "Right": true, "Up": true, "Down": true}  ; ⚠️ Arrow keys: SendEvent instant!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
 ; ║                                                                       ║
 ; ║  ⚡ SETTING MẶC ĐỊNH: TEMPLATE MAPLESTORY                             ║
-; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (desync+jitter qua AHK)    ║
-; ║     Arrow keys: KHÔNG qua AHK (hardware passthrough!)                ║
+; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (SendInput + desync)       ║
+; ║     Arrow keys: Left, Right, Up, Down (SendEvent instant!)           ║
 ; ║                                                                       ║
-; ║  💡 Game block software input cho movement! Arrow = hardware only!    ║
+; ║  💡 SendEvent cho arrow keys giống auto-maple bot, game nhận được!    ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -136,7 +137,7 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - SKILL KEYS ONLY (KHUYẾN NGHỊ! ⭐)
+; 📋 TEMPLATE 1: MAPLESTORY - QWER + ARROW KEYS (KHUYẾN NGHỊ! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; ⚡ SKILL KEYS: Có desync+jitter (anti-detect)
 ; Phím skill: Q W E R → A S D F
@@ -146,9 +147,12 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚠️ ARROW KEYS: KHÔNG có trong AHK!
-; → Multiplicity → Game trực tiếp (hardware input, game mới nhận!)
-; → Game block software input (SendInput) cho movement keys!
+; ⚡ ARROW KEYS: Dùng SendEvent (instant, no delay!)
+; → SendEvent giống auto-maple bot, game sẽ nhận được!
+remap["Left"] := "Left"
+remap["Right"] := "Right"
+remap["Up"] := "Up"
+remap["Down"] := "Down"
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
@@ -159,7 +163,10 @@ remap["Space"] := "Space"
 ; ; remap["e"] := "e"
 ; ; remap["r"] := "r"
 ; ; remap["Space"] := "Space"
-; ⚠️ ARROW KEYS: Luôn passthrough (KHÔNG thêm vào remap table!)
+; ; remap["Left"] := "Left"
+; ; remap["Right"] := "Right"
+; ; remap["Up"] := "Up"
+; ; remap["Down"] := "Down"
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 3: CUSTOM - TỰ CHỈNH SỬA
@@ -237,7 +244,7 @@ Return
 
 ; Xử lý phím
 HandleKey:
-    global ScriptEnabled, IsPaused
+    global ScriptEnabled, IsPaused, instantKeys
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
@@ -257,7 +264,13 @@ HandleKey:
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
-    ; Áp dụng desync + jitter và gửi
+    ; ⚡ ARROW KEYS: SendEvent ngay lập tức (giống auto-maple bot!)
+    if (instantKeys[pressedKey]) {
+        SendEvent, {%targetKey%}
+        return
+    }
+    
+    ; ⚡ SKILL KEYS: Áp dụng desync + jitter
     ApplyDesyncJitterAndSend(targetKey)
 Return
 
