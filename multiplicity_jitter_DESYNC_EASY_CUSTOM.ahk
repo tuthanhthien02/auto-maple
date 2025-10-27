@@ -28,7 +28,7 @@
 ; └─────────────────────────────────────────────────────────────────────┘
 ; ✅ MỨC ĐỘ TRAINING: Trung bình (0-500ms desync) - 4-6 giờ/ngày
 ; ✅ BEHAVIORAL PAUSE: Vừa phải (3-5 phút pause 1 lần, 0.8-2.5s)
-; ✅ ARROW KEYS JITTER: TẮT (0ms delay - Movement mượt!)
+; ✅ ARROW KEYS JITTER: BẬT (30-580ms delay - Anti-detect tốt!)
 ; ✅ KEY REMAP: MapleStory (Q/W/E/R→A/S/D/F, Numpad→Arrow)
 ; ✅ HOTKEYS: Ctrl+Alt+T (toggle on/off)
 ;
@@ -215,12 +215,12 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ; ━━━ OPTION 1: KHÔNG JITTER (Movement mượt - KHUYẾN NGHỊ! ⭐) ━━━
-global ArrowKeysUseJitter := false  ; Arrow keys = instant (0ms delay)
+; global ArrowKeysUseJitter := false  ; Arrow keys = instant (0ms delay)
 ; ✅ Ưu điểm: Di chuyển mượt mà, không giật
 ; ⚠️ Nhược điểm: Có thể bị detect (instant response)
 
 ; ━━━ OPTION 2: CÓ JITTER (Anti-detect tốt hơn, nhưng giật!) ━━━
-; global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter
+global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐ ĐANG DÙNG
 ; ✅ Ưu điểm: Anti-detect tốt hơn (random timing)
 ; ⚠️ Nhược điểm: Di chuyển hơi giật (delay 30-580ms)
 
