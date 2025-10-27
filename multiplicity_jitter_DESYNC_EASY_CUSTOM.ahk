@@ -408,21 +408,14 @@ HandleKeyDown:
     ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
     isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
     
-    ; ━━━ ARROW KEYS: Instant response (nếu không jitter) ━━━
+    ; ━━━ ARROW KEYS INSTANT (nếu ArrowKeysUseJitter = false) ━━━
     if (isArrowKey && !ArrowKeysUseJitter) {
+        ; INSTANT: Send DOWN ngay lập tức (0ms delay)
         SendInput, {%targetKey% down}
         return
     }
     
-    ; ━━━ ARROW KEYS WITH JITTER: Delay trước khi send ━━━
-    if (isArrowKey && ArrowKeysUseJitter) {
-        Random, desync, %MinDesync%, %MaxDesync%
-        Sleep, %desync%
-        SendInput, {%targetKey% down}
-        return
-    }
-    
-    ; ━━━ SKILL KEYS: Apply desync + jitter (tùy setting) ━━━
+    ; ━━━ TẤT CẢ KEYS (ARROW + SKILL): DÙNG LOGIC GIỐNG NHAU! ━━━
     
     ; BƯỚC 1: DESYNC (nếu không disable)
     if (!DISABLE_DESYNC) {
