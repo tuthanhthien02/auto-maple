@@ -5,11 +5,11 @@
 ; Phá vỡ sự đồng bộ của Multiplicity giữa các VM!
 ; Mỗi VM sẽ phản hồi tại thời điểm khác nhau một cách ngẫu nhiên
 ; ═══════════════════════════════════════════════════════════════════════
-; 🎮 NUMPAD MOVEMENT: Test bypass VMware detection!
-; → SendMode Event = Windows Event Queue
-; → Numpad 1,2,3,5 → Arrow keys (instant, 0ms delay!)
+; 🎮 DUAL MOVEMENT: Arrow keys + Numpad keys!
+; → SendMode Event = Windows Event Queue (giống auto-maple bot)
+; → Arrow keys: Left/Right/Up/Down (instant, 0ms delay!) ✅ WORK!
+; → Numpad keys: 4/6/8/2/5 → Arrow keys (instant!) 🎮
 ; → Skill keys: SendEvent + desync (0-500ms) + jitter (30-80ms)
-; → TEST xem numpad INPUT có bypass được VMware anti-cheat! 🧪
 ; ═══════════════════════════════════════════════════════════════════════
 ;
 ; ╔═══════════════════════════════════════════════════════════════════════╗
@@ -116,17 +116,18 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
-global instantKeys := {"Numpad1": true, "Numpad2": true, "Numpad3": true, "Numpad5": true}  ; ⚠️ Numpad: instant (no delay)!
+global instantKeys := {"Left": true, "Right": true, "Up": true, "Down": true, "Numpad2": true, "Numpad4": true, "Numpad5": true, "Numpad6": true, "Numpad8": true}  ; ⚠️ Movement keys: instant!
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  📝 PHẦN 2: KEY REMAP (OPTIONAL - Đã có mặc định) ✏️                  ║
 ; ║                                                                       ║
-; ║  ⚡ SETTING MẶC ĐỊNH: NUMPAD MOVEMENT                                 ║
+; ║  ⚡ SETTING MẶC ĐỊNH: DUAL MOVEMENT                                   ║
 ; ║     Skill keys: Q→A, W→S, E→D, R→F, Space (desync+jitter)            ║
-; ║     Movement: Numpad1→Left, 2→Down, 3→Right, 5→Up (instant!)        ║
+; ║     Arrow keys: ←→↑↓ (instant, ĐÃ WORK! ✅)                          ║
+; ║     Numpad keys: 4,6,8,2,5 → ←→↑↓ (instant, alternative!)           ║
 ; ║                                                                       ║
-; ║  💡 Dùng NUMPAD để di chuyển thay vì arrow keys! 🎮                   ║
+; ║  💡 Có thể dùng CẢ arrow keys VÀ numpad để di chuyển! 🎮              ║
 ; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -139,7 +140,7 @@ global instantKeys := {"Numpad1": true, "Numpad2": true, "Numpad3": true, "Numpa
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - NUMPAD TO ARROW (TEST! ⭐)
+; 📋 TEMPLATE 1: MAPLESTORY - DUAL MOVEMENT (KHUYẾN NGHỊ! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; ⚡ SKILL KEYS: Có desync+jitter (anti-detect)
 ; Phím skill: Q W E R → A S D F
@@ -149,15 +150,18 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚡ NUMPAD → ARROW KEYS (TEST xem numpad input bypass VMware detection!)
-; → Nhấn Numpad1 → Game nhận Left
-; → Nhấn Numpad2 → Game nhận Down
-; → Nhấn Numpad3 → Game nhận Right
-; → Nhấn Numpad5 → Game nhận Up
-remap["Numpad1"] := "Left"
-remap["Numpad2"] := "Down"
-remap["Numpad3"] := "Right"
-remap["Numpad5"] := "Up"
+; ⚡ MOVEMENT: CẢ ARROW KEYS VÀ NUMPAD (instant, 0ms delay!)
+; → Arrow keys: Trực tiếp (ĐÃ WORK! ✅)
+remap["Left"] := "Left"
+remap["Right"] := "Right"
+remap["Up"] := "Up"
+remap["Down"] := "Down"
+; → Numpad keys: Cũng di chuyển (alternative!)
+remap["Numpad4"] := "Left"    ; Numpad4 = Left (←)
+remap["Numpad6"] := "Right"   ; Numpad6 = Right (→)
+remap["Numpad8"] := "Up"      ; Numpad8 = Up (↑)
+remap["Numpad2"] := "Down"    ; Numpad2 = Down (↓)
+remap["Numpad5"] := "Up"      ; Numpad5 = Up/Jump (alternative)
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
