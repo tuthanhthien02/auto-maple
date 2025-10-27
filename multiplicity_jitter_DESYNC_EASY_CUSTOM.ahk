@@ -152,17 +152,24 @@ global MaxJitter := 80     ; Jitter tối đa (ms) - KHÔNG THAY ĐỔI
 global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-; ┃ 🧪 TEST MODE: TẮT DELAY/JITTER (Chỉ dùng để test!)                 ┃
+; ┃ 🧪 TEST MODE: TẮT DESYNC/JITTER (Chỉ dùng để test!)                ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ; ⚠️ Chỉ bật khi test! BẮT BUỘC TẮT khi training thật!
-; 
-; ━━━ OPTION 1: BẬT DELAY/JITTER (Normal - Anti-detect!) ━━━
-global DISABLE_DELAY_JITTER := false  ; ⭐ KHUYẾN NGHỊ cho training!
-; 
-; ━━━ OPTION 2: TẮT DELAY/JITTER (Test mode - 0ms instant!) ━━━
-; global DISABLE_DELAY_JITTER := true   ; ⚠️ Chỉ để test hold key!
-; ✅ Dùng: Test xem hold key có work không (0ms delay)
-; ⚠️ RỦI RO: Dễ bị detect! KHÔNG dùng khi training thật!
+; 💡 TẬP RIÊNG TỪNG FEATURE để test dễ hơn!
+
+; ━━━ DESYNC (0-500ms delay - Phá vỡ Multiplicity sync!) ━━━
+global DISABLE_DESYNC := false  ; ⭐ false = BẬT (khuyến nghị!)
+; global DISABLE_DESYNC := true   ; ⚠️ true = TẮT (test mode!)
+
+; ━━━ JITTER (30-80ms delay - Làm timing không đều!) ━━━
+global DISABLE_JITTER := false  ; ⭐ false = BẬT (khuyến nghị!)
+; global DISABLE_JITTER := true   ; ⚠️ true = TẮT (test mode!)
+
+; 📊 CÁC TỔ HỢP:
+; • false + false = BẬT CẢ 2 (0-580ms delay) - KHUYẾN NGHỊ! ⭐
+; • false + true  = CHỈ DESYNC (0-500ms delay) - Test jitter
+; • true + false  = CHỈ JITTER (30-80ms delay) - Test desync
+; • true + true   = TẮT CẢ 2 (0ms instant!) - Test hold key
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 3️⃣ BEHAVIORAL PAUSE (Auto pause giống người thật)                  ┃
@@ -375,7 +382,7 @@ Return
 ; 🔽 HANDLE KEY DOWN EVENT
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HandleKeyDown:
-    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DELAY_JITTER, remap
+    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DESYNC, DISABLE_JITTER, remap
     global MinJitter, MaxJitter, UseGaussian
     
     ; Nếu script bị tắt, passthrough phím gốc
@@ -398,9 +405,6 @@ HandleKeyDown:
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
-    ; ━━━ DEBUG ━━━
-    ToolTip, DOWN: %pressedKey% -> %targetKey%, 0, 0
-    
     ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
     isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
     
@@ -418,13 +422,16 @@ HandleKeyDown:
         return
     }
     
-    ; ━━━ SKILL KEYS: Apply desync + jitter (nếu không disable) ━━━
-    if (!DISABLE_DELAY_JITTER) {
-        ; DESYNC
+    ; ━━━ SKILL KEYS: Apply desync + jitter (tùy setting) ━━━
+    
+    ; BƯỚC 1: DESYNC (nếu không disable)
+    if (!DISABLE_DESYNC) {
         Random, desyncDelay, %MinDesync%, %MaxDesync%
         Sleep, %desyncDelay%
-        
-        ; JITTER
+    }
+    
+    ; BƯỚC 2: JITTER (nếu không disable)
+    if (!DISABLE_JITTER) {
         if (UseGaussian) {
             mean := (MinJitter + MaxJitter) / 2.0
             stdDev := (MaxJitter - MinJitter) / 6.0
@@ -435,7 +442,7 @@ HandleKeyDown:
         Sleep, %jitter%
     }
     
-    ; Send target key DOWN
+    ; BƯỚC 3: Send target key DOWN
     SendInput, {%targetKey% down}
 Return
 
@@ -465,57 +472,9 @@ HandleKeyUp:
     ; Lấy phím đích
     targetKey := remap[pressedKey]
     
-    ; ━━━ DEBUG ━━━
-    ToolTip
-    
     ; Send target key UP (NGAY LẬP TỨC - KHÔNG DELAY!)
     SendInput, {%targetKey% up}
 Return
-
-; Hàm áp dụng desync + jitter (CHO SKILL KEYS)
-ApplyDesyncJitterAndSend(pressedKey, targetKey) {
-    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian, DISABLE_DELAY_JITTER
-    
-    ; ━━━ KIỂM TRA TEST MODE ━━━
-    if (!DISABLE_DELAY_JITTER) {
-        ; BƯỚC 1: DESYNC DELAY (Phá vỡ Multiplicity sync!)
-        Random, desyncDelay, %MinDesync%, %MaxDesync%
-        Sleep, %desyncDelay%
-        
-        ; BƯỚC 2: JITTER DELAY (Làm timing không đều!)
-        if (UseGaussian) {
-            mean := (MinJitter + MaxJitter) / 2.0
-            stdDev := (MaxJitter - MinJitter) / 6.0
-            jitter := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
-        } else {
-            Random, jitter, %MinJitter%, %MaxJitter%
-        }
-        Sleep, %jitter%
-    }
-    ; ━━━ NẾU TEST MODE: Bỏ qua delay (0ms instant!) ━━━
-    
-    ; BƯỚC 3: HOLD KEY (down → wait → up)
-    ; ━━━ FIX: KeyWait không work với $ hotkey! Dùng LOOP + GetKeyState! ━━━
-    
-    ; ━━━ DEBUG: Hiển thị info ━━━
-    ToolTip, Pressed: %pressedKey% -> Target: %targetKey% (HOLDING...), 0, 0
-    
-    SendInput, {%targetKey% down}  ; Giữ phím xuống
-    
-    ; LOOP: Check liên tục xem phím còn giữ không?
-    Loop {
-        GetKeyState, keyState, %pressedKey%, P  ; P = Physical key state
-        if (keyState != "D") {
-            break  ; Phím đã nhả → Thoát loop
-        }
-        Sleep, 10  ; Check mỗi 10ms (đủ nhanh để responsive!)
-    }
-    
-    SendInput, {%targetKey% up}    ; Thả phím lên
-    
-    ; ━━━ DEBUG: Xóa tooltip khi nhả ━━━
-    ToolTip
-}
 
 ; Hàm tạo số ngẫu nhiên Gaussian
 GaussianRandom(mean, stdDev, min, max) {
