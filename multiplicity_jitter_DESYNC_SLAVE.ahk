@@ -307,9 +307,10 @@ remap["Numpad5"] := "Up"
 ; ═══════════════════════════════════════════════════════════════════════
 
 ; ━━━ REWRITE: Tạo hotkeys DOWN và UP riêng biệt! ━━━
+; ⚡ Dùng ~ prefix để ControlSend từ Master có thể trigger hotkeys
 For sourceKey, targetKey in remap {
-    Hotkey, $%sourceKey%, HandleKeyDown
-    Hotkey, $%sourceKey% up, HandleKeyUp
+    Hotkey, ~%sourceKey%, HandleKeyDown
+    Hotkey, ~%sourceKey% up, HandleKeyUp
 }
 
 ; Bắt đầu timer cho behavioral pause
@@ -434,10 +435,7 @@ HandleKeyDown:
     ; Fast mode - skip some checks
     if (!enableFastMode) {
         if (!ScriptEnabled) {
-            pressedKey := StrReplace(A_ThisHotkey, "$", "")
-            pressedKey := StrReplace(pressedKey, " up", "")
-            SendInput, {%pressedKey% down}
-            return
+            return  ; Don't process if script disabled
         }
         
         if (IsPaused) {
@@ -445,7 +443,8 @@ HandleKeyDown:
         }
     }
     
-    pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    ; Extract key name (remove ~ prefix)
+    pressedKey := StrReplace(A_ThisHotkey, "~", "")
     pressedKey := StrReplace(pressedKey, " up", "")
     targetKey := remap[pressedKey]
     
@@ -525,17 +524,15 @@ HandleKeyUp:
     global ScriptEnabled, IsPaused, remap
     
     if (!ScriptEnabled) {
-        pressedKey := StrReplace(A_ThisHotkey, "$", "")
-        pressedKey := StrReplace(pressedKey, " up", "")
-        SendInput, {%pressedKey% up}
-        return
+        return  ; Don't process if script disabled
     }
     
     if (IsPaused) {
         return
     }
     
-    pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    ; Extract key name (remove ~ prefix)
+    pressedKey := StrReplace(A_ThisHotkey, "~", "")
     pressedKey := StrReplace(pressedKey, " up", "")
     targetKey := remap[pressedKey]
     

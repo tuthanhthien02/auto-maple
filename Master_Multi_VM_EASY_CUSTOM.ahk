@@ -42,12 +42,13 @@
 ;   Ctrl+Alt+R → Refresh VM Cache
 ;   Ctrl+Alt+Q → Exit Script
 ;
-; 🎮 BROADCAST HOTKEYS (Gửi input đến VMs):
+; 🎮 BROADCAST HOTKEYS (Gửi input đến HOST + VMs):
 ;   SKILL KEYS: Q, W, E, R, A, S, D, F, Space
 ;   ARROW KEYS: Left, Right, Up, Down
 ;   NUMPAD KEYS: Numpad1-8
 ;   NUMBER KEYS: 1-9, 0
 ;   FUNCTION KEYS: F1-F12
+;   ⭐ MỖI PHÍM SẼ ĐƯỢC GỬI ĐẾN: HOST + TẤT CẢ VMs
 ;
 ; 💡 QUICK REFERENCE:
 ;   Status: Ctrl+Alt+S | List: Ctrl+Alt+L | Toggle: Ctrl+Alt+T | Perf: Ctrl+Alt+P
@@ -105,11 +106,11 @@ Process, Priority,, High
 global vmList := []  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━ THÊM VMs CỦA BẠN VÀO ĐÂY (Sửa tên cho đúng!) ━━━
-vmList.Push("Win10-VM1 - VMware Workstation")  ; VM 1
-vmList.Push("Win10-VM2 - VMware Workstation")  ; VM 2
-vmList.Push("Win10-VM3 - VMware Workstation")  ; VM 3
-vmList.Push("Win10-VM4 - VMware Workstation")  ; VM 4
-vmList.Push("Win10-VM5 - VMware Workstation")  ; VM 5
+vmList.Push("bishop - VMware Workstation")  ; VM 1
+; vmList.Push("Win10-VM2 - VMware Workstation")  ; VM 2
+; vmList.Push("Win10-VM3 - VMware Workstation")  ; VM 3
+; vmList.Push("Win10-VM4 - VMware Workstation")  ; VM 4
+; vmList.Push("Win10-VM5 - VMware Workstation")  ; VM 5
 
 ; ━━━ Thêm VM 6, 7, 8... nếu cần (Bỏ ; ở đầu dòng để enable) ━━━
 ; vmList.Push("Win10-VM6 - VMware Workstation")  ; VM 6
@@ -151,8 +152,12 @@ global maxRetryAttempts := 3
 global cacheRefreshInterval := 30000
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-; ┃ 4️⃣ KEYS TO BROADCAST (Phím nào sẽ broadcast đến VMs)               ┃
+; ┃ 4️⃣ KEYS TO BROADCAST (Phím nào sẽ broadcast đến HOST + VMs)      ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; 
+; ⭐ MỖI PHÍM SẼ ĐƯỢC GỬI ĐẾN:
+;   • HOST (notepad hoặc game trên host)
+;   • TẤT CẢ VMs (với desync delay)
 ; 
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ 💡 HƯỚNG DẪN:                                                        │
@@ -170,62 +175,194 @@ global cacheRefreshInterval := 30000
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ; ━━━ SKILL KEYS (Phím skill) ━━━
-q::BroadcastKey("q")
-w::BroadcastKey("w")
-e::BroadcastKey("e")
-r::BroadcastKey("r")
-a::BroadcastKey("a")
-s::BroadcastKey("s")
-d::BroadcastKey("d")
-f::BroadcastKey("f")
-Space::BroadcastKey("Space")
+; 🔑 Prefix ~ = Allow original key to pass through
+~q::
+BroadcastKeyAsync("q")
+return
+
+~w::
+BroadcastKeyAsync("w")
+return
+
+~e::
+BroadcastKeyAsync("e")
+return
+
+~r::
+BroadcastKeyAsync("r")
+return
+
+~a::
+BroadcastKeyAsync("a")
+return
+
+~s::
+BroadcastKeyAsync("s")
+return
+
+~d::
+BroadcastKeyAsync("d")
+return
+
+~f::
+BroadcastKeyAsync("f")
+return
+
+~Space::
+BroadcastKeyAsync("Space")
+return
 
 ; ━━━ ARROW KEYS (Phím mũi tên) ━━━
-Left::BroadcastKey("Left")
-Right::BroadcastKey("Right")
-Up::BroadcastKey("Up")
-Down::BroadcastKey("Down")
+~Left::
+BroadcastKeyAsync("Left")
+return
+
+~Right::
+BroadcastKeyAsync("Right")
+return
+
+~Up::
+BroadcastKeyAsync("Up")
+return
+
+~Down::
+BroadcastKeyAsync("Down")
+return
 
 ; ━━━ NUMPAD KEYS (Phím numpad) ━━━
-Numpad1::BroadcastKey("Numpad1")
-Numpad2::BroadcastKey("Numpad2")
-Numpad3::BroadcastKey("Numpad3")
-Numpad4::BroadcastKey("Numpad4")
-Numpad5::BroadcastKey("Numpad5")
-Numpad6::BroadcastKey("Numpad6")
-Numpad8::BroadcastKey("Numpad8")
+~Numpad1::
+BroadcastKeyAsync("Numpad1")
+return
+
+~Numpad2::
+BroadcastKeyAsync("Numpad2")
+return
+
+~Numpad3::
+BroadcastKeyAsync("Numpad3")
+return
+
+~Numpad4::
+BroadcastKeyAsync("Numpad4")
+return
+
+~Numpad5::
+BroadcastKeyAsync("Numpad5")
+return
+
+~Numpad6::
+BroadcastKeyAsync("Numpad6")
+return
+
+~Numpad8::
+BroadcastKeyAsync("Numpad8")
+return
 
 ; ━━━ NUMBER KEYS (Phím số 1-9, 0) ━━━
-1::BroadcastKey("1")
-2::BroadcastKey("2")
-3::BroadcastKey("3")
-4::BroadcastKey("4")
-5::BroadcastKey("5")
-6::BroadcastKey("6")
-7::BroadcastKey("7")
-8::BroadcastKey("8")
-9::BroadcastKey("9")
-0::BroadcastKey("0")
+~1::
+BroadcastKeyAsync("1")
+return
+
+~2::
+BroadcastKeyAsync("2")
+return
+
+~3::
+BroadcastKeyAsync("3")
+return
+
+~4::
+BroadcastKeyAsync("4")
+return
+
+~5::
+BroadcastKeyAsync("5")
+return
+
+~6::
+BroadcastKeyAsync("6")
+return
+
+~7::
+BroadcastKeyAsync("7")
+return
+
+~8::
+BroadcastKeyAsync("8")
+return
+
+~9::
+BroadcastKeyAsync("9")
+return
+
+~0::
+BroadcastKeyAsync("0")
+return
 
 ; ━━━ FUNCTION KEYS (Phím F1-F12) ━━━
-F1::BroadcastKey("F1")
-F2::BroadcastKey("F2")
-F3::BroadcastKey("F3")
-F4::BroadcastKey("F4")
-F5::BroadcastKey("F5")
-F6::BroadcastKey("F6")
-F7::BroadcastKey("F7")
-F8::BroadcastKey("F8")
-F9::BroadcastKey("F9")
-F10::BroadcastKey("F10")
-F11::BroadcastKey("F11")
-F12::BroadcastKey("F12")
+~F1::
+BroadcastKeyAsync("F1")
+return
+
+~F2::
+BroadcastKeyAsync("F2")
+return
+
+~F3::
+BroadcastKeyAsync("F3")
+return
+
+~F4::
+BroadcastKeyAsync("F4")
+return
+
+~F5::
+BroadcastKeyAsync("F5")
+return
+
+~F6::
+BroadcastKeyAsync("F6")
+return
+
+~F7::
+BroadcastKeyAsync("F7")
+return
+
+~F8::
+BroadcastKeyAsync("F8")
+return
+
+~F9::
+BroadcastKeyAsync("F9")
+return
+
+~F10::
+BroadcastKeyAsync("F10")
+return
+
+~F11::
+BroadcastKeyAsync("F11")
+return
+
+~F12::
+BroadcastKeyAsync("F12")
+return
 
 ; ━━━ THÊM PHÍM KHÁC NẾU CẦN ━━━
-; Template: PHÍM::BroadcastKey("PHÍM")
-; VD: t::BroadcastKey("t")
-; VD: Tab::BroadcastKey("Tab")
-; VD: Enter::BroadcastKey("Enter")
+; Template với prefix ~ (cho phép key pass through):
+;   ~PHÍM::
+;   BroadcastKeyAsync("PHÍM")
+;   return
+; 
+; VD: t → 
+;   ~t::
+;   BroadcastKeyAsync("t")
+;   return
+; 
+; VD: Tab → 
+;   ~Tab::
+;   BroadcastKeyAsync("Tab")
+;   return
 
 ; ═══════════════════════════════════════════════════════════════════════
 ; ⚠️ PHẦN BÊN DƯỚI - KHÔNG NÊN THAY ĐỔI! ⚠️
@@ -250,6 +387,15 @@ BroadcastKey(key) {
     if (!enableBroadcasting) {
         return
     }
+    
+    ; Check if there are any VMs configured
+    if (vmList.Length() = 0) {
+        ; No VMs configured - skip broadcasting
+        return
+    }
+    
+    ; Don't send to HOST - let HOST input work naturally
+    ; Only broadcast to VMs
     global vmCache, vmRetryCount, lastCacheRefresh, cacheRefreshInterval, maxRetryAttempts
     global performanceStats
     
@@ -330,6 +476,187 @@ BroadcastKey(key) {
     }
 }
 
+; ═══════════════════════════════════════════════════════════════════════
+; 🚀 ASYNC BROADCAST FUNCTION (Không block Host input)
+; ═══════════════════════════════════════════════════════════════════════
+; Function này chạy ASYNC (không block) để Host input hoạt động tức thì
+
+BroadcastKeyAsync(key) {
+    ; Chạy BroadcastKey trong background thread
+    ; KHÔNG block Host input
+    SetTimer, % "BroadcastKeyTimer" . key, -1
+    return
+}
+
+; Timer labels cho mỗi key
+BroadcastKeyTimerq:
+    BroadcastKey("q")
+return
+
+BroadcastKeyTimerw:
+    BroadcastKey("w")
+return
+
+BroadcastKeyTimere:
+    BroadcastKey("e")
+return
+
+BroadcastKeyTimerr:
+    BroadcastKey("r")
+return
+
+BroadcastKeyTimera:
+    BroadcastKey("a")
+return
+
+BroadcastKeyTimers:
+    BroadcastKey("s")
+return
+
+BroadcastKeyTimerd:
+    BroadcastKey("d")
+return
+
+BroadcastKeyTimerf:
+    BroadcastKey("f")
+return
+
+BroadcastKeyTimerSpace:
+    BroadcastKey("Space")
+return
+
+BroadcastKeyTimerLeft:
+    BroadcastKey("Left")
+return
+
+BroadcastKeyTimerRight:
+    BroadcastKey("Right")
+return
+
+BroadcastKeyTimerUp:
+    BroadcastKey("Up")
+return
+
+BroadcastKeyTimerDown:
+    BroadcastKey("Down")
+return
+
+BroadcastKeyTimerNumpad1:
+    BroadcastKey("Numpad1")
+return
+
+BroadcastKeyTimerNumpad2:
+    BroadcastKey("Numpad2")
+return
+
+BroadcastKeyTimerNumpad3:
+    BroadcastKey("Numpad3")
+return
+
+BroadcastKeyTimerNumpad4:
+    BroadcastKey("Numpad4")
+return
+
+BroadcastKeyTimerNumpad5:
+    BroadcastKey("Numpad5")
+return
+
+BroadcastKeyTimerNumpad6:
+    BroadcastKey("Numpad6")
+return
+
+BroadcastKeyTimerNumpad8:
+    BroadcastKey("Numpad8")
+return
+
+BroadcastKeyTimer1:
+    BroadcastKey("1")
+return
+
+BroadcastKeyTimer2:
+    BroadcastKey("2")
+return
+
+BroadcastKeyTimer3:
+    BroadcastKey("3")
+return
+
+BroadcastKeyTimer4:
+    BroadcastKey("4")
+return
+
+BroadcastKeyTimer5:
+    BroadcastKey("5")
+return
+
+BroadcastKeyTimer6:
+    BroadcastKey("6")
+return
+
+BroadcastKeyTimer7:
+    BroadcastKey("7")
+return
+
+BroadcastKeyTimer8:
+    BroadcastKey("8")
+return
+
+BroadcastKeyTimer9:
+    BroadcastKey("9")
+return
+
+BroadcastKeyTimer0:
+    BroadcastKey("0")
+return
+
+BroadcastKeyTimerF1:
+    BroadcastKey("F1")
+return
+
+BroadcastKeyTimerF2:
+    BroadcastKey("F2")
+return
+
+BroadcastKeyTimerF3:
+    BroadcastKey("F3")
+return
+
+BroadcastKeyTimerF4:
+    BroadcastKey("F4")
+return
+
+BroadcastKeyTimerF5:
+    BroadcastKey("F5")
+return
+
+BroadcastKeyTimerF6:
+    BroadcastKey("F6")
+return
+
+BroadcastKeyTimerF7:
+    BroadcastKey("F7")
+return
+
+BroadcastKeyTimerF8:
+    BroadcastKey("F8")
+return
+
+BroadcastKeyTimerF9:
+    BroadcastKey("F9")
+return
+
+BroadcastKeyTimerF10:
+    BroadcastKey("F10")
+return
+
+BroadcastKeyTimerF11:
+    BroadcastKey("F11")
+return
+
+BroadcastKeyTimerF12:
+    BroadcastKey("F12")
+return
+
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 🔄 VM CACHE MANAGEMENT
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -390,6 +717,7 @@ Return
 ^!l::
 {
     vmwareWindows := ""
+    vmwareList := ""
     counter := 0
     
     WinGet, windowList, List
@@ -403,6 +731,7 @@ Return
         {
             counter++
             vmwareWindows .= counter . ". " . windowTitle . "`n"
+            vmwareList .= windowTitle . "`n"
         }
     }
     
@@ -412,13 +741,18 @@ Return
     }
     else
     {
+        ; Copy to clipboard
+        Clipboard := vmwareList
+        
         MsgBox, 64, VMware Windows Found, 
         (
         Found %counter% VMware window(s):
         
         %vmwareWindows%
         
-        Copy these titles and add them to vmList in the script!
+        ✅ COPIED TO CLIPBOARD!
+        
+        Paste them into vmList in the script!
         )
     }
 }
@@ -568,6 +902,16 @@ startupText := "MASTER SCRIPT RUNNING!`n`n"
 startupText .= "Total VMs: " . totalVMs . "`n"
 startupText .= "Found: " . foundVMs . "`n"
 startupText .= "Cache: " . (enableVMCache ? "ENABLED" : "DISABLED") . "`n`n"
+
+if (totalVMs = 0) {
+    startupText .= "⭐ TEST MODE: HOST INPUT ONLY`n"
+    startupText .= "• No VMs configured`n"
+    startupText .= "• Keys will send to HOST`n`n"
+} else {
+    startupText .= "⭐ INPUT MODE: HOST + VMs`n"
+    startupText .= "• Keys sent to HOST (notepad/game)`n"
+    startupText .= "• Keys broadcast to ALL VMs`n`n"
+}
 startupText .= "Hotkeys:`n"
 startupText .= "Ctrl+Alt+S - Status`n"
 startupText .= "Ctrl+Alt+L - List VMs`n"
