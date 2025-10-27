@@ -21,19 +21,75 @@
 ; ║  Chỉ cần chạy: compile_EASY_CUSTOM_obfuscate.bat                     ║
 ; ║  Xong! Test file .exe luôn                                            ║
 ; ║                                                                       ║
-; ║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ║
-; ║                                                                       ║
-; ║  📝 MUỐN CUSTOM? (OPTIONAL - Không bắt buộc!)                         ║
-; ║                                                                       ║
-; ║  1️⃣ Kéo xuống PHẦN 1 → Chọn mức độ training khác nếu muốn           ║
-; ║     (Hiện tại: MỨC TRUNG BÌNH - Tốt cho 4-6 giờ/ngày)                ║
-; ║                                                                       ║
-; ║  2️⃣ Kéo xuống PHẦN 2 → Chọn template game khác nếu muốn             ║
-; ║     (Hiện tại: TEMPLATE MAPLESTORY - Phù hợp hầu hết game)           ║
-; ║                                                                       ║
-; ║  3️⃣ Lưu file → Chạy compile_EASY_CUSTOM_obfuscate.bat lại           ║
-; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
+;
+; ┌─────────────────────────────────────────────────────────────────────┐
+; │ 📋 TÓM TẮT SETTING MẶC ĐỊNH (Đang dùng gì?) ⭐                       │
+; └─────────────────────────────────────────────────────────────────────┘
+; ✅ MỨC ĐỘ TRAINING: Trung bình (0-500ms desync) - 4-6 giờ/ngày
+; ✅ BEHAVIORAL PAUSE: Vừa phải (3-5 phút pause 1 lần, 0.8-2.5s)
+; ✅ ARROW KEYS JITTER: TẮT (0ms delay - Movement mượt!)
+; ✅ KEY REMAP: MapleStory (Q/W/E/R→A/S/D/F, Numpad→Arrow)
+; ✅ HOTKEYS: Ctrl+Alt+T (toggle on/off)
+;
+; ┌─────────────────────────────────────────────────────────────────────┐
+; │ 🎯 MUỐN CUSTOM? (Chỉ 3 BƯỚC - Cực dễ!)                              │
+; └─────────────────────────────────────────────────────────────────────┘
+; 
+; ━━━ BƯỚC 1: Chọn setting muốn thay đổi (kéo xuống section tương ứng) ━━━
+; 
+;   📌 PHẦN 1 (Line 46): Mức độ training (training nhiều/ít?)
+;      → BỎ ; ở mức muốn dùng (1-2 giờ/4-6 giờ/8-10 giờ...)
+;      → THÊM ; vào mức hiện tại
+; 
+;   📌 PHẦN 1.5 (Line 120): Arrow keys có jitter không? (mượt hay giật?)
+;      → BỎ ; ở dòng "global ArrowKeysUseJitter := true/false"
+;      → THÊM ; vào dòng còn lại
+; 
+;   📌 PHẦN 2 (Line 145): Template game (MapleStory/Khác?)
+;      → BỎ ; ở tất cả dòng remap["..."] của template muốn dùng
+;      → THÊM ; vào tất cả dòng remap["..."] của template cũ
+; 
+; ━━━ BƯỚC 2: Lưu file (Ctrl+S) ━━━
+; 
+; ━━━ BƯỚC 3: Chạy lại compile_EASY_CUSTOM_obfuscate.bat ━━━
+; 
+; 🎉 XONG! File .exe mới đã có setting mới!
+;
+; ┌─────────────────────────────────────────────────────────────────────┐
+; │ ⌨️ HOTKEYS (Phím tắt khi script đang chạy)                          │
+; └─────────────────────────────────────────────────────────────────────┘
+; 🔸 Ctrl+Alt+T: Bật/Tắt script (beep 1 tiếng)
+;    → Bật: Beep cao (1000Hz)
+;    → Tắt: Beep thấp (500Hz)
+;
+; ┌─────────────────────────────────────────────────────────────────────┐
+; │ ❓ TROUBLESHOOTING (Gặp vấn đề?)                                    │
+; └─────────────────────────────────────────────────────────────────────┘
+; 
+; ❌ VẤN ĐỀ: Arrow keys không di chuyển trong game
+;    ✅ GIẢI PHÁP: Dùng NUMPAD (1/2/3/5) thay vì arrow keys
+;    → Numpad đã remap sẵn sang arrow keys trong Template 1
+; 
+; ❌ VẤN ĐỀ: Di chuyển bị giật
+;    ✅ GIẢI PHÁP: ArrowKeysUseJitter đang = true, đổi sang false
+;    → Xem hướng dẫn ở PHẦN 1.5 (Line 155)
+; 
+; ❌ VẤN ĐỀ: Phím không hoạt động sau khi custom
+;    ✅ GIẢI PHÁP: Kiểm tra lại:
+;    → Có thêm ; vào template cũ chưa?
+;    → Có bỏ ; ở ĐÚNG chỗ (đầu dòng remap["..."]) chưa?
+;    → Đã compile lại chưa? (compile_EASY_CUSTOM_obfuscate.bat)
+; 
+; ❌ VẤN ĐỀ: Compile bị lỗi
+;    ✅ GIẢI PHÁP: Kiểm tra lại:
+;    → Có XÓA dòng "global remap := {}" không? (KHÔNG ĐƯỢC XÓA!)
+;    → Có sửa code ở phần "KHÔNG NÊN THAY ĐỔI" không?
+;    → Thử revert lại (Ctrl+Z) và làm lại từ đầu
+; 
+; ❌ VẤN ĐỀ: Không biết script có đang chạy không
+;    ✅ GIẢI PHÁP: Nhấn Ctrl+Alt+T → Nghe beep → Đang chạy!
+;
 ;
 ; ═══════════════════════════════════════════════════════════════════════
 
@@ -57,6 +113,11 @@ SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 ; └─────────────────────────────────────────────────────────────────────┘
 ; ✅ CÁCH DÙNG: Bỏ dấu ; ở ĐẦU 2 DÒNG (MinDesync và MaxDesync)
 ; ⚠️ CHỈ BỎ ; Ở 1 MỨC ĐỘ, THÊM ; VÀO CÁC MỨC KHÁC!
+; 
+; 📝 VÍ DỤ: Đổi từ MỨC TRUNG BÌNH → MỨC NẶNG (8-10 giờ/ngày)
+;    BƯỚC 1: THÊM ; vào 2 dòng 95-96 (Mức trung bình)
+;    BƯỚC 2: BỎ ; ở 2 dòng 99-100 (Mức nặng)
+;    BƯỚC 3: Lưu → Compile → Xong!
 
 ; ━━━ MỨC NHẸ (1-2 giờ/ngày) - An toàn nhất ━━━
 ; global MinDesync := 0
@@ -116,7 +177,52 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
-global instantKeys := {"Numpad1": true, "Numpad2": true, "Numpad3": true, "Numpad5": true}  ; ⚠️ Numpad: instant (no delay)!
+
+; ╔═══════════════════════════════════════════════════════════════════════╗
+; ║                                                                       ║
+; ║  📝 PHẦN 1.5: ARROW KEYS JITTER (Mượt hay Giật?)                     ║
+; ║                                                                       ║
+; ╚═══════════════════════════════════════════════════════════════════════╝
+;
+; ┌─────────────────────────────────────────────────────────────────────┐
+; │ ⚡ ARROW KEYS JITTER SETTING (Dễ dàng bật/tắt!)                     │
+; └─────────────────────────────────────────────────────────────────────┘
+; 
+; 📊 SO SÁNH 2 OPTIONS:
+; ┌──────────────────┬─────────────────┬──────────────────────┐
+; │   OPTION         │   DELAY         │   KHI NÀO DÙNG       │
+; ├──────────────────┼─────────────────┼──────────────────────┤
+; │ 1. KHÔNG JITTER  │ 0ms (instant)   │ Movement mượt ⭐      │
+; │ 2. CÓ JITTER     │ 30-580ms random │ Anti-detect tốt hơn  │
+; └──────────────────┴─────────────────┴──────────────────────┘
+; 
+; 💡 ĐỀ XUẤT: Dùng OPTION 1 (false) cho tới khi bị detect, rồi đổi OPTION 2 (true)
+; 
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; ✅ CÁCH ĐỔI TỪ OPTION 1 → OPTION 2 (3 BƯỚC - Cực dễ!):
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 
+; BƯỚC 1: THÊM ; vào đầu dòng 164 (Option 1 hiện tại)
+;    TRƯỚC: global ArrowKeysUseJitter := false
+;    SAU:   ; global ArrowKeysUseJitter := false
+; 
+; BƯỚC 2: BỎ ; ở đầu dòng 168 (Option 2)
+;    TRƯỚC: ; global ArrowKeysUseJitter := true
+;    SAU:   global ArrowKeysUseJitter := true
+; 
+; BƯỚC 3: Lưu file → Compile lại → Xong!
+; 
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+; ━━━ OPTION 1: KHÔNG JITTER (Movement mượt - KHUYẾN NGHỊ! ⭐) ━━━
+global ArrowKeysUseJitter := false  ; Arrow keys = instant (0ms delay)
+; ✅ Ưu điểm: Di chuyển mượt mà, không giật
+; ⚠️ Nhược điểm: Có thể bị detect (instant response)
+
+; ━━━ OPTION 2: CÓ JITTER (Anti-detect tốt hơn, nhưng giật!) ━━━
+; global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter
+; ✅ Ưu điểm: Anti-detect tốt hơn (random timing)
+; ⚠️ Nhược điểm: Di chuyển hơi giật (delay 30-580ms)
 
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
@@ -135,6 +241,11 @@ global instantKeys := {"Numpad1": true, "Numpad2": true, "Numpad3": true, "Numpa
 ; └─────────────────────────────────────────────────────────────────────┘
 ; ✅ CÁCH DÙNG: Bỏ dấu ; ở ĐẦU CÁC DÒNG của 1 template
 ; ⚠️ CHỈ BỎ ; Ở 1 TEMPLATE, THÊM ; VÀO CÁC TEMPLATE KHÁC!
+; 
+; 📝 VÍ DỤ: Đổi từ TEMPLATE 1 → TEMPLATE 2 (Không remap)
+;    BƯỚC 1: THÊM ; vào TẤT CẢ dòng remap["..."] của Template 1 (dòng 199-214)
+;    BƯỚC 2: BỎ ; ở TẤT CẢ dòng remap["..."] của Template 2 (dòng 221-229)
+;    BƯỚC 3: Lưu → Compile → Xong!
 
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
@@ -149,15 +260,15 @@ remap["e"] := "d"
 remap["r"] := "f"
 ; Phím nhảy (có desync+jitter)
 remap["Space"] := "Space"
-; ⚡ NUMPAD → ARROW KEYS (TEST xem numpad input bypass VMware detection!)
-; → Nhấn Numpad1 → Game nhận Left
-; → Nhấn Numpad2 → Game nhận Down
-; → Nhấn Numpad3 → Game nhận Right
-; → Nhấn Numpad5 → Game nhận Up
-remap["Numpad1"] := "Left"
-remap["Numpad2"] := "Down"
-remap["Numpad3"] := "Right"
-remap["Numpad5"] := "Up"
+
+; ⚡ ARROW KEYS (Numpad1/2/3/5 → Left/Down/Right/Up)
+; → Jitter: Tùy thuộc ArrowKeysUseJitter setting (line 126)
+; → Nếu ArrowKeysUseJitter = false → instant (0ms, mượt!)
+; → Nếu ArrowKeysUseJitter = true → có desync+jitter (giật!)
+remap["Numpad1"] := "Left"   ; Numpad1 → Left
+remap["Numpad2"] := "Down"   ; Numpad2 → Down
+remap["Numpad3"] := "Right"  ; Numpad3 → Right
+remap["Numpad5"] := "Up"     ; Numpad5 → Up
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 📋 TEMPLATE 2: KHÔNG REMAP - CHỈ DESYNC + JITTER CHO SKILL KEYS
@@ -249,7 +360,7 @@ Return
 
 ; Xử lý phím
 HandleKey:
-    global ScriptEnabled, IsPaused, instantKeys
+    global ScriptEnabled, IsPaused, ArrowKeysUseJitter
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
@@ -269,13 +380,17 @@ HandleKey:
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
     
-    ; ⚡ ARROW KEYS: Send INSTANT (0ms delay, movement cần mượt!)
-    if (instantKeys[pressedKey]) {
+    ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
+    isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
+    
+    ; ⚡ ARROW KEYS: Check setting
+    if (isArrowKey && !ArrowKeysUseJitter) {
+        ; INSTANT: Không jitter (mượt mà!)
         SendInput, {%targetKey%}
         return
     }
     
-    ; ⚡ SKILL KEYS: Áp dụng desync + jitter
+    ; ⚡ SKILL KEYS hoặc ARROW KEYS VỚI JITTER: Áp dụng desync + jitter
     ApplyDesyncJitterAndSend(targetKey)
 Return
 
