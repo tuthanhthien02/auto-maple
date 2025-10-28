@@ -123,6 +123,19 @@ vmList.Push("bishop - VMware Workstation")  ; VM 1
 ; 📝 Template để copy: vmList.Push("TÊN_VM_CỦA_BẠN")
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 🌐 TCP PORT MAPPING (VM → TCP Port)                                ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; Mỗi VM phải map đến 1 TCP port (7001, 7002, 7003...)
+global vmPorts := {}
+vmPorts["bishop - VMware Workstation"] := 7001  ; VM 1 → Port 7001
+; vmPorts["Win10-VM2 - VMware Workstation"] := 7002  ; VM 2 → Port 7002
+; vmPorts["Win10-VM3 - VMware Workstation"] := 7003  ; VM 3 → Port 7003
+; vmPorts["Win10-VM4 - VMware Workstation"] := 7004  ; VM 4 → Port 7004
+; vmPorts["Win10-VM5 - VMware Workstation"] := 7005  ; VM 5 → Port 7005
+
+global VM_HOST := "127.0.0.1"  ; Localhost (VMs chạy trên cùng máy)
+
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 2️⃣ OPTIONS (Bật/tắt debug features)                                 ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -423,12 +436,22 @@ BroadcastKey(key) {
         }
         
         if (vmExists) {
-            ; Send key to VM
-            ControlSend,, {%key%}, %vmTitle%
-            successCount++
+            ; Send key via TCP to Slave script in VM
+            port := vmPorts[vmTitle]
             
-            ; Reset retry count on success
-            vmRetryCount[vmTitle] := 0
+            if (port) {
+                ; Send KEYDOWN command
+                result := TCPSendCommand(VM_HOST, port, "KEYDOWN:" . key)
+                
+                if (result) {
+                    successCount++
+                    vmRetryCount[vmTitle] := 0
+                } else {
+                    failCount++
+                }
+            } else {
+                failCount++
+            }
         } else {
             failCount++
             
@@ -656,6 +679,24 @@ return
 BroadcastKeyTimerF12:
     BroadcastKey("F12")
 return
+
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🔑 GET VIRTUAL KEY CODE
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GetKeyVK(key) {
+    ; Convert key name to VK code
+    static keyMap := {q: 0x51, w: 0x57, e: 0x45, r: 0x52, a: 0x41, s: 0x53, d: 0x44, f: 0x46
+                     , "Space": 0x20, "Left": 0x25, "Right": 0x27, "Up": 0x26, "Down": 0x28
+                     , "Numpad1": 0x61, "Numpad2": 0x62, "Numpad3": 0x63, "Numpad4": 0x64
+                     , "Numpad5": 0x65, "Numpad6": 0x66, "Numpad8": 0x68
+                     , "1": 0x31, "2": 0x32, "3": 0x33, "4": 0x34, "5": 0x35
+                     , "6": 0x36, "7": 0x37, "8": 0x38, "9": 0x39, "0": 0x30
+                     , "F1": 0x70, "F2": 0x71, "F3": 0x72, "F4": 0x73, "F5": 0x74, "F6": 0x75
+                     , "F7": 0x76, "F8": 0x77, "F9": 0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B}
+    
+    return keyMap[key]
+}
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 🔄 VM CACHE MANAGEMENT
@@ -931,5 +972,46 @@ if (foundVMs = totalVMs) {
     SoundBeep, 600, 200
 } else {
     SoundBeep, 400, 300
+}
+
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🌐 TCP CLIENT HELPER FUNCTIONS
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TCPSendCommand(host, port, command) {
+    ; Create socket
+    socket := DllCall("ws2_32\socket", "Int", 2, "Int", 1, "Int", 6, "Ptr")
+    
+    if (socket = -1) {
+        return 0
+    }
+    
+    ; Set socket to non-blocking with timeout
+    timeout := 1000  ; 1 second
+    DllCall("ws2_32\setsockopt", "Ptr", socket, "Int", 0xFFFF, "Int", 0x1006, "UInt*", timeout, "Int", 4)
+    
+    ; Connect to server
+    VarSetCapacity(sockaddr, 16, 0)
+    NumPut(2, sockaddr, 0, "UShort")  ; AF_INET
+    NumPut(DllCall("ws2_32\htons", "UShort", port, "UShort"), sockaddr, 2, "UShort")
+    
+    ; Convert IP address
+    DllCall("ws2_32\inet_pton", "Int", 2, "AStr", host, "Ptr", &sockaddr + 4)
+    
+    if (DllCall("ws2_32\connect", "Ptr", socket, "Ptr", &sockaddr, "Int", 16) = -1) {
+        DllCall("ws2_32\closesocket", "Ptr", socket)
+        return 0
+    }
+    
+    ; Send command
+    VarSetCapacity(buffer, StrLen(command) + 1, 0)
+    StrPut(command, &buffer, "UTF-8")
+    
+    bytesSent := DllCall("ws2_32\send", "Ptr", socket, "Ptr", &buffer, "Int", StrLen(command), "Int", 0, "Int")
+    
+    ; Close socket
+    DllCall("ws2_32\closesocket", "Ptr", socket)
+    
+    return (bytesSent > 0) ? 1 : 0
 }
 

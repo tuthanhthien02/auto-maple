@@ -114,6 +114,12 @@ SetBatchLines, -1
 Process, Priority,, High
 SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ 🌐 TCP SERVER PORT (Mỗi VM dùng port khác nhau!)                   ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+; VM1: 7001, VM2: 7002, VM3: 7003, VM4: 7004, VM5: 7005...
+global TCP_PORT := 7001  ; ← SỬA PORT CHO MỖI VM! (VM1=7001, VM2=7002, ...)
+
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  ⚙️ ⚙️ ⚙️  TẤT CẢ SETTINGS Ở ĐÂY - DỄ TÌM, DỄ CUSTOM!  ⚙️ ⚙️ ⚙️       ║
@@ -306,17 +312,65 @@ remap["Numpad5"] := "Up"
 ; Đây là code xử lý, chỉ sửa nếu bạn biết AutoHotkey
 ; ═══════════════════════════════════════════════════════════════════════
 
-; ━━━ REWRITE: Tạo hotkeys DOWN và UP riêng biệt! ━━━
-; ⚡ Dùng ~ prefix để ControlSend từ Master có thể trigger hotkeys
-For sourceKey, targetKey in remap {
-    Hotkey, ~%sourceKey%, HandleKeyDown
-    Hotkey, ~%sourceKey% up, HandleKeyUp
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🌐 TCP SERVER - Listen for commands from Master
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+; Start TCP server
+global TCP_SOCKET := TCPListen(TCP_PORT)
+
+if (!TCP_SOCKET) {
+    MsgBox, 16, TCP Server Error, Failed to start TCP server on port %TCP_PORT%!`n`nCheck if port is already in use.
+    ExitApp
 }
+
+; Timer to check for incoming connections
+SetTimer, TCPAcceptConnections, 50
 
 ; Bắt đầu timer cho behavioral pause
 SetTimer, CheckBehavioralPause, 1000
 ScheduleNextPause()
 
+ToolTip, [SLAVE] TCP Server running on port %TCP_PORT%, 10, 10
+SetTimer, RemoveStartupTooltip, 3000
+
+Return
+
+RemoveStartupTooltip:
+    ToolTip
+    SetTimer, RemoveStartupTooltip, Off
+Return
+
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🔌 TCP CONNECTION HANDLER
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TCPAcceptConnections:
+    global TCP_SOCKET
+    
+    ; Accept new connection
+    clientSocket := TCPAccept(TCP_SOCKET)
+    
+    if (clientSocket) {
+        ; Receive command from Master
+        command := TCPRecv(clientSocket, 1024)
+        
+        if (command) {
+            ; Parse command: "KEYDOWN:q" or "KEYUP:q"
+            parts := StrSplit(command, ":")
+            action := parts[1]
+            key := parts[2]
+            
+            if (action = "KEYDOWN") {
+                ProcessKeyDown(key)
+            } else if (action = "KEYUP") {
+                ProcessKeyUp(key)
+            }
+        }
+        
+        ; Close client socket
+        TCPClose(clientSocket)
+    }
 Return
 
 ; ═══════════════════════════════════════════════════════════════════════
@@ -425,7 +479,7 @@ Return
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 🔽 OPTIMIZED KEY DOWN EVENT HANDLER
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HandleKeyDown:
+ProcessKeyDown(pressedKey) {
     global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DESYNC, DISABLE_JITTER, remap
     global MinJitter, MaxJitter, UseGaussian, enablePerformanceMonitor, enableDebugMode, enableFastMode
     global performanceStats, keypressHistory, lastKeypressTime
@@ -443,9 +497,7 @@ HandleKeyDown:
         }
     }
     
-    ; Extract key name (remove ~ prefix)
-    pressedKey := StrReplace(A_ThisHotkey, "~", "")
-    pressedKey := StrReplace(pressedKey, " up", "")
+    ; Get target key from remap
     targetKey := remap[pressedKey]
     
     ; Performance monitoring
@@ -510,7 +562,7 @@ HandleKeyDown:
         latency := A_TickCount - startTime
         performanceStats.avgLatency := (performanceStats.avgLatency + latency) / 2
     }
-Return
+}
 
 RemoveDebugTooltip:
     ToolTip
@@ -520,7 +572,7 @@ Return
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 🔼 HANDLE KEY UP EVENT  
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HandleKeyUp:
+ProcessKeyUp(pressedKey) {
     global ScriptEnabled, IsPaused, remap
     
     if (!ScriptEnabled) {
@@ -531,13 +583,11 @@ HandleKeyUp:
         return
     }
     
-    ; Extract key name (remove ~ prefix)
-    pressedKey := StrReplace(A_ThisHotkey, "~", "")
-    pressedKey := StrReplace(pressedKey, " up", "")
+    ; Get target key from remap
     targetKey := remap[pressedKey]
     
     SendInput, {%targetKey% up}
-Return
+}
 
 GaussianRandom(mean, stdDev, min, max) {
     Random, u1, 0.0, 1.0
@@ -572,8 +622,71 @@ EndBehavioralPause:
 Return
 
 ScheduleNextPause() {
-    global NextPauseTime, MinPauseInterval, MaxPauseInterval
+    global NextPauseInterval, MinPauseInterval, MaxPauseInterval
     Random, interval, %MinPauseInterval%, %MaxPauseInterval%
     NextPauseTime := A_TickCount + interval
+}
+
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+; 🌐 TCP SOCKET HELPER FUNCTIONS
+; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TCPListen(port) {
+    ; Create socket
+    socket := DllCall("ws2_32\socket", "Int", 2, "Int", 1, "Int", 6, "Ptr")
+    
+    if (socket = -1) {
+        return 0
+    }
+    
+    ; Set socket to non-blocking
+    DllCall("ws2_32\ioctlsocket", "Ptr", socket, "UInt", 0x8004667E, "UInt*", 1)
+    
+    ; Bind to port
+    VarSetCapacity(sockaddr, 16, 0)
+    NumPut(2, sockaddr, 0, "UShort")  ; AF_INET
+    NumPut(DllCall("ws2_32\htons", "UShort", port, "UShort"), sockaddr, 2, "UShort")
+    
+    if (DllCall("ws2_32\bind", "Ptr", socket, "Ptr", &sockaddr, "Int", 16) = -1) {
+        DllCall("ws2_32\closesocket", "Ptr", socket)
+        return 0
+    }
+    
+    ; Listen
+    if (DllCall("ws2_32\listen", "Ptr", socket, "Int", 5) = -1) {
+        DllCall("ws2_32\closesocket", "Ptr", socket)
+        return 0
+    }
+    
+    return socket
+}
+
+TCPAccept(serverSocket) {
+    VarSetCapacity(sockaddr, 16, 0)
+    addrLen := 16
+    
+    clientSocket := DllCall("ws2_32\accept", "Ptr", serverSocket, "Ptr", &sockaddr, "Int*", addrLen, "Ptr")
+    
+    if (clientSocket = -1 || clientSocket = 0) {
+        return 0
+    }
+    
+    return clientSocket
+}
+
+TCPRecv(socket, maxLen) {
+    VarSetCapacity(buffer, maxLen, 0)
+    
+    bytesRecv := DllCall("ws2_32\recv", "Ptr", socket, "Ptr", &buffer, "Int", maxLen, "Int", 0, "Int")
+    
+    if (bytesRecv <= 0) {
+        return ""
+    }
+    
+    return StrGet(&buffer, bytesRecv, "UTF-8")
+}
+
+TCPClose(socket) {
+    DllCall("ws2_32\closesocket", "Ptr", socket)
 }
 
