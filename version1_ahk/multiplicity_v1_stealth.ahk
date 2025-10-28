@@ -337,6 +337,7 @@ remap["2"] := "8"           ; 2 → 8
 remap["8"] := "1"           ; 8 → 1
 remap["7"] := "2"           ; 7 → 2
 remap["5"] := "4"           ; 5 → 4
+remap["v"] := "6"           ; V → 6
 
 ; ⚡ ARROW KEYS (Numpad1/2/3/5 → Left/Down/Right/Up)
 ; → Jitter: Tùy thuộc ArrowKeysUseJitter setting
