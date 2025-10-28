@@ -292,19 +292,50 @@ global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐ ĐANG D
 global remap := {}  ; ⚠️ KHÔNG XÓA DÒNG NÀY!
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-; 📋 TEMPLATE 1: MAPLESTORY - NUMPAD TO ARROW (TEST! ⭐)
+; 📋 TEMPLATE 1: CUSTOM KEY MAPPING (UPDATED! ⭐)
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; ⚡ SKILL KEYS: Có desync+jitter (anti-detect)
-; Phím skill: Q W E R → A S D F
-remap["q"] := "a"
-remap["w"] := "s"
-remap["e"] := "d"
-remap["r"] := "f"
-; Phím nhảy (có desync+jitter)
-remap["Space"] := "Space"
+; Main skill keys
+remap["q"] := "]"           ; Q → ]
+remap["w"] := "["           ; W → [
+remap["e"] := "p"           ; E → P
+remap["r"] := "o"           ; R → O
+
+; Secondary skill keys
+remap["a"] := "i"           ; A → I
+remap["s"] := "u"           ; S → U
+remap["d"] := "y"           ; D → Y
+remap["f"] := "t"           ; F → T
+
+; Special keys
+remap["p"] := "="           ; P → =
+remap["i"] := "-"           ; I → -
+remap["u"] := "0"           ; U → 0
+remap["z"] := "r"           ; Z → R
+remap["c"] := "e"           ; C → E
+remap["k"] := "b"           ; K → B
+
+; Modifier keys
+remap["Alt"] := "f"         ; Alt → F
+remap["Space"] := "d"       ; Space → D
+remap["Escape"] := "`"      ; Esc → `
+
+; Function keys
+remap["F1"] := "F12"        ; F1 → F12
+remap["F2"] := "F11"        ; F2 → F11
+remap["F3"] := "F10"        ; F3 → F10
+remap["F4"] := "F9"         ; F4 → F9
+remap["F9"] := "F1"         ; F9 → F1
+
+; Number keys
+remap["1"] := "9"           ; 1 → 9
+remap["2"] := "8"           ; 2 → 8
+remap["8"] := "1"           ; 8 → 1
+remap["7"] := "2"           ; 7 → 2
+remap["5"] := "4"           ; 5 → 4
 
 ; ⚡ ARROW KEYS (Numpad1/2/3/5 → Left/Down/Right/Up)
-; → Jitter: Tùy thuộc ArrowKeysUseJitter setting (line 126)
+; → Jitter: Tùy thuộc ArrowKeysUseJitter setting
 ; → Nếu ArrowKeysUseJitter = false → instant (0ms, mượt!)
 ; → Nếu ArrowKeysUseJitter = true → có desync+jitter (giật!)
 remap["Numpad1"] := "Left"   ; Numpad1 → Left
