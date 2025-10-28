@@ -226,6 +226,7 @@ global MaxPauseDuration := 2500
 
 global IsPaused := false  ; ⚠️ KHÔNG SỬA DÒNG NÀY!
 global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
+global remapEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Remap control)
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 2️⃣ ARROW KEYS JITTER (Movement mượt hay giật?)                     ┃
@@ -448,7 +449,7 @@ Return
 ; ━━━ Ctrl+Alt+S - Check status (ENHANCED!) ━━━
 ^!s::
     global ScriptEnabled, IsPaused, NextPauseTime, MinDesync, MaxDesync, DISABLE_DESYNC
-    global DISABLE_JITTER, MinJitter, MaxJitter, ArrowKeysUseJitter
+    global DISABLE_JITTER, MinJitter, MaxJitter, ArrowKeysUseJitter, remapEnabled
     global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
     
     ; Tính thời gian còn lại đến lần pause kế tiếp
@@ -474,6 +475,12 @@ Return
         statusMsg .= "Pause: ACTIVE (blocking input now!)`n"
     } else {
         statusMsg .= "Pause: NOT ACTIVE`n"
+    }
+    
+    if (remapEnabled) {
+        statusMsg .= "Remap: ENABLED (keys will be remapped)`n"
+    } else {
+        statusMsg .= "Remap: DISABLED (keys pass through)`n"
     }
     
     statusMsg .= "Next pause: " . remainingMin . "m " . remainingSec . "s`n`n"
@@ -519,6 +526,7 @@ Return
     statusMsg .= "Ctrl+Alt+D = Toggle Desync ON/OFF`n"
     statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
     statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
+    statusMsg .= "Ctrl+Shift+Z = Toggle Key Remapping`n"
     statusMsg .= "Ctrl+Alt+Q = Exit script"
     
     SoundBeep, 600, 50
@@ -594,6 +602,27 @@ RemoveArrowTooltip:
     SetTimer, RemoveArrowTooltip, Off
 Return
 
+; ━━━ Ctrl+Shift+Z - Toggle Key Remapping ON/OFF ━━━
+^+z::
+    global remapEnabled
+    remapEnabled := !remapEnabled
+    
+    if (remapEnabled) {
+        SoundBeep, 1200, 100
+        ToolTip, KEY REMAPPING: ENABLED (Keys will be remapped), 0, 0
+    } else {
+        SoundBeep, 800, 100
+        ToolTip, KEY REMAPPING: DISABLED (Keys pass through directly), 0, 0
+    }
+    
+    SetTimer, RemoveRemapTooltip, 2000
+Return
+
+RemoveRemapTooltip:
+    ToolTip
+    SetTimer, RemoveRemapTooltip, Off
+Return
+
 ; ━━━ Ctrl+Alt+Q - Exit script (NEW!) ━━━
 ^!q::
     SoundBeep, 1000, 150
@@ -608,11 +637,19 @@ Return
 ; 🔽 HANDLE KEY DOWN EVENT
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HandleKeyDown:
-    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DESYNC, DISABLE_JITTER, remap
+    global ScriptEnabled, IsPaused, ArrowKeysUseJitter, MinDesync, MaxDesync, DISABLE_DESYNC, DISABLE_JITTER, remap, remapEnabled
     global MinJitter, MaxJitter, UseGaussian
     
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
+        pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
+        SendInput, {%pressedKey% down}
+        return
+    }
+    
+    ; Nếu remap bị tắt, passthrough phím gốc
+    if (!remapEnabled) {
         pressedKey := StrReplace(A_ThisHotkey, "$", "")
         pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
         SendInput, {%pressedKey% down}
