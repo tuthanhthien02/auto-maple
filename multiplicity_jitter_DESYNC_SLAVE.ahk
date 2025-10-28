@@ -355,6 +355,10 @@ TCPAcceptConnections:
     clientSocket := TCPAccept(TCP_SOCKET)
     
     if (clientSocket) {
+        ; DEBUG: Show connection accepted
+        ToolTip, [SLAVE] Connection accepted! Socket=%clientSocket%, 10, 80
+        SetTimer, RemoveDebugTooltip, 1000
+        
         ; Receive command from Master
         command := TCPRecv(clientSocket, 1024)
         
@@ -691,13 +695,25 @@ TCPAccept(serverSocket) {
 }
 
 TCPRecv(socket, maxLen) {
+    ; Set socket receive timeout to 100ms
+    timeout := 100
+    DllCall("ws2_32\setsockopt", "Ptr", socket, "Int", 0xFFFF, "Int", 0x1006, "UInt*", timeout, "Int", 4)
+    
     VarSetCapacity(buffer, maxLen, 0)
     
     bytesRecv := DllCall("ws2_32\recv", "Ptr", socket, "Ptr", &buffer, "Int", maxLen, "Int", 0, "Int")
     
+    ; DEBUG: Log recv status
     if (bytesRecv <= 0) {
+        lastError := DllCall("ws2_32\WSAGetLastError", "Int")
+        ToolTip, [SLAVE] TCPRecv failed! bytesRecv=%bytesRecv% Error=%lastError%, 10, 100
+        SetTimer, RemoveDebugTooltip, 3000
         return ""
     }
+    
+    ; DEBUG: Log received bytes
+    ToolTip, [SLAVE] TCPRecv: %bytesRecv% bytes, 10, 100
+    SetTimer, RemoveDebugTooltip, 1000
     
     return StrGet(&buffer, bytesRecv, "UTF-8")
 }

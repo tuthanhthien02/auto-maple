@@ -1011,19 +1011,31 @@ TCPSendCommand(host, port, command) {
     NumPut(2, sockaddr, 0, "UShort")  ; AF_INET
     NumPut(DllCall("ws2_32\htons", "UShort", port, "UShort"), sockaddr, 2, "UShort")
     
-    ; Convert IP address
-    DllCall("ws2_32\inet_pton", "Int", 2, "AStr", host, "Ptr", &sockaddr + 4)
+    ; Convert IP address (127.0.0.1 → binary)
+    DllCall("ws2_32\inet_addr", "AStr", host, "UInt")
+    ipAddr := DllCall("ws2_32\inet_addr", "AStr", host, "UInt")
+    NumPut(ipAddr, sockaddr, 4, "UInt")
     
-    if (DllCall("ws2_32\connect", "Ptr", socket, "Ptr", &sockaddr, "Int", 16) = -1) {
+    ; Connect to server
+    connectResult := DllCall("ws2_32\connect", "Ptr", socket, "Ptr", &sockaddr, "Int", 16, "Int")
+    
+    if (connectResult = -1) {
+        lastError := DllCall("ws2_32\WSAGetLastError", "Int")
+        ; DEBUG: Show connection error
+        ; ToolTip, [MASTER] Connect failed! Error=%lastError%, 10, 30
         DllCall("ws2_32\closesocket", "Ptr", socket)
         return 0
     }
     
     ; Send command
-    VarSetCapacity(buffer, StrLen(command) + 1, 0)
+    cmdLen := StrLen(command)
+    VarSetCapacity(buffer, cmdLen + 1, 0)
     StrPut(command, &buffer, "UTF-8")
     
-    bytesSent := DllCall("ws2_32\send", "Ptr", socket, "Ptr", &buffer, "Int", StrLen(command), "Int", 0, "Int")
+    bytesSent := DllCall("ws2_32\send", "Ptr", socket, "Ptr", &buffer, "Int", cmdLen, "Int", 0, "Int")
+    
+    ; Small delay to ensure data is transmitted
+    Sleep, 10
     
     ; Close socket
     DllCall("ws2_32\closesocket", "Ptr", socket)
