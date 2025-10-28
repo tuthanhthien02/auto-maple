@@ -135,6 +135,9 @@ vmPorts["bishop - VMware Workstation"] := 7001  ; VM 1 → Port 7001
 
 global VM_HOST := "127.0.0.1"  ; Localhost (VMs chạy trên cùng máy)
 
+; Initialize WinSock
+WSAStartup()
+
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 2️⃣ OPTIONS (Bật/tắt debug features)                                 ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -1013,5 +1016,16 @@ TCPSendCommand(host, port, command) {
     DllCall("ws2_32\closesocket", "Ptr", socket)
     
     return (bytesSent > 0) ? 1 : 0
+}
+
+WSAStartup() {
+    ; Initialize WinSock 2.2
+    VarSetCapacity(wsaData, 400, 0)
+    result := DllCall("ws2_32\WSAStartup", "UShort", 0x0202, "Ptr", &wsaData, "Int")
+    
+    if (result != 0) {
+        MsgBox, 16, WinSock Error, Failed to initialize WinSock! Error: %result%
+        ExitApp
+    }
 }
 

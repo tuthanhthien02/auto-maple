@@ -120,6 +120,9 @@ SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 ; VM1: 7001, VM2: 7002, VM3: 7003, VM4: 7004, VM5: 7005...
 global TCP_PORT := 7001  ; ← SỬA PORT CHO MỖI VM! (VM1=7001, VM2=7002, ...)
 
+; Initialize WinSock
+WSAStartup()
+
 ; ╔═══════════════════════════════════════════════════════════════════════╗
 ; ║                                                                       ║
 ; ║  ⚙️ ⚙️ ⚙️  TẤT CẢ SETTINGS Ở ĐÂY - DỄ TÌM, DỄ CUSTOM!  ⚙️ ⚙️ ⚙️       ║
@@ -688,5 +691,16 @@ TCPRecv(socket, maxLen) {
 
 TCPClose(socket) {
     DllCall("ws2_32\closesocket", "Ptr", socket)
+}
+
+WSAStartup() {
+    ; Initialize WinSock 2.2
+    VarSetCapacity(wsaData, 400, 0)
+    result := DllCall("ws2_32\WSAStartup", "UShort", 0x0202, "Ptr", &wsaData, "Int")
+    
+    if (result != 0) {
+        MsgBox, 16, WinSock Error, Failed to initialize WinSock! Error: %result%
+        ExitApp
+    }
 }
 
