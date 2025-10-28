@@ -338,6 +338,7 @@ remap["8"] := "1"           ; 8 → 1
 remap["7"] := "2"           ; 7 → 2
 remap["5"] := "4"           ; 5 → 4
 remap["v"] := "6"           ; V → 6
+remap["3"] := "c"           ; 3 → C
 
 ; ⚡ ARROW KEYS (Numpad1/2/3/5 → Left/Down/Right/Up)
 ; → Jitter: Tùy thuộc ArrowKeysUseJitter setting
@@ -704,6 +705,9 @@ LoadSettings() {
     ArrowKeysUseJitter := ArrowKeysUseJitter ? true : false
     UseGaussian := UseGaussian ? true : false
     
+    ; Load remap settings
+    LoadRemapSettings()
+    
     SoundBeep, 1000, 100
     ToolTip, SETTINGS LOADED! (%SettingsFile%), 0, 0
     SetTimer, RemoveLoadTooltip, 2000
@@ -733,6 +737,83 @@ ResetSettings() {
     SoundBeep, 800, 100
     ToolTip, SETTINGS RESET TO DEFAULTS!, 0, 0
     SetTimer, RemoveResetTooltip, 2000
+}
+
+LoadRemapSettings() {
+    global remap, SettingsFile
+    
+    ; Check if settings file exists
+    if (!FileExist(SettingsFile)) {
+        return ; Use default remap if no settings file
+    }
+    
+    ; Load remap settings from [Remap] section
+    IniRead, q_remap, %SettingsFile%, Remap, q, ]
+    IniRead, w_remap, %SettingsFile%, Remap, w, [
+    IniRead, e_remap, %SettingsFile%, Remap, e, p
+    IniRead, r_remap, %SettingsFile%, Remap, r, o
+    IniRead, a_remap, %SettingsFile%, Remap, a, i
+    IniRead, s_remap, %SettingsFile%, Remap, s, u
+    IniRead, d_remap, %SettingsFile%, Remap, d, y
+    IniRead, f_remap, %SettingsFile%, Remap, f, t
+    IniRead, p_remap, %SettingsFile%, Remap, p, =
+    IniRead, i_remap, %SettingsFile%, Remap, i, -
+    IniRead, u_remap, %SettingsFile%, Remap, u, 0
+    IniRead, z_remap, %SettingsFile%, Remap, z, r
+    IniRead, c_remap, %SettingsFile%, Remap, c, e
+    IniRead, k_remap, %SettingsFile%, Remap, k, b
+    IniRead, alt_remap, %SettingsFile%, Remap, Alt, f
+    IniRead, space_remap, %SettingsFile%, Remap, Space, d
+    IniRead, esc_remap, %SettingsFile%, Remap, Escape, `
+    IniRead, f1_remap, %SettingsFile%, Remap, F1, F12
+    IniRead, f2_remap, %SettingsFile%, Remap, F2, F11
+    IniRead, f3_remap, %SettingsFile%, Remap, F3, F10
+    IniRead, f4_remap, %SettingsFile%, Remap, F4, F9
+    IniRead, f9_remap, %SettingsFile%, Remap, F9, F1
+    IniRead, num1_remap, %SettingsFile%, Remap, 1, 9
+    IniRead, num2_remap, %SettingsFile%, Remap, 2, 8
+    IniRead, num8_remap, %SettingsFile%, Remap, 8, 1
+    IniRead, num7_remap, %SettingsFile%, Remap, 7, 2
+    IniRead, num5_remap, %SettingsFile%, Remap, 5, 4
+    IniRead, v_remap, %SettingsFile%, Remap, v, 6
+    IniRead, num3_remap, %SettingsFile%, Remap, 3, c
+    
+    ; Update remap table
+    remap["q"] := q_remap
+    remap["w"] := w_remap
+    remap["e"] := e_remap
+    remap["r"] := r_remap
+    remap["a"] := a_remap
+    remap["s"] := s_remap
+    remap["d"] := d_remap
+    remap["f"] := f_remap
+    remap["p"] := p_remap
+    remap["i"] := i_remap
+    remap["u"] := u_remap
+    remap["z"] := z_remap
+    remap["c"] := c_remap
+    remap["k"] := k_remap
+    remap["Alt"] := alt_remap
+    remap["Space"] := space_remap
+    remap["Escape"] := esc_remap
+    remap["F1"] := f1_remap
+    remap["F2"] := f2_remap
+    remap["F3"] := f3_remap
+    remap["F4"] := f4_remap
+    remap["F9"] := f9_remap
+    remap["1"] := num1_remap
+    remap["2"] := num2_remap
+    remap["8"] := num8_remap
+    remap["7"] := num7_remap
+    remap["5"] := num5_remap
+    remap["v"] := v_remap
+    remap["3"] := num3_remap
+    
+    ; Arrow keys (always the same)
+    remap["Numpad1"] := "Left"
+    remap["Numpad2"] := "Down"
+    remap["Numpad3"] := "Right"
+    remap["Numpad5"] := "Up"
 }
 
 RemoveSaveTooltip:
