@@ -648,6 +648,9 @@ SaveSettings() {
     IniWrite, %MinPauseDuration%, %SettingsFile%, Pause, MinDuration
     IniWrite, %MaxPauseDuration%, %SettingsFile%, Pause, MaxDuration
     
+    ; Save remap settings
+    SaveRemapSettings()
+    
     SoundBeep, 1200, 100
     ToolTip, SETTINGS SAVED! (%SettingsFile%), 0, 0
     SetTimer, RemoveSaveTooltip, 2000
@@ -719,6 +722,9 @@ ResetSettings() {
     MaxPauseInterval := 600000
     MinPauseDuration := 2000
     MaxPauseDuration := 5000
+    
+    ; Reset remap to defaults
+    LoadDefaultRemap()
     
     SoundBeep, 800, 100
     ToolTip, SETTINGS RESET TO DEFAULTS!, 0, 0
@@ -834,6 +840,22 @@ LoadDefaultRemap() {
     remap["Numpad2"] := "Down"
     remap["Numpad3"] := "Right"
     remap["Numpad5"] := "Up"
+}
+
+SaveRemapSettings() {
+    global remap, SettingsFile
+    
+    ; Save all remap settings
+    for key, value in remap
+    {
+        ; Skip arrow keys (they're always the same)
+        if (key = "Numpad1" || key = "Numpad2" || key = "Numpad3" || key = "Numpad5") {
+            continue
+        }
+        
+        ; Write key=value pair
+        IniWrite, %value%, %SettingsFile%, Remap, %key%
+    }
 }
 
 RemoveSaveTooltip:
