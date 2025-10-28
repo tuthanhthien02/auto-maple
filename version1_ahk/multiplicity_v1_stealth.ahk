@@ -683,7 +683,7 @@ LoadSettings() {
     ; Load settings
     IniRead, ScriptEnabled, %SettingsFile%, Script, Enabled, 1
     IniRead, remapEnabled, %SettingsFile%, Script, RemapEnabled, 1
-    IniRead, DISABLE_DESYNC, %SettingsFile%, Desync, Disabled, 0
+    IniRead, DISABLE_DESYNC, %SettingsFile%, Desync, Disabled, 1
     IniRead, MinDesync, %SettingsFile%, Desync, MinDelay, 50
     IniRead, MaxDesync, %SettingsFile%, Desync, MaxDelay, 150
     IniRead, DISABLE_JITTER, %SettingsFile%, Jitter, Disabled, 0
