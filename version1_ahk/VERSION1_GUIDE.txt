@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════════════
+  🎯 HƯỚNG DẪN CUSTOM SIÊU DỄ - CHO NGƯỜI KHÔNG BIẾT CODE
+═══════════════════════════════════════════════════════════════════════
+
+✅ FILE: multiplicity_jitter_DESYNC_EASY_CUSTOM.ahk
+✅ COMPILE: compile_EASY_CUSTOM_obfuscate.bat
+✅ OUTPUT: SystemAudioService.exe
+
+═══════════════════════════════════════════════════════════════════════
+📋 SETTING MẶC ĐỊNH (Đã tối ưu sẵn - Chạy ngay được!)
+═══════════════════════════════════════════════════════════════════════
+
+✅ Mức độ training: TRUNG BÌNH (0-500ms desync) - 4-6 giờ/ngày
+✅ Behavioral pause: VỪA PHẢI (3-5 phút/lần, pause 0.8-2.5s)
+✅ Arrow keys jitter: TẮT (0ms delay - Movement mượt!)
+✅ Key remap: MapleStory (Q/W/E/R→A/S/D/F, Numpad→Arrow)
+✅ Hotkey: Ctrl+Alt+T (toggle on/off)
+
+═══════════════════════════════════════════════════════════════════════
+🎯 MUỐN CUSTOM? (3 BƯỚC - CỰC DỄ!)
+═══════════════════════════════════════════════════════════════════════
+
+BƯỚC 1: Mở file multiplicity_jitter_DESYNC_EASY_CUSTOM.ahk
+BƯỚC 2: Chọn setting muốn đổi (xem bên dưới)
+BƯỚC 3: Lưu (Ctrl+S) → Compile lại → Xong!
+
+═══════════════════════════════════════════════════════════════════════
+⚙️ CÁC SETTING CÓ THỂ CUSTOM
+═══════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1️⃣ MỨC ĐỘ TRAINING (Line 84-108)                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+📍 TÌM: Kéo xuống dòng 84 "PHẦN 1: MỨC ĐỘ TRAINING"
+
+🔧 CÁCH ĐỔI:
+   • THÊM ; vào 2 dòng mức hiện tại (MinDesync, MaxDesync)
+   • BỎ ; ở 2 dòng mức muốn dùng
+
+📝 VÍ DỤ: Đổi từ MỨC TRUNG BÌNH → MỨC NẶNG
+   TRƯỚC:
+      global MinDesync := 0
+      global MaxDesync := 500
+      ; global MinDesync := 100
+      ; global MaxDesync := 800
+   
+   SAU:
+      ; global MinDesync := 0
+      ; global MaxDesync := 500
+      global MinDesync := 100
+      global MaxDesync := 800
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ 2️⃣ ARROW KEYS JITTER (Line 149-193) - TẮT/BẬT JITTER CHO DI CHUYỂN │
+└─────────────────────────────────────────────────────────────────────┘
+
+📍 TÌM: Kéo xuống dòng 149 "PHẦN 1.5: ARROW KEYS JITTER"
+
+🔧 CÁCH ĐỔI:
+   • THÊM ; vào dòng Option hiện tại
+   • BỎ ; ở dòng Option muốn dùng
+
+📝 VÍ DỤ: Đổi từ KHÔNG JITTER (mượt) → CÓ JITTER (anti-detect)
+   TRƯỚC:
+      global ArrowKeysUseJitter := false
+      ; global ArrowKeysUseJitter := true
+   
+   SAU:
+      ; global ArrowKeysUseJitter := false
+      global ArrowKeysUseJitter := true
+
+📊 SO SÁNH:
+   • false: Movement mượt (0ms delay) - KHUYẾN NGHỊ!
+   • true:  Anti-detect tốt hơn (30-580ms delay, nhưng giật!)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ 3️⃣ TEMPLATE GAME (Line 195-268) - CHỌN KEY REMAP                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+📍 TÌM: Kéo xuống dòng 195 "PHẦN 2: KEY REMAP"
+
+🔧 CÁCH ĐỔI:
+   • THÊM ; vào TẤT CẢ dòng remap["..."] của template cũ
+   • BỎ ; ở TẤT CẢ dòng remap["..."] của template mới
+
+📝 VÍ DỤ: Đổi từ TEMPLATE 1 → TEMPLATE 2 (Không remap)
+   TRƯỚC (Template 1 active):
+      remap["q"] := "a"
+      remap["w"] := "s"
+      ; remap["q"] := "q"
+      ; remap["w"] := "w"
+   
+   SAU (Template 2 active):
+      ; remap["q"] := "a"
+      ; remap["w"] := "s"
+      remap["q"] := "q"
+      remap["w"] := "w"
+
+📋 CÁC TEMPLATE CÓ SẴN:
+   • Template 1: MapleStory (Q→A, W→S, Numpad→Arrow) ⭐
+   • Template 2: Không remap (Chỉ desync+jitter)
+   • Template 3: Custom (Tự viết)
+
+═══════════════════════════════════════════════════════════════════════
+⌨️ HOTKEYS (Khi script đang chạy)
+═══════════════════════════════════════════════════════════════════════
+
+🔸 Ctrl+Alt+T: Toggle On/Off
+   → Bật: Beep cao (1000Hz)
+   → Tắt: Beep thấp (500Hz)
+
+═══════════════════════════════════════════════════════════════════════
+❓ TROUBLESHOOTING (Gặp vấn đề?)
+═══════════════════════════════════════════════════════════════════════
+
+❌ Arrow keys không di chuyển trong game
+   ✅ Dùng NUMPAD (1/2/3/5) thay vì arrow keys
+
+❌ Di chuyển bị giật
+   ✅ ArrowKeysUseJitter đang = true, đổi sang false
+
+❌ Phím không hoạt động sau khi custom
+   ✅ Kiểm tra:
+      → Có thêm ; vào template cũ chưa?
+      → Có bỏ ; ở ĐÚNG chỗ chưa?
+      → Đã compile lại chưa?
+
+❌ Compile bị lỗi
+   ✅ Kiểm tra:
+      → Có XÓA dòng "global remap := {}" không? (KHÔNG XÓA!)
+      → Có sửa code ở phần "KHÔNG NÊN THAY ĐỔI" không?
+      → Thử Ctrl+Z và làm lại
+
+❌ Không biết script có đang chạy không
+   ✅ Nhấn Ctrl+Alt+T → Nghe beep → Đang chạy!
+
+═══════════════════════════════════════════════════════════════════════
+📞 LƯU Ý QUAN TRỌNG
+═══════════════════════════════════════════════════════════════════════
+
+⚠️ KHÔNG sửa code ở phần "KHÔNG NÊN THAY ĐỔI"!
+⚠️ KHÔNG xóa dòng "global remap := {}"!
+⚠️ Luôn COMPILE LẠI sau khi custom!
+⚠️ Test trên 1 VM trước khi dùng nhiều VM!
+
+✅ Chỉ cần sửa ở 3 phần: PHẦN 1, PHẦN 1.5, PHẦN 2
+✅ Mọi thứ đều có hướng dẫn trong file .ahk
+✅ Mặc định đã tối ưu sẵn, chạy ngay được!
+
+═══════════════════════════════════════════════════════════════════════
+
