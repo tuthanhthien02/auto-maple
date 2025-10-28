@@ -531,7 +531,7 @@ Return
     
     SoundBeep, 600, 50
     ToolTip, %statusMsg%, 0, 0
-    SetTimer, RemoveStatusTooltip, 5000
+    SetTimer, RemoveStatusTooltip, 20000
 Return
 
 RemoveStatusTooltip:
