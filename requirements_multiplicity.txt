@@ -1,9 +1,0 @@
-# Multiplicity Python Version - Requirements
-# Install: pip install -r requirements_multiplicity.txt
-
-pynput>=1.7.6          # Keyboard listener (Master)
-keyboard>=0.13.5       # Alternative keyboard library
-pyautogui>=0.9.54     # GUI automation (backup)
-psutil>=5.9.0         # Process monitoring
-colorama>=0.4.6       # Colored console output
-
