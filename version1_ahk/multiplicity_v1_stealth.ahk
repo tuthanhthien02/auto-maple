@@ -117,6 +117,7 @@
 #SingleInstance Force
 #NoTrayIcon  ; ← STEALTH: Không hiện tray icon!
 #Persistent  ; ← STEALTH: Script chạy ngầm mãi mãi
+#NoTrayIcon  ; ← DOUBLE STEALTH: Đảm bảo không có tray icon!
 SetBatchLines, -1
 Process, Priority,, High
 SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
@@ -362,16 +363,16 @@ remap["Numpad5"] := "Up"     ; Numpad5 → Up
 ; ═══════════════════════════════════════════════════════════════════════
 
 ; ━━━ STARTUP CONFIRMATION ━━━
-; Beep + Tooltip để confirm script đã start
-SoundBeep, 800, 100
-ToolTip, STEALTH SCRIPT STARTED`nCtrl+Alt+S = Status`nCtrl+Alt+Q = Exit, 0, 0
-SetTimer, RemoveStartupTooltip, 1500
-Return
+; STEALTH MODE: No beep, no tooltip - completely silent!
+; SoundBeep, 800, 100
+; ToolTip, STEALTH SCRIPT STARTED`nCtrl+Alt+S = Status`nCtrl+Alt+Q = Exit, 0, 0
+; SetTimer, RemoveStartupTooltip, 1500
+; Return
 
-RemoveStartupTooltip:
-    ToolTip
-    SetTimer, RemoveStartupTooltip, Off
-Return
+; RemoveStartupTooltip:
+;     ToolTip
+;     SetTimer, RemoveStartupTooltip, Off
+; Return
 
 ; ━━━ REWRITE: Tạo hotkeys DOWN và UP riêng biệt! ━━━
 ; Tự động tạo hotkeys DOWN và UP cho mỗi key
