@@ -526,7 +526,7 @@ Return
     statusMsg .= "Ctrl+Alt+D = Toggle Desync ON/OFF`n"
     statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
     statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
-    statusMsg .= "Ctrl+Shift+V = Toggle Key Remapping`n"
+    statusMsg .= "Ctrl+Shift+G = Toggle Key Remapping`n"
     statusMsg .= "Ctrl+Alt+Q = Exit script"
     
     SoundBeep, 600, 50
@@ -602,8 +602,8 @@ RemoveArrowTooltip:
     SetTimer, RemoveArrowTooltip, Off
 Return
 
-; ━━━ Ctrl+Shift+V - Toggle Key Remapping ON/OFF ━━━
-^+v::
+; ━━━ Ctrl+Shift+G - Toggle Key Remapping ON/OFF ━━━
+^+g::
     global remapEnabled
     remapEnabled := !remapEnabled
     

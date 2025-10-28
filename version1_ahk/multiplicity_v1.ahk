@@ -43,12 +43,12 @@
 ; ║                                                                       ║
 ; ║  🚀 CHẠY NGAY - KHÔNG CẦN CUSTOM! ⚡                                   ║
 ; ║                                                                       ║
+; ║  Xong! Test file .exe luôn                                            ║
 ; ║  ✅ ĐÃ CÓ SETTING MẶC ĐỊNH TỐI ƯU SẴN!                                ║
 ; ║                                                                       ║
 ; ║  Chỉ cần chạy: compile_EASY_CUSTOM_obfuscate.bat                     ║
-; ║  Xong! Test file .exe luôn                                            ║
-; ║                                                                       ║
 ; ╚═══════════════════════════════════════════════════════════════════════╝
+; ║                                                                       ║
 ;
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ 📋 TÓM TẮT SETTING MẶC ĐỊNH (Đang dùng gì?) ⭐                       │
@@ -516,7 +516,7 @@ Return
     statusMsg .= "Ctrl+Alt+D = Toggle Desync ON/OFF`n"
     statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
     statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
-    statusMsg .= "Ctrl+Shift+V = Toggle Key Remapping`n"
+    statusMsg .= "Ctrl+Shift+G = Toggle Key Remapping`n"
     
     SoundBeep, 600, 50
     ToolTip, %statusMsg%, 0, 0
@@ -591,8 +591,8 @@ RemoveArrowTooltip:
     SetTimer, RemoveArrowTooltip, Off
 Return
 
-; ━━━ Ctrl+Shift+V - Toggle Key Remapping ON/OFF ━━━
-^+v::
+; ━━━ Ctrl+Shift+G - Toggle Key Remapping ON/OFF ━━━
+^+g::
     global remapEnabled
     remapEnabled := !remapEnabled
     
