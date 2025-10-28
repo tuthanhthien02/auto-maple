@@ -231,6 +231,11 @@ global ScriptEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Toggle control)
 global remapEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Remap control)
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+; ┃ SETTINGS FILE PATH                                              ┃
+; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+global SettingsFile := A_ScriptDir . "\settings.ini"
+
+; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 2️⃣ ARROW KEYS JITTER (Movement mượt hay giật?)                     ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ; ⚡ SETTING MẶC ĐỊNH: BẬT JITTER (0-500ms delay - Anti-detect)
@@ -517,6 +522,9 @@ Return
     statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
     statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
     statusMsg .= "Ctrl+Shift+G = Toggle Key Remapping`n"
+    statusMsg .= "Ctrl+Alt+W = Save Settings`n"
+    statusMsg .= "Ctrl+Alt+L = Load Settings`n"
+    statusMsg .= "Ctrl+Alt+R = Reset Settings`n"
     
     SoundBeep, 600, 50
     ToolTip, %statusMsg%, 0, 0
@@ -610,6 +618,136 @@ Return
 RemoveRemapTooltip:
     ToolTip
     SetTimer, RemoveRemapTooltip, Off
+Return
+
+; ━━━ SETTINGS FUNCTIONS ━━━
+SaveSettings() {
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
+    global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
+    global SettingsFile
+    
+    ; Create settings file
+    FileDelete, %SettingsFile%
+    
+    ; Write settings
+    IniWrite, %ScriptEnabled%, %SettingsFile%, Script, Enabled
+    IniWrite, %remapEnabled%, %SettingsFile%, Script, RemapEnabled
+    IniWrite, %DISABLE_DESYNC%, %SettingsFile%, Desync, Disabled
+    IniWrite, %MinDesync%, %SettingsFile%, Desync, MinDelay
+    IniWrite, %MaxDesync%, %SettingsFile%, Desync, MaxDelay
+    IniWrite, %DISABLE_JITTER%, %SettingsFile%, Jitter, Disabled
+    IniWrite, %MinJitter%, %SettingsFile%, Jitter, MinDelay
+    IniWrite, %MaxJitter%, %SettingsFile%, Jitter, MaxDelay
+    IniWrite, %ArrowKeysUseJitter%, %SettingsFile%, ArrowKeys, UseJitter
+    IniWrite, %UseGaussian%, %SettingsFile%, Jitter, UseGaussian
+    IniWrite, %MinPauseInterval%, %SettingsFile%, Pause, MinInterval
+    IniWrite, %MaxPauseInterval%, %SettingsFile%, Pause, MaxInterval
+    IniWrite, %MinPauseDuration%, %SettingsFile%, Pause, MinDuration
+    IniWrite, %MaxPauseDuration%, %SettingsFile%, Pause, MaxDuration
+    
+    SoundBeep, 1200, 100
+    ToolTip, SETTINGS SAVED! (%SettingsFile%), 0, 0
+    SetTimer, RemoveSaveTooltip, 2000
+}
+
+LoadSettings() {
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
+    global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
+    global SettingsFile
+    
+    ; Check if settings file exists
+    if (!FileExist(SettingsFile)) {
+        SoundBeep, 800, 100
+        ToolTip, NO SETTINGS FILE FOUND! Using defaults., 0, 0
+        SetTimer, RemoveLoadTooltip, 2000
+        return
+    }
+    
+    ; Load settings
+    IniRead, ScriptEnabled, %SettingsFile%, Script, Enabled, 1
+    IniRead, remapEnabled, %SettingsFile%, Script, RemapEnabled, 1
+    IniRead, DISABLE_DESYNC, %SettingsFile%, Desync, Disabled, 0
+    IniRead, MinDesync, %SettingsFile%, Desync, MinDelay, 50
+    IniRead, MaxDesync, %SettingsFile%, Desync, MaxDelay, 150
+    IniRead, DISABLE_JITTER, %SettingsFile%, Jitter, Disabled, 0
+    IniRead, MinJitter, %SettingsFile%, Jitter, MinDelay, 10
+    IniRead, MaxJitter, %SettingsFile%, Jitter, MaxDelay, 50
+    IniRead, ArrowKeysUseJitter, %SettingsFile%, ArrowKeys, UseJitter, 1
+    IniRead, UseGaussian, %SettingsFile%, Jitter, UseGaussian, 0
+    IniRead, MinPauseInterval, %SettingsFile%, Pause, MinInterval, 300000
+    IniRead, MaxPauseInterval, %SettingsFile%, Pause, MaxInterval, 600000
+    IniRead, MinPauseDuration, %SettingsFile%, Pause, MinDuration, 2000
+    IniRead, MaxPauseDuration, %SettingsFile%, Pause, MaxDuration, 5000
+    
+    ; Convert string to number
+    ScriptEnabled := ScriptEnabled ? true : false
+    remapEnabled := remapEnabled ? true : false
+    DISABLE_DESYNC := DISABLE_DESYNC ? true : false
+    DISABLE_JITTER := DISABLE_JITTER ? true : false
+    ArrowKeysUseJitter := ArrowKeysUseJitter ? true : false
+    UseGaussian := UseGaussian ? true : false
+    
+    SoundBeep, 1000, 100
+    ToolTip, SETTINGS LOADED! (%SettingsFile%), 0, 0
+    SetTimer, RemoveLoadTooltip, 2000
+}
+
+ResetSettings() {
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
+    global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
+    
+    ; Reset to defaults
+    ScriptEnabled := true
+    remapEnabled := true
+    DISABLE_DESYNC := false
+    DISABLE_JITTER := false
+    ArrowKeysUseJitter := true
+    UseGaussian := false
+    MinDesync := 50
+    MaxDesync := 150
+    MinJitter := 10
+    MaxJitter := 50
+    MinPauseInterval := 300000
+    MaxPauseInterval := 600000
+    MinPauseDuration := 2000
+    MaxPauseDuration := 5000
+    
+    SoundBeep, 800, 100
+    ToolTip, SETTINGS RESET TO DEFAULTS!, 0, 0
+    SetTimer, RemoveResetTooltip, 2000
+}
+
+RemoveSaveTooltip:
+    ToolTip
+    SetTimer, RemoveSaveTooltip, Off
+Return
+
+RemoveLoadTooltip:
+    ToolTip
+    SetTimer, RemoveLoadTooltip, Off
+Return
+
+RemoveResetTooltip:
+    ToolTip
+    SetTimer, RemoveResetTooltip, Off
+Return
+
+; ━━━ Ctrl+Alt+W - Save Settings ━━━
+^!w::
+    SaveSettings()
+Return
+
+; ━━━ Ctrl+Alt+L - Load Settings ━━━
+^!l::
+    LoadSettings()
+Return
+
+; ━━━ Ctrl+Alt+R - Reset Settings ━━━
+^!r::
+    ResetSettings()
 Return
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -750,4 +888,7 @@ ScheduleNextPause() {
     Random, interval, %MinPauseInterval%, %MaxPauseInterval%
     NextPauseTime := A_TickCount + interval
 }
+
+; ━━━ AUTO-LOAD SETTINGS ON STARTUP ━━━
+LoadSettings()
 
