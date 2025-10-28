@@ -54,7 +54,7 @@ if exist "%OBFUSCATED_NAME%" (
 )
 
 REM Use MOVE instead of REN for more reliable operation
-move /Y "multiplicity_jitter_DESYNC_EASY_CUSTOM.exe" "%OBFUSCATED_NAME%" >nul 2>&1
+move /Y "multiplicity_v1.exe" "%OBFUSCATED_NAME%" >nul 2>&1
 
 REM Wait a moment for file system
 timeout /t 1 /nobreak >nul 2>&1

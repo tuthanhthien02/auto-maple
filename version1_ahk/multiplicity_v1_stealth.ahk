@@ -414,9 +414,11 @@ RemoveToggleTooltip:
     SetTimer, RemoveToggleTooltip, Off
 Return
 
-; ━━━ Ctrl+Alt+S - Check status (NEW!) ━━━
+; ━━━ Ctrl+Alt+S - Check status (ENHANCED!) ━━━
 ^!s::
-    global ScriptEnabled, IsPaused, NextPauseTime
+    global ScriptEnabled, IsPaused, NextPauseTime, MinDesync, MaxDesync, DISABLE_DESYNC
+    global DISABLE_JITTER, MinJitter, MaxJitter, ArrowKeysUseJitter
+    global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
     
     ; Tính thời gian còn lại đến lần pause kế tiếp
     remainingMs := NextPauseTime - A_TickCount
@@ -430,6 +432,7 @@ Return
     ; Xây dựng status message
     statusMsg := "=== STEALTH SCRIPT STATUS ===`n`n"
     
+    ; === SCRIPT STATE ===
     if (ScriptEnabled) {
         statusMsg .= "State: ENABLED`n"
     } else {
@@ -443,17 +446,121 @@ Return
     }
     
     statusMsg .= "Next pause: " . remainingMin . "m " . remainingSec . "s`n`n"
+    
+    ; === DESYNC SETTINGS ===
+    statusMsg .= "=== DESYNC SETTINGS ===`n"
+    if (DISABLE_DESYNC) {
+        statusMsg .= "Desync: OFF (Test mode)`n"
+    } else {
+        statusMsg .= "Desync: ON (" . MinDesync . "-" . MaxDesync . "ms)`n"
+    }
+    
+    ; === JITTER SETTINGS ===
+    statusMsg .= "Jitter: "
+    if (DISABLE_JITTER) {
+        statusMsg .= "OFF (Test mode)`n"
+    } else {
+        statusMsg .= "ON (" . MinJitter . "-" . MaxJitter . "ms)`n"
+    }
+    
+    ; === ARROW KEYS SETTINGS ===
+    statusMsg .= "Arrow Keys: "
+    if (ArrowKeysUseJitter) {
+        statusMsg .= "JITTER ENABLED`n"
+    } else {
+        statusMsg .= "INSTANT (0ms)`n"
+    }
+    
+    ; === BEHAVIORAL PAUSE SETTINGS ===
+    pauseIntervalMin := Floor(MinPauseInterval / 1000 / 60)
+    pauseIntervalMax := Floor(MaxPauseInterval / 1000 / 60)
+    pauseDurationMin := Floor(MinPauseDuration / 1000 * 10) / 10
+    pauseDurationMax := Floor(MaxPauseDuration / 1000 * 10) / 10
+    
+    statusMsg .= "`n=== BEHAVIORAL PAUSE ===`n"
+    statusMsg .= "Interval: " . pauseIntervalMin . "-" . pauseIntervalMax . " minutes`n"
+    statusMsg .= "Duration: " . pauseDurationMin . "-" . pauseDurationMax . " seconds`n"
+    
+    ; === HOTKEYS ===
+    statusMsg .= "`n=== HOTKEYS ===`n"
     statusMsg .= "Ctrl+Alt+T = Toggle ON/OFF`n"
+    statusMsg .= "Ctrl+Alt+S = Show this status`n"
+    statusMsg .= "Ctrl+Alt+D = Toggle Desync ON/OFF`n"
+    statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
+    statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
     statusMsg .= "Ctrl+Alt+Q = Exit script"
     
     SoundBeep, 600, 50
     ToolTip, %statusMsg%, 0, 0
-    SetTimer, RemoveStatusTooltip, 3000
+    SetTimer, RemoveStatusTooltip, 5000
 Return
 
 RemoveStatusTooltip:
     ToolTip
     SetTimer, RemoveStatusTooltip, Off
+Return
+
+; ━━━ Ctrl+Alt+D - Toggle Desync ON/OFF ━━━
+^!d::
+    global DISABLE_DESYNC
+    DISABLE_DESYNC := !DISABLE_DESYNC
+    
+    if (DISABLE_DESYNC) {
+        SoundBeep, 800, 100
+        ToolTip, DESYNC: OFF (Test mode), 0, 0
+    } else {
+        SoundBeep, 1200, 100
+        ToolTip, DESYNC: ON (Anti-detect mode), 0, 0
+    }
+    
+    SetTimer, RemoveDesyncTooltip, 2000
+Return
+
+RemoveDesyncTooltip:
+    ToolTip
+    SetTimer, RemoveDesyncTooltip, Off
+Return
+
+; ━━━ Ctrl+Alt+J - Toggle Jitter ON/OFF ━━━
+^!j::
+    global DISABLE_JITTER
+    DISABLE_JITTER := !DISABLE_JITTER
+    
+    if (DISABLE_JITTER) {
+        SoundBeep, 800, 100
+        ToolTip, JITTER: OFF (Test mode), 0, 0
+    } else {
+        SoundBeep, 1200, 100
+        ToolTip, JITTER: ON (Anti-detect mode), 0, 0
+    }
+    
+    SetTimer, RemoveJitterTooltip, 2000
+Return
+
+RemoveJitterTooltip:
+    ToolTip
+    SetTimer, RemoveJitterTooltip, Off
+Return
+
+; ━━━ Ctrl+Alt+A - Toggle Arrow Keys Jitter ON/OFF ━━━
+^!a::
+    global ArrowKeysUseJitter
+    ArrowKeysUseJitter := !ArrowKeysUseJitter
+    
+    if (ArrowKeysUseJitter) {
+        SoundBeep, 1200, 100
+        ToolTip, ARROW KEYS: JITTER ENABLED (Anti-detect), 0, 0
+    } else {
+        SoundBeep, 800, 100
+        ToolTip, ARROW KEYS: INSTANT (0ms - Smooth movement), 0, 0
+    }
+    
+    SetTimer, RemoveArrowTooltip, 2000
+Return
+
+RemoveArrowTooltip:
+    ToolTip
+    SetTimer, RemoveArrowTooltip, Off
 Return
 
 ; ━━━ Ctrl+Alt+Q - Exit script (NEW!) ━━━
