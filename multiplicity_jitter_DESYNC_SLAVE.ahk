@@ -359,6 +359,10 @@ TCPAcceptConnections:
         command := TCPRecv(clientSocket, 1024)
         
         if (command) {
+            ; DEBUG: Show received command
+            ToolTip, [SLAVE] Received: %command%, 10, 50
+            SetTimer, RemoveDebugTooltip, 2000
+            
             ; Parse command: "KEYDOWN:q" or "KEYUP:q"
             parts := StrSplit(command, ":")
             action := parts[1]
@@ -670,7 +674,16 @@ TCPAccept(serverSocket) {
     
     clientSocket := DllCall("ws2_32\accept", "Ptr", serverSocket, "Ptr", &sockaddr, "Int*", addrLen, "Ptr")
     
-    if (clientSocket = -1 || clientSocket = 0) {
+    ; Check for WSAEWOULDBLOCK (10035) - non-blocking socket, no connection available
+    if (clientSocket = -1) {
+        lastError := DllCall("ws2_32\WSAGetLastError", "Int")
+        if (lastError = 10035) {
+            return 0  ; No connection, try again later
+        }
+        return 0  ; Other error
+    }
+    
+    if (clientSocket = 0) {
         return 0
     }
     

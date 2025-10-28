@@ -444,7 +444,15 @@ BroadcastKey(key) {
             
             if (port) {
                 ; Send KEYDOWN command
-                result := TCPSendCommand(VM_HOST, port, "KEYDOWN:" . key)
+                command := "KEYDOWN:" . key
+                result := TCPSendCommand(VM_HOST, port, command)
+                
+                ; DEBUG: Show send status
+                if (showDebugTooltip) {
+                    status := result ? "✅ OK" : "❌ FAIL"
+                    ToolTip, [MASTER] Sent to port %port%: %command% - %status%, 10, 10
+                    SetTimer, RemoveDebugTooltip, 2000
+                }
                 
                 if (result) {
                     successCount++
@@ -976,6 +984,11 @@ if (foundVMs = totalVMs) {
 } else {
     SoundBeep, 400, 300
 }
+
+RemoveDebugTooltip:
+    ToolTip
+    SetTimer, RemoveDebugTooltip, Off
+Return
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ; 🌐 TCP CLIENT HELPER FUNCTIONS
