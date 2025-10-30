@@ -6,7 +6,8 @@ import win32con
 import win32api
 from src.common import utils
 from ctypes import wintypes
-from random import random
+from random import random, gauss, uniform, choice
+import math
 
 
 user32 = ctypes.WinDLL('user32', use_last_error=True)
@@ -210,6 +211,7 @@ def key_up(key):
 def press(key, n, down_time=0.05, up_time=0.1):
     """
     Presses KEY N times, holding it for DOWN_TIME seconds, and releasing for UP_TIME seconds.
+    Enhanced with advanced anti-detect timing randomization.
     :param key:         The keyboard input to press.
     :param n:           Number of times to press KEY.
     :param down_time:   Duration of down-press (in seconds).
@@ -217,17 +219,27 @@ def press(key, n, down_time=0.05, up_time=0.1):
     :return:            None
     """
 
-    for _ in range(n):
+    for i in range(n):
+        # Advanced timing randomization
+        down_delay = _get_human_like_delay(down_time, 'down')
+        up_delay = _get_human_like_delay(up_time, 'up')
+        
         key_down(key)
-        time.sleep(down_time * (0.8 + 0.4 * random()))
+        time.sleep(down_delay)
         key_up(key)
-        time.sleep(up_time * (0.8 + 0.4 * random()))
+        time.sleep(up_delay)
+        
+        # Add micro-pauses between rapid key presses
+        if i < n - 1 and n > 1:
+            micro_pause = _get_micro_pause()
+            time.sleep(micro_pause)
 
 
 @utils.run_if_enabled
 def click(position, button='left'):
     """
     Simulate a mouse click with BUTTON at POSITION.
+    Enhanced with anti-detect features for more human-like behavior.
     :param position:    The (x, y) position at which to click.
     :param button:      Either the left or right mouse button.
     :return:            None
@@ -236,12 +248,195 @@ def click(position, button='left'):
     if button not in ['left', 'right']:
         print(f"'{button}' is not a valid mouse button.")
     else:
+        # Add slight position randomization for more human-like clicks
+        jitter_x = uniform(-1, 1)
+        jitter_y = uniform(-1, 1)
+        jittered_position = (position[0] + jitter_x, position[1] + jitter_y)
+        
         if button == 'left':
             down_event = win32con.MOUSEEVENTF_LEFTDOWN
             up_event = win32con.MOUSEEVENTF_LEFTUP
         else:
             down_event = win32con.MOUSEEVENTF_RIGHTDOWN
             up_event = win32con.MOUSEEVENTF_RIGHTUP
-        win32api.SetCursorPos(position)
-        win32api.mouse_event(down_event, position[0], position[1], 0, 0)
-        win32api.mouse_event(up_event, position[0], position[1], 0, 0)
+        
+        # Move cursor with slight delay
+        win32api.SetCursorPos(jittered_position)
+        time.sleep(_get_human_like_delay(0.01, 'micro'))
+        
+        # Click down
+        win32api.mouse_event(down_event, jittered_position[0], jittered_position[1], 0, 0)
+        
+        # Hold duration with randomization
+        hold_duration = _get_human_like_delay(0.05, 'down')
+        time.sleep(hold_duration)
+        
+        # Click up
+        win32api.mouse_event(up_event, jittered_position[0], jittered_position[1], 0, 0)
+        
+        # Post-click delay
+        post_click_delay = _get_human_like_delay(0.02, 'up')
+        time.sleep(post_click_delay)
+
+
+#################################
+#    Anti-Detect Functions     #
+#################################
+
+def _get_human_like_delay(base_time, delay_type='down'):
+    """
+    Generates human-like delays using Gaussian distribution with realistic variance.
+    :param base_time:   Base delay time in seconds
+    :param delay_type:  Type of delay ('down', 'up', 'micro')
+    :return:            Randomized delay time
+    """
+    
+    # Different variance for different delay types
+    variance_multipliers = {
+        'down': 0.15,    # 15% variance for key down
+        'up': 0.20,      # 20% variance for key up
+        'micro': 0.30    # 30% variance for micro pauses
+    }
+    
+    variance = base_time * variance_multipliers.get(delay_type, 0.15)
+    
+    # Use Gaussian distribution for more natural timing
+    randomized_time = gauss(base_time, variance)
+    
+    # Ensure minimum and maximum bounds
+    min_time = base_time * 0.3
+    max_time = base_time * 2.0
+    
+    return max(min_time, min(randomized_time, max_time))
+
+
+def _get_micro_pause():
+    """
+    Generates micro-pauses between rapid key presses to simulate human behavior.
+    :return:    Micro-pause duration in seconds
+    """
+    
+    # Micro-pause ranges (in seconds)
+    micro_pauses = [0.001, 0.002, 0.003, 0.005, 0.008, 0.012, 0.018, 0.025]
+    
+    # Weighted selection (shorter pauses more common)
+    # weights = [0.25, 0.20, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04]
+    
+    return choice(micro_pauses)
+
+
+def _get_behavioral_pause():
+    """
+    Generates longer behavioral pauses to simulate human thinking/hesitation.
+    :return:    Behavioral pause duration in seconds
+    """
+    
+    # Behavioral pause ranges (in seconds)
+    behavioral_pauses = [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 1.8, 2.5]
+    
+    # Weighted selection (shorter pauses more common)
+    # weights = [0.30, 0.25, 0.20, 0.15, 0.05, 0.03, 0.01, 0.01]
+    
+    return choice(behavioral_pauses)
+
+
+def _should_add_behavioral_pause():
+    """
+    Determines if a behavioral pause should be added based on probability.
+    :return:    True if pause should be added
+    """
+    
+    # 5% chance of adding behavioral pause
+    return random() < 0.05
+
+
+def _get_input_pattern_variation():
+    """
+    Generates input pattern variations to avoid detection.
+    :return:    Variation factor (0.8 to 1.2)
+    """
+    
+    # Slight variation in input patterns
+    return uniform(0.8, 1.2)
+
+
+def press_with_behavioral_pause(key, n, down_time=0.05, up_time=0.1):
+    """
+    Enhanced press function with pattern variation (behavioral pause DISABLED).
+    :param key:         The keyboard input to press.
+    :param n:           Number of times to press KEY.
+    :param down_time:   Duration of down-press (in seconds).
+    :param up_time:     Duration of release (in seconds).
+    :return:            None
+    """
+    
+    for i in range(n):
+        # Behavioral pause DISABLED - removed for better performance
+        
+        # Apply input pattern variation
+        variation = _get_input_pattern_variation()
+        adjusted_down_time = down_time * variation
+        adjusted_up_time = up_time * variation
+        
+        # Advanced timing randomization
+        down_delay = _get_human_like_delay(adjusted_down_time, 'down')
+        up_delay = _get_human_like_delay(adjusted_up_time, 'up')
+        
+        key_down(key)
+        time.sleep(down_delay)
+        key_up(key)
+        time.sleep(up_delay)
+        
+        # Add micro-pauses between rapid key presses
+        if i < n - 1 and n > 1:
+            micro_pause = _get_micro_pause()
+            time.sleep(micro_pause)
+
+
+def press_sequence_with_variation(keys, delays=None):
+    """
+    Presses a sequence of keys with human-like variations.
+    :param keys:        List of keys to press in sequence
+    :param delays:      Optional list of delays between keys
+    :return:            None
+    """
+    
+    if delays is None:
+        delays = [_get_human_like_delay(0.1, 'micro') for _ in range(len(keys) - 1)]
+    
+    for i, key in enumerate(keys):
+        # Press key with variation
+        press_with_behavioral_pause(key, 1)
+        
+        # Add delay between keys
+        if i < len(keys) - 1:
+            delay = delays[i] if i < len(delays) else _get_human_like_delay(0.1, 'micro')
+            time.sleep(delay)
+
+
+def simulate_human_typing(text, base_delay=0.1):
+    """
+    Simulates human typing with realistic timing variations.
+    :param text:        Text to type
+    :param base_delay:  Base delay between keystrokes
+    :return:            None
+    """
+    
+    for char in text:
+        if char == ' ':
+            press_with_behavioral_pause('space', 1)
+        elif char.isupper():
+            # Simulate shift + key
+            key_down('shift')
+            time.sleep(_get_human_like_delay(0.01, 'micro'))
+            key_down(char.lower())
+            time.sleep(_get_human_like_delay(0.05, 'down'))
+            key_up(char.lower())
+            time.sleep(_get_human_like_delay(0.01, 'micro'))
+            key_up('shift')
+        else:
+            press_with_behavioral_pause(char.lower(), 1)
+        
+        # Variable delay between characters
+        char_delay = _get_human_like_delay(base_delay, 'micro')
+        time.sleep(char_delay)

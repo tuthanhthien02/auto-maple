@@ -35,7 +35,7 @@ class CommandBook(Configurable):
 
         new_step = components.step
         new_cb = {}
-        for c in (components.Wait, components.Walk, components.Fall):
+        for c in (components.Wait, components.Wait_Random, components.Walk, components.Fall):
             new_cb[c.__name__.lower()] = c
 
         # Import the desired command book file

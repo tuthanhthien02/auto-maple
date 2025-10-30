@@ -1,0 +1,12 @@
+Type,Location,Command,Parameters
+Label,start,,
+Point,100,200,Attack,times=3
+Point,100,200,TeleportUp,
+Move,150,250,,
+Point,150,250,Attack,times=2
+Point,150,250,TeleportUp,
+Move,200,300,,
+Point,200,300,Apocalypse,
+Point,200,300,TeleportUp,
+Wait,2.0,
+Jump,start,frequency=5

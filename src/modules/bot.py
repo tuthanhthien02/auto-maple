@@ -9,12 +9,15 @@ import importlib
 import traceback
 from os.path import splitext, basename
 from src.common import config, utils
+from src.common.anti_detect import initialize_anti_detect, cleanup_anti_detect, update_activity, get_human_delay
+from src.common.process_stealth import enable_process_stealth, disable_process_stealth
+from src.common.screenshot_blocker import enable_screenshot_blocking, disable_screenshot_blocking, protect_maplestory_window
 from src.detection import detection
 from src.routine import components
 from src.routine.routine import Routine
 from src.command_book.command_book import CommandBook
 from src.routine.components import Point
-from src.common.vkeys import press, click
+from src.common.vkeys import press, click, press_with_behavioral_pause
 from src.common.interfaces import Configurable
 
 
@@ -61,6 +64,23 @@ class Bot(Configurable):
         :return:    None
         """
 
+        # Initialize anti-detect features
+        initialize_anti_detect()
+        
+        # Enable process stealth (optional)
+        try:
+            enable_process_stealth()
+        except Exception as e:
+            print(f"[Bot] Failed to enable process stealth: {e}")
+        
+        # Enable screenshot blocking (recommended) - DISABLED TEMPORARILY
+        # try:
+        #     enable_screenshot_blocking()
+        #     protect_maplestory_window()
+        #     print("[Bot] Screenshot blocking enabled")
+        # except Exception as e:
+        #     print(f"[Bot] Failed to enable screenshot blocking: {e}")
+        
         # tạm tắt cập nhật recoures
         
         # self.update_submodules()
@@ -81,8 +101,16 @@ class Bot(Configurable):
         self.ready = True
         config.listener.enabled = True
         last_fed = time.time()
+        last_activity_update = time.time()
+        
         while True:
             if config.enabled and len(config.routine) > 0:
+                # Update activity for anti-detect
+                current_time = time.time()
+                if current_time - last_activity_update > 1.0:  # Update every second
+                    update_activity()
+                    last_activity_update = current_time
+                
                 # Buff and feed pets
                 # self.command_book.buff.main()  # Disabled: auto buff turned off
                 # Auto feed pet - Disabled

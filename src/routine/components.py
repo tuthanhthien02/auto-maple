@@ -3,7 +3,8 @@
 import math
 import time
 from src.common import config, settings, utils
-from src.common.vkeys import key_down, key_up, press
+from src.common.vkeys import key_down, key_up, press, press_with_behavioral_pause
+from src.common.anti_detect import get_human_delay, update_activity
 
 
 #################################
@@ -78,6 +79,9 @@ class Point(Component):
         """Executes the set of actions associated with this Point."""
 
         if self.counter == 0:
+            # Update activity for anti-detect
+            update_activity()
+            
             move = config.bot.command_book['move']
             move(*self.location).execute()
             if self.adjust:
@@ -236,10 +240,16 @@ class Move(Command):
         self.prev_direction = ''
 
     def _new_direction(self, new):
-        key_down(new)
-        if self.prev_direction and self.prev_direction != new:
-            key_up(self.prev_direction)
-        self.prev_direction = new
+        try:
+            key_down(new)
+            if self.prev_direction and self.prev_direction != new:
+                key_up(self.prev_direction)
+            self.prev_direction = new
+        except Exception:
+            # Ensure key is released if error occurs
+            if self.prev_direction:
+                key_up(self.prev_direction)
+            raise
 
     def main(self):
         counter = self.max_steps
@@ -265,7 +275,9 @@ class Move(Command):
                             config.layout.add(*config.player_pos)
                         counter -= 1
                         if i < len(path) - 1:
-                            time.sleep(0.15)
+                            # Use human-like delay instead of fixed delay
+                            delay = get_human_delay(0.15, 'normal')
+                            time.sleep(delay)
                 else:
                     d_y = point[1] - config.player_pos[1]
                     if abs(d_y) > settings.move_tolerance / math.sqrt(2):
@@ -279,7 +291,9 @@ class Move(Command):
                             config.layout.add(*config.player_pos)
                         counter -= 1
                         if i < len(path) - 1:
-                            time.sleep(0.05)
+                            # Use human-like delay instead of fixed delay
+                            delay = get_human_delay(0.05, 'fast')
+                            time.sleep(delay)
                 local_error = utils.distance(config.player_pos, point)
                 global_error = utils.distance(config.player_pos, self.target)
                 toggle = not toggle
@@ -316,8 +330,32 @@ class Wait(Command):
         self.duration = float(duration)
 
     def main(self):
-        time.sleep(self.duration)
+        # Use human-like delay instead of fixed sleep
+        human_delay = get_human_delay(self.duration, 'normal')
+        time.sleep(human_delay)
 
+
+
+class Wait_Random(Command):
+    """Waits for a random amount of time within a specified range."""
+
+    def __init__(self, min_duration, max_duration):
+        super().__init__(locals())
+        self.min_duration = float(min_duration)
+        self.max_duration = float(max_duration)
+        
+        # Validate range
+        if self.min_duration > self.max_duration:
+            self.min_duration, self.max_duration = self.max_duration, self.min_duration
+
+    def main(self):
+        # Generate random duration within range
+        import random
+        random_duration = random.uniform(self.min_duration, self.max_duration)
+        
+        # Use human-like delay for the random duration
+        human_delay = get_human_delay(random_duration, 'normal')
+        time.sleep(human_delay)
 
 class Walk(Command):
     """Walks in the given direction for a set amount of time."""
@@ -329,9 +367,13 @@ class Walk(Command):
 
     def main(self):
         key_down(self.direction)
-        time.sleep(self.duration)
+        # Use human-like delay instead of fixed sleep
+        human_delay = get_human_delay(self.duration, 'normal')
+        time.sleep(human_delay)
         key_up(self.direction)
-        time.sleep(0.05)
+        # Use human-like delay for post-walk pause
+        post_delay = get_human_delay(0.05, 'fast')
+        time.sleep(post_delay)
 
 
 class Fall(Command):
