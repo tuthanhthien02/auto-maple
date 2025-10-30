@@ -123,10 +123,8 @@ class Notifier:
 
     def _ping(self, name, volume=0.5):
         """A quick notification for non-dangerous events."""
-
-        self.mixer.load(get_alert_path(name))
-        self.mixer.set_volume(volume)
-        self.mixer.play()
+        # Disabled per user request: silent ping
+        return
 
 
 #################################
