@@ -33,3 +33,6 @@ print('\n[~] Successfully initialized Auto Maple')
 
 gui = GUI()
 gui.start()
+
+if __name__ == '__main__':
+    input("Press Enter to exit...")

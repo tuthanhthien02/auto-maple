@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from src.common import config, settings
 from src.gui import Menu, View, Edit, Settings
+import os
 
 
 class GUI:
@@ -19,9 +20,14 @@ class GUI:
         config.gui = self
 
         self.root = tk.Tk()
-        self.root.title('Auto Maple')
-        icon = tk.PhotoImage(file='assets/icon.png')
-        self.root.iconphoto(False, icon)
+        self.root.title('Explorer Settings')
+        # Thiết lập icon cửa sổ: stealth thành Explorer Settings
+        icon_path = os.path.join('assets', 'explorer-icon.ico')
+        if os.path.exists(icon_path):
+            try:
+                self.root.iconbitmap(icon_path)
+            except Exception:
+                pass
         self.root.geometry(GUI.RESOLUTIONS['DEFAULT'])
         self.root.resizable(False, False)
 
