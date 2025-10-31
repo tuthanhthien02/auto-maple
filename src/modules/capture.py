@@ -9,6 +9,8 @@ import mss.windows
 import numpy as np
 from src.common import config, utils
 from ctypes import wintypes
+import os
+import sys
 user32 = ctypes.windll.user32
 user32.SetProcessDPIAware()
 
@@ -31,9 +33,13 @@ MINIMAP_HEIGHT_SCALE = 1.2  # 20% extra for full coverage
 WINDOWED_OFFSET_TOP = 36
 WINDOWED_OFFSET_LEFT = 10
 
+def get_asset_path(rel_path):
+    base = getattr(sys, '_MEIPASS', os.path.abspath('.'))
+    return os.path.join(base, rel_path)
+
 # The top-left and bottom-right corners of the minimap
-MM_TL_TEMPLATE = cv2.imread('assets/minimap_tl_template.png', 0)
-MM_BR_TEMPLATE = cv2.imread('assets/minimap_br_template.png', 0)
+MM_TL_TEMPLATE = cv2.imread(get_asset_path('assets/minimap_tl_template.png'), 0)
+MM_BR_TEMPLATE = cv2.imread(get_asset_path('assets/minimap_br_template.png'), 0)
 
 MMT_HEIGHT = max(MM_TL_TEMPLATE.shape[0], MM_BR_TEMPLATE.shape[0])
 MMT_WIDTH = max(MM_TL_TEMPLATE.shape[1], MM_BR_TEMPLATE.shape[1])

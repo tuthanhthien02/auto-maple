@@ -3,6 +3,7 @@
 from src.common import config, utils
 import time
 import os
+import sys
 import cv2
 import pygame
 import threading
@@ -11,22 +12,26 @@ import keyboard as kb
 from src.routine.components import Point
 
 
+def get_asset_path(rel_path):
+    base = getattr(sys, '_MEIPASS', os.path.abspath('.'))
+    return os.path.join(base, rel_path)
+
 # A rune's symbol on the minimap
 RUNE_RANGES = (
     ((141, 148, 245), (146, 158, 255)),
 )
-rune_filtered = utils.filter_color(cv2.imread('assets/rune_template.png'), RUNE_RANGES)
+rune_filtered = utils.filter_color(cv2.imread(get_asset_path('assets/rune_template.png')), RUNE_RANGES)
 RUNE_TEMPLATE = cv2.cvtColor(rune_filtered, cv2.COLOR_BGR2GRAY)
 
 # Other players' symbols on the minimap
 OTHER_RANGES = (
     ((0, 245, 215), (10, 255, 255)),
 )
-other_filtered = utils.filter_color(cv2.imread('assets/other_template.png'), OTHER_RANGES)
+other_filtered = utils.filter_color(cv2.imread(get_asset_path('assets/other_template.png')), OTHER_RANGES)
 OTHER_TEMPLATE = cv2.cvtColor(other_filtered, cv2.COLOR_BGR2GRAY)
 
 # The Elite Boss's warning sign
-ELITE_TEMPLATE = cv2.imread('assets/elite_template.jpg', 0)
+ELITE_TEMPLATE = cv2.imread(get_asset_path('assets/elite_template.jpg'), 0)
 
 
 def get_alert_path(name):
@@ -112,7 +117,7 @@ class Notifier:
 
         config.enabled = False
         config.listener.enabled = False
-        self.mixer.load(get_alert_path(name))
+        self.mixer.load(get_asset_path(os.path.join(self.ALERTS_DIR, f'{name}.mp3')))
         self.mixer.set_volume(volume)
         self.mixer.play(-1)
         while not kb.is_pressed(config.listener.config['Start/stop']):
