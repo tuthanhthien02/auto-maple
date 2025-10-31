@@ -6,7 +6,10 @@ from src.modules.capture import Capture
 from src.modules.notifier import Notifier
 from src.modules.listener import Listener
 from src.modules.gui import GUI
+from src.common.logger import get_logger
 
+
+log = get_logger(__name__)
 
 bot = Bot()
 capture = Capture()
@@ -29,7 +32,7 @@ listener.start()
 while not listener.ready:
     time.sleep(0.01)
 
-print('\n[~] Successfully initialized Auto Maple')
+log.info("Successfully initialized Auto Maple")
 
 gui = GUI()
 gui.start()

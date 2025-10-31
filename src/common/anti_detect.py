@@ -5,6 +5,10 @@ import random
 import threading
 from datetime import datetime, timedelta
 from src.common import config, utils
+from src.common.logger import get_logger
+
+
+log = get_logger(__name__)
 
 
 class AntiDetectManager:
@@ -49,8 +53,8 @@ class AntiDetectManager:
                 
                 time.sleep(1)  # Check every second
                 
-            except Exception as e:
-                print(f"Anti-detect error: {e}")
+            except Exception:
+                log.exception("Anti-detect error")
                 time.sleep(5)
     
     def _should_go_afk(self):
@@ -65,7 +69,7 @@ class AntiDetectManager:
     def _implement_afk_period(self):
         """Implement an AFK period to simulate human behavior."""
         afk_duration = random.uniform(30, 300)  # 30 seconds to 5 minutes
-        print(f"[Anti-Detect] Going AFK for {afk_duration:.1f} seconds")
+        log.info("Going AFK for %.1f seconds", afk_duration)
         
         # Temporarily disable bot
         original_enabled = config.enabled
@@ -77,7 +81,7 @@ class AntiDetectManager:
         config.enabled = original_enabled
         self.last_activity = time.time()
         
-        print("[Anti-Detect] AFK period ended")
+        log.info("AFK period ended")
     
     def _should_add_behavioral_pause(self):
         """Determine if we should add a behavioral pause."""
@@ -86,7 +90,7 @@ class AntiDetectManager:
     def _implement_behavioral_pause(self):
         """Implement a short behavioral pause."""
         pause_duration = random.uniform(0.5, 3.0)  # 0.5 to 3 seconds
-        print(f"[Anti-Detect] Behavioral pause for {pause_duration:.1f} seconds")
+        log.info("Behavioral pause for %.1f seconds", pause_duration)
         
         time.sleep(pause_duration)
         self.last_activity = time.time()
@@ -135,7 +139,7 @@ class AntiDetectManager:
     
     def simulate_typing_mistake(self):
         """Simulate a typing mistake and correction."""
-        print("[Anti-Detect] Simulating typing mistake...")
+        log.info("Simulating typing mistake")
         
         # Press wrong key
         wrong_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l']
@@ -219,7 +223,7 @@ class MemoryOptimizer:
             config.capture.frame = None
         
         self.last_cleanup = time.time()
-        print("[Anti-Detect] Memory cleanup performed")
+        log.info("Memory cleanup performed")
 
 
 # Global instances
@@ -231,13 +235,13 @@ memory_optimizer = MemoryOptimizer()
 def initialize_anti_detect():
     """Initialize all anti-detect features."""
     anti_detect_manager.start()
-    print("[Anti-Detect] Anti-detect features initialized")
+    log.info("Anti-detect features initialized")
 
 
 def cleanup_anti_detect():
     """Cleanup anti-detect features."""
     anti_detect_manager.stop()
-    print("[Anti-Detect] Anti-detect features stopped")
+    log.info("Anti-detect features stopped")
 
 
 def get_human_delay(base_delay, delay_type='normal'):

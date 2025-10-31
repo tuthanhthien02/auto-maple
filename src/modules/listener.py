@@ -7,6 +7,9 @@ import keyboard as kb
 from src.common.interfaces import Configurable
 from src.common import config, utils
 from datetime import datetime
+from src.common.logger import get_logger
+log = get_logger(__name__)
+
 
 
 class Listener(Configurable):
@@ -35,7 +38,7 @@ class Listener(Configurable):
         :return:    None
         """
 
-        print('\n[~] Started keyboard listener')
+        log.info("Started keyboard listener")
         self.thread.start()
 
     def _main(self):
@@ -63,7 +66,7 @@ class Listener(Configurable):
                 return True
             now = time.time()
             if now - self.block_time > Listener.BLOCK_DELAY:
-                print(f"\n[!] Cannot use '{action}' while Auto Maple is enabled")
+                log.warning("Cannot use '%s' while Auto Maple is enabled", action)
                 self.block_time = now
         return False
 
@@ -107,5 +110,5 @@ class Listener(Configurable):
         pos = tuple('{:.3f}'.format(round(i, 3)) for i in config.player_pos)
         now = datetime.now().strftime('%I:%M:%S %p')
         config.gui.edit.record.add_entry(now, pos)
-        print(f'\n[~] Recorded position ({pos[0]}, {pos[1]}) at {now}')
+        log.info("Recorded position (%s, %s) at %s", pos[0], pos[1], now)
         time.sleep(0.6)

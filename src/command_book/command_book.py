@@ -1,11 +1,13 @@
 import os
 import inspect
 import importlib
-import traceback
 from os.path import basename, splitext
 from src.common import config, utils
 from src.routine import components
 from src.common.interfaces import Configurable
+from src.common.logger import get_logger
+log = get_logger(__name__)
+
 
 
 CB_KEYBINDING_DIR = os.path.join('resources', 'keybindings')
@@ -26,11 +28,11 @@ class CommandBook(Configurable):
         """Prompts the user to select a command module to import. Updates config's command book."""
 
         utils.print_separator()
-        print(f"[~] Loading command book '{basename(file)}':")
+        log.info("Loading command book '%s'", basename(file))
 
         ext = splitext(file)[1]
         if ext != '.py':
-            print(f" !  '{ext}' is not a supported file extension.")
+            log.error("'%s' is not a supported command book extension", ext)
             return
 
         new_step = components.step
@@ -44,12 +46,8 @@ class CommandBook(Configurable):
             module = importlib.import_module(target)
             module = importlib.reload(module)
         except ImportError:     # Display errors in the target Command Book
-            print(' !  Errors during compilation:\n')
-            for line in traceback.format_exc().split('\n'):
-                line = line.rstrip()
-                if line:
-                    print(' ' * 4 + line)
-            print(f"\n !  Command book '{self.name}' was not loaded")
+            log.exception("Errors during compilation for command book '%s'", self.name)
+            log.error("Command book '%s' was not loaded", self.name)
             return
 
         # Load key map
@@ -60,7 +58,7 @@ class CommandBook(Configurable):
                     default_config[key] = value
             self.DEFAULT_CONFIG = default_config
         else:
-            print(f" !  Error loading command book '{self.name}', keymap class 'Key' is missing")
+            log.error("Error loading command book '%s': keymap class 'Key' is missing", self.name)
             return
 
         # Check if the 'step' function has been implemented
@@ -82,7 +80,7 @@ class CommandBook(Configurable):
             if name not in new_cb:
                 required_found = False
                 new_cb[name] = command
-                print(f" !  Error: Must implement required command '{name}'.")
+                log.error("Required command '%s' missing; using default implementation", name)
 
         # Look for overridden movement commands
         movement_found = True
@@ -93,18 +91,17 @@ class CommandBook(Configurable):
                 new_cb[name] = command
 
         if not step_found and not movement_found:
-            print(f" !  Error: Must either implement both 'Move' and 'Adjust' commands, "
-                  f"or the function 'step'")
+            log.error("Command book '%s' must implement both Move and Adjust or override step()", self.name)
         if required_found and (step_found or movement_found):
             self.buff = new_cb['buff']()
             components.step = new_step
             config.gui.menu.file.enable_routine_state()
             config.gui.view.status.set_cb(basename(file))
             config.routine.clear()
-            print(f" ~  Successfully loaded command book '{self.name}'")
+            log.info("Successfully loaded command book '%s'", self.name)
             return new_cb, module
         else:
-            print(f" !  Command book '{self.name}' was not loaded")
+            log.error("Command book '%s' was not loaded", self.name)
 
     def __getitem__(self, item):
         return self.dict[item]

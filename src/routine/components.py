@@ -5,6 +5,9 @@ import time
 from src.common import config, settings, utils
 from src.common.vkeys import key_down, key_up, press, press_with_behavioral_pause
 from src.common.anti_detect import get_human_delay, update_activity
+from src.common.logger import get_logger, get_action_logger
+log = get_logger(__name__)
+action_log = get_action_logger()
 
 
 #################################
@@ -151,7 +154,7 @@ class Jump(Component):
 
     def main(self):
         if self.link is None:
-            print(f"\n[!] Label '{self.label}' does not exist.")
+            log.error("Label '%s' does not exist", self.label)
         else:
             if self.counter == 0:
                 config.routine.index = self.link.index
@@ -318,7 +321,7 @@ def step(direction, target):
     :return:            None
     """
 
-    print("\n[!] Function 'step' not implemented in current command book, aborting process.")
+    log.error("Function 'step' not implemented in current command book, aborting process.")
     config.enabled = False
 
 
@@ -332,6 +335,7 @@ class Wait(Command):
     def main(self):
         # Use human-like delay instead of fixed sleep
         human_delay = get_human_delay(self.duration, 'normal')
+        action_log.debug("wait(duration=%.3f) -> human_delay=%.3f", self.duration, human_delay)
         time.sleep(human_delay)
 
 
@@ -355,6 +359,13 @@ class Wait_Random(Command):
         
         # Use human-like delay for the random duration
         human_delay = get_human_delay(random_duration, 'normal')
+        action_log.debug(
+            "wait_random(%.3f, %.3f) -> sampled=%.3f, human_delay=%.3f",
+            self.min_duration,
+            self.max_duration,
+            random_duration,
+            human_delay,
+        )
         time.sleep(human_delay)
 
 class Walk(Command):
@@ -406,5 +417,5 @@ class Buff(Command):
     """Undefined 'buff' command for the default command book."""
 
     def main(self):
-        print("\n[!] 'Buff' command not implemented in current command book, aborting process.")
+        log.error("'Buff' command not implemented in current command book, aborting process.")
         config.enabled = False

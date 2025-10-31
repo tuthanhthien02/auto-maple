@@ -5,6 +5,9 @@ import time
 import win32con
 import win32api
 from src.common import utils
+from src.common.logger import get_logger, get_action_logger
+log = get_logger(__name__)
+action_log = get_action_logger()
 from ctypes import wintypes
 from random import random, gauss, uniform, choice
 import math
@@ -185,8 +188,9 @@ def key_down(key):
 
     key = key.lower()
     if key not in KEY_MAP.keys():
-        print(f"Invalid keyboard input: '{key}'.")
+        log.warning("Invalid keyboard input: '%s'", key)
     else:
+        action_log.debug("key_down('%s')", key)
         x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key]))
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
@@ -201,8 +205,9 @@ def key_up(key):
 
     key = key.lower()
     if key not in KEY_MAP.keys():
-        print(f"Invalid keyboard input: '{key}'.")
+        log.warning("Invalid keyboard input: '%s'", key)
     else:
+        action_log.debug("key_up('%s')", key)
         x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key], dwFlags=KEYEVENTF_KEYUP))
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
@@ -219,11 +224,21 @@ def press(key, n, down_time=0.05, up_time=0.1):
     :return:            None
     """
 
+    action_log.debug("press('%s', n=%d, down_time=%.3f, up_time=%.3f)", key, n, down_time, up_time)
+
     for i in range(n):
         # Advanced timing randomization
         down_delay = _get_human_like_delay(down_time, 'down')
         up_delay = _get_human_like_delay(up_time, 'up')
         
+        action_log.debug(
+            "press iteration %d/%d -> down_delay=%.3f, up_delay=%.3f",
+            i + 1,
+            n,
+            down_delay,
+            up_delay,
+        )
+
         key_down(key)
         time.sleep(down_delay)
         key_up(key)
@@ -246,8 +261,9 @@ def click(position, button='left'):
     """
 
     if button not in ['left', 'right']:
-        print(f"'{button}' is not a valid mouse button.")
+        log.warning("'%s' is not a valid mouse button", button)
     else:
+        action_log.debug("click(%s, button='%s')", position, button)
         # Add slight position randomization for more human-like clicks
         jitter_x = uniform(-1, 1)
         jitter_y = uniform(-1, 1)

@@ -19,10 +19,14 @@ from src.command_book.command_book import CommandBook
 from src.routine.components import Point
 from src.common.vkeys import press, click, press_with_behavioral_pause
 from src.common.interfaces import Configurable
+from src.common.logger import get_logger
 
 
 # The rune's buff icon
 RUNE_BUFF_TEMPLATE = cv2.imread('assets/rune_buff_template.jpg', 0)
+
+
+log = get_logger(__name__)
 
 
 class Bot(Configurable):
@@ -71,7 +75,7 @@ class Bot(Configurable):
         try:
             enable_process_stealth()
         except Exception as e:
-            print(f"[Bot] Failed to enable process stealth: {e}")
+            log.warning("Failed to enable process stealth: %s", e)
         
         # Enable screenshot blocking (recommended) - DISABLED TEMPORARILY
         # try:
@@ -93,10 +97,10 @@ class Bot(Configurable):
         :return:    None
         """
 
-        print('\n[~] Initializing detection algorithm:\n')
+        log.info("Initializing detection algorithm")
         # model = detection.load_model()  # Disabled: rune solving turned off
         model = None
-        print('\n[~] Detection algorithm disabled (rune solving off)')
+        log.info("Detection algorithm disabled (rune solving off)")
 
         self.ready = True
         config.listener.enabled = True
@@ -153,15 +157,15 @@ class Bot(Configurable):
         time.sleep(0.2)
         press(self.config['Interact'], 1, down_time=0.2)        # Inherited from Configurable
 
-        print('\nSolving rune:')
+        log.info("Solving rune")
         inferences = []
         for _ in range(15):
             frame = config.capture.frame
             solution = detection.merge_detection(model, frame)
             if solution:
-                print(', '.join(solution))
+                log.info(", ".join(solution))
                 if solution in inferences:
-                    print('Solution found, entering result')
+                    log.info("Solution found, entering result")
                     for arrow in solution:
                         press(arrow, 1, down_time=0.1)
                     time.sleep(1)
@@ -268,7 +272,7 @@ class Bot(Configurable):
         """
 
         utils.print_separator()
-        print('[~] Retrieving latest submodules:')
+        log.info("Retrieving latest submodules")
         self.submodules = []
         repo = git.Repo.init()
         with open('.gitmodules', 'r') as file:
@@ -281,7 +285,7 @@ class Bot(Configurable):
                     self.submodules.append(path)
                     try:
                         repo.git.clone(url, path)       # First time loading submodule
-                        print(f" -  Initialized submodule '{path}'")
+                        log.info("Initialized submodule '%s'", path)
                     except git.exc.GitCommandError:
                         sub_repo = git.Repo(path)
                         if not force:
@@ -291,11 +295,11 @@ class Bot(Configurable):
                         if not force:
                             try:                # Restore modified content
                                 sub_repo.git.checkout('stash', '--', '.')
-                                print(f" -  Updated submodule '{path}', restored local changes")
+                                log.info("Updated submodule '%s', restored local changes", path)
                             except git.exc.GitCommandError:
-                                print(f" -  Updated submodule '{path}'")
+                                log.info("Updated submodule '%s'", path)
                         else:
-                            print(f" -  Rebuilt submodule '{path}'")
+                            log.info("Rebuilt submodule '%s'", path)
                         sub_repo.git.stash('clear')
                     i += 3
                 else:

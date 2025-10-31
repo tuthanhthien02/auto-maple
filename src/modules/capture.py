@@ -11,12 +11,16 @@ from src.common import config, utils
 from ctypes import wintypes
 import os
 import sys
+from src.common.logger import get_logger
 user32 = ctypes.windll.user32
 user32.SetProcessDPIAware()
 
 
 # Toggle verbose debug logging
 DEBUG = False  # Disabled for cleaner output
+
+
+log = get_logger(__name__)
 
 # The distance between the top of the minimap and the top of the screen
 MINIMAP_TOP_BORDER = 5
@@ -95,7 +99,7 @@ class Capture:
     def start(self):
         """Starts this Capture's thread."""
 
-        print('\n[~] Started video capture')
+        log.info("Started video capture")
         self.thread.start()
 
     def _main(self):
@@ -109,12 +113,12 @@ class Capture:
                 handle = user32.FindWindowW(None, title)
                 if handle:
                     if DEBUG:
-                        print(f'[DEBUG] Found window: {title}')
+                        log.debug("Found window: %s", title)
                     break
             
             if not handle:
                 if DEBUG:
-                    print('[DEBUG] MapleStory window not found, retrying...')
+                    log.debug("MapleStory window not found, retrying...")
                 time.sleep(0.5)
                 continue
             
@@ -129,41 +133,41 @@ class Capture:
             self.window['height'] = max(rect[3] - rect[1], MMT_HEIGHT)
             
             if DEBUG:
-                print(f'[DEBUG] Window rect: {rect}')
+                log.debug("Window rect: %s", rect)
 
             # Calibrate by finding the top-left and bottom-right corners of the minimap
             with mss.mss() as self.sct:
                 self.frame = self.screenshot()
             if self.frame is None:
                 if DEBUG:
-                    print('[DEBUG] Screenshot is None, retrying...')
+                    log.debug("Screenshot is None, retrying...")
                 continue
             
             # Restrict search areas to avoid false positives and ensure ROI validity
             fh, fw = self.frame.shape[:2]
             if DEBUG:
-                print(f'[DEBUG] Frame shape: {fh}x{fw}')
+                log.debug("Frame shape: %sx%s", fh, fw)
             tl_roi_x0, tl_roi_y0 = 0, 0
             tl_roi_x1, tl_roi_y1 = int(fw * 0.5), int(fh * 0.35)
             
             # Ensure TL ROI is valid
             if tl_roi_x1 <= tl_roi_x0 or tl_roi_y1 <= tl_roi_y0:
                 if DEBUG:
-                    print(f'[DEBUG] Invalid TL ROI bounds: {tl_roi_x0},{tl_roi_y0} to {tl_roi_x1},{tl_roi_y1}')
+                    log.debug("Invalid TL ROI bounds: %s,%s to %s,%s", tl_roi_x0, tl_roi_y0, tl_roi_x1, tl_roi_y1)
                 continue
             
             tl_roi = self.frame[tl_roi_y0:tl_roi_y1, tl_roi_x0:tl_roi_x1]
             if tl_roi.size == 0:
                 if DEBUG:
-                    print('[DEBUG] TL ROI is empty')
+                    log.debug("TL ROI is empty")
                 continue
             
             if DEBUG:
-                print(f'[DEBUG] Searching for TL corner in ROI...')
+                log.debug("Searching for TL corner in ROI...")
             tl_local, _ = utils.single_match(tl_roi, MM_TL_TEMPLATE)
             tl = (tl_local[0] + tl_roi_x0, tl_local[1] + tl_roi_y0)
             if DEBUG:
-                print(f'[DEBUG] TL corner found at: {tl}')
+                log.debug("TL corner found at: %s", tl)
             
             # Restrict search area for BR corner
             br_roi_x0 = min(max(tl[0] + 50, 0), fw - 1)
@@ -174,21 +178,21 @@ class Capture:
             # Ensure BR ROI is valid
             if br_roi_x0 >= br_roi_x1 or br_roi_y0 >= br_roi_y1:
                 if DEBUG:
-                    print(f'[DEBUG] Invalid BR ROI bounds: {br_roi_x0},{br_roi_y0} to {br_roi_x1},{br_roi_y1}')
+                    log.debug("Invalid BR ROI bounds: %s,%s to %s,%s", br_roi_x0, br_roi_y0, br_roi_x1, br_roi_y1)
                 continue
             
             br_roi = self.frame[br_roi_y0:br_roi_y1, br_roi_x0:br_roi_x1]
             if br_roi.size == 0:
                 if DEBUG:
-                    print('[DEBUG] BR ROI is empty')
+                    log.debug("BR ROI is empty")
                 continue
             
             if DEBUG:
-                print(f'[DEBUG] Searching for BR corner in ROI...')
+                log.debug("Searching for BR corner in ROI...")
             _, br_local = utils.single_match(br_roi, MM_BR_TEMPLATE)
             br = (br_local[0] + br_roi_x0, br_local[1] + br_roi_y0)
             if DEBUG:
-                print(f'[DEBUG] BR corner found at: {br}')
+                log.debug("BR corner found at: %s", br)
             
             mm_tl = (
                 tl[0] + MINIMAP_BOTTOM_BORDER,
@@ -227,17 +231,17 @@ class Capture:
             # Final validation: ensure crop is valid
             if mm_tl[0] >= mm_br[0] or mm_tl[1] >= mm_br[1]:
                 if DEBUG:
-                    print(f'[DEBUG] Invalid minimap crop bounds: mm_tl={mm_tl}, mm_br={mm_br}')
+                    log.debug("Invalid minimap crop bounds: mm_tl=%s, mm_br=%s", mm_tl, mm_br)
                 continue
             
             self.minimap_sample = self.frame[mm_tl[1]:mm_br[1], mm_tl[0]:mm_br[0]]
             if self.minimap_sample.size == 0:
                 if DEBUG:
-                    print('[DEBUG] Minimap sample is empty')
+                    log.debug("Minimap sample is empty")
                 continue
             
             if DEBUG:
-                print(f'[DEBUG] Calibration successful! Minimap size: {mm_br[0]-mm_tl[0]}x{mm_br[1]-mm_tl[1]}')
+                log.debug("Calibration successful! Minimap size: %sx%s", mm_br[0]-mm_tl[0], mm_br[1]-mm_tl[1])
             self.calibrated = True
 
             with mss.mss() as self.sct:
@@ -287,6 +291,6 @@ class Capture:
         try:
             return np.array(self.sct.grab(self.window))
         except mss.exception.ScreenShotError:
-            print(f'\n[!] Error while taking screenshot, retrying in {delay} second'
-                  + ('s' if delay != 1 else ''))
+            suffix = 's' if delay != 1 else ''
+            log.warning("Error while taking screenshot, retrying in %s second%s", delay, suffix)
             time.sleep(delay)

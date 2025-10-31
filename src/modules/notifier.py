@@ -10,6 +10,9 @@ import threading
 import numpy as np
 import keyboard as kb
 from src.routine.components import Point
+from src.common.logger import get_logger
+log = get_logger(__name__)
+
 
 
 def get_asset_path(rel_path):
@@ -57,7 +60,7 @@ class Notifier:
     def start(self):
         """Starts this Notifier's thread."""
 
-        print('\n[~] Started notifier')
+        log.info("Started notifier")
         self.thread.start()
 
     def _main(self):
@@ -128,8 +131,8 @@ class Notifier:
 
     def _ping(self, name, volume=0.5):
         """A quick notification for non-dangerous events."""
-        # Disabled per user request: silent ping
-        return
+        # Disabled per user request: silent ping (logged at debug level for diagnostics)
+        log.debug("Ping '%s' suppressed (volume=%.2f)", name, volume)
 
 
 #################################
