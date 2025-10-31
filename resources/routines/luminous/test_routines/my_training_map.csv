@@ -1,0 +1,51 @@
+@, start
+#, move_tolerance, 5
+#, adjust_tolerance, 3
+
+# Left to Right
+*, 0.316, 0.200, frequency=1, adjust=True
+attack, 3
+
+*, 0.387, 0.200, adjust=True
+teleport, right, 1
+attack, 3
+
+*, 0.463, 0.200, adjust=True
+teleport, right, 1
+attack, 3
+
+*, 0.496, 0.185, adjust=True
+teleport, right, 1
+attack, 3
+
+*, 0.615, 0.200, adjust=True
+teleport, right, 1
+attack, 3
+
+*, 0.696, 0.200, adjust=True
+teleport, right, 1
+attack, 3
+
+# Right to Left
+*, 0.615, 0.200, adjust=True
+teleport, left, 1
+attack, 3
+
+*, 0.496, 0.185, adjust=True
+teleport, left, 1
+attack, 3
+
+*, 0.463, 0.200, adjust=True
+teleport, left, 1
+attack, 3
+
+*, 0.387, 0.200, adjust=True
+teleport, left, 1
+attack, 3
+
+*, 0.316, 0.200, adjust=True
+teleport, left, 1
+attack, 3
+
+~, start
+

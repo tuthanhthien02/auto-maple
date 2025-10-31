@@ -1,0 +1,83 @@
+@, start
+#, move_tolerance, 5
+#, adjust_tolerance, 3
+
+# ===== LEFT TO RIGHT (Bottom Floor) =====
+# Start point - adjust for accuracy
+*, 0.036, 0.077, frequency=1, adjust=True
+attack, 2
+
+# Transit points - no adjust for speed
+*, 0.069, 0.077
+teleport, right, 1
+attack, 2
+
+*, 0.103, 0.077
+teleport, right, 1
+attack, 2
+
+*, 0.137, 0.077
+teleport, right, 1
+attack, 2
+
+*, 0.170, 0.077
+teleport, right, 1
+attack, 2
+
+*, 0.204, 0.077
+teleport, right, 1
+attack, 2
+
+*, 0.238, 0.077
+teleport, right, 1
+attack, 2
+
+# Rightmost point - adjust before going up
+*, 0.283, 0.077, adjust=True
+teleport, right, 1
+attack, 2
+
+# ===== TELEPORT UP TO TOP FLOOR =====
+# Top floor farming spot - adjust for accuracy
+*, 0.283, 0.034, adjust=True
+teleport, up, 2
+attack, 3
+
+# ===== RIGHT TO LEFT (Top Floor) =====
+# Coming back down - adjust to ensure proper landing
+*, 0.283, 0.077, adjust=True
+teleport, left, 1
+attack, 2
+
+# Transit points - no adjust
+*, 0.238, 0.077
+teleport, left, 1
+attack, 2
+
+*, 0.204, 0.077
+teleport, left, 1
+attack, 2
+
+*, 0.170, 0.077
+teleport, left, 1
+attack, 2
+
+*, 0.137, 0.077
+teleport, left, 1
+attack, 2
+
+*, 0.103, 0.077
+teleport, left, 1
+attack, 2
+
+*, 0.069, 0.077
+teleport, left, 1
+attack, 2
+
+# Back to start - adjust for loop accuracy
+*, 0.036, 0.077, adjust=True
+teleport, left, 1
+attack, 3
+
+~, start
+

@@ -1,0 +1,203 @@
+# Routine for 2-floor map - FINAL OPTIMIZED V4 MIX VERSION
+# Floor 1: y = 0.077 (Left → Right)
+# Floor 2: y = 0.034 and 0.04 (Right → Left)
+# Commands follow v4 but use reflection_mix_random instead of reflection_random
+# All positions use frequency=1
+# adjust=True ONLY at critical transitions (jump_teleport_up, jump_down)
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y = 0.077)
+# ========================================
+Label,floor_1_start
+Comment,=== FLOOR 1: Left → Right movement (y = 0.077) ===
+
+*,0.032,0.077,adjust=False,frequency=1
+Label,f1_pos_0
+Comment,Floor 1 - Pos 0: Reflection(Mix Random) + teleport RIGHT (next: 0.075)
+buff
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.075,0.077,adjust=False,frequency=1
+Label,f1_pos_1
+Comment,Floor 1 - Pos 1: Reflection(Mix Random) + teleport RIGHT (next: 0.107)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.107,0.077,adjust=False,frequency=1
+Label,f1_pos_2
+Comment,Floor 1 - Pos 2: Reflection(Mix Random) + teleport RIGHT (next: 0.141)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.141,0.077,adjust=False,frequency=1
+Label,f1_pos_3
+Comment,Floor 1 - Pos 3: Reflection(Mix Random) + teleport RIGHT (next: 0.174)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.174,0.077,adjust=False,frequency=1
+Label,f1_pos_4
+Comment,Floor 1 - Pos 4: Reflection(Mix Random) + teleport RIGHT (next: 0.206)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.206,0.077,adjust=False,frequency=1
+Label,f1_pos_5
+Comment,Floor 1 - Pos 5: Reflection(Mix Random) + teleport RIGHT (next: 0.240)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.240,0.077,adjust=False,frequency=1
+Label,f1_pos_6
+Comment,Floor 1 - Pos 6: Reflection(Mix Random) + teleport RIGHT (next: 0.273)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.273,0.077,adjust=False,frequency=1
+Label,f1_pos_7
+Comment,Floor 1 - Pos 7: Reflection(Mix Random) + teleport RIGHT (next: 0.307)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.307,0.077,adjust=False,frequency=1
+Label,f1_pos_8
+Comment,Floor 1 - Pos 8: Reflection(Mix Random) + teleport RIGHT (next: 0.335)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+# ========================================
+# TRANSITION: JUMP TELEPORT UP TO FLOOR 2
+# ========================================
+Comment,=== TRANSITION: Jump Teleport Up to Floor 2 - CRITICAL ===
+*,0.335,0.077,adjust=True,frequency=1
+Label,jump_teleport_up_position
+Comment,At (0.335, 0.077): Perform jump_teleport_up to Floor 2
+jump_teleport_up,1
+wait_random,0.8,1.5
+
+# ========================================
+# FLOOR 2: RIGHT → LEFT (y = 0.034 and 0.04)
+# ========================================
+Label,floor_2_start
+Comment,=== FLOOR 2: Right → Left movement (y = 0.034 and 0.04) ===
+
+*,0.335,0.034,adjust=False,frequency=1
+Label,f2_pos_1
+Comment,Floor 2 - Pos 1: Reflection(Mix Random) + teleport LEFT (next: 0.297)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.297,0.034,adjust=False,frequency=1
+Label,f2_pos_2
+Comment,Floor 2 - Pos 2: Reflection(Mix Random) + teleport LEFT (next: 0.265)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.265,0.034,adjust=False,frequency=1
+Label,f2_pos_3
+Comment,Floor 2 - Pos 3: Reflection(Mix Random) + teleport LEFT (next: 0.246)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.246,0.034,adjust=False,frequency=1
+Label,f2_pos_4
+Comment,Floor 2 - Pos 4: Reflection(Mix Random) + teleport LEFT (next: 0.210)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.210,0.04,adjust=False,frequency=1
+Label,f2_pos_5
+Comment,Floor 2 - Pos 5: Reflection(Mix Random) + teleport LEFT (next: 0.178)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.178,0.04,adjust=False,frequency=1
+Label,f2_pos_6
+Comment,Floor 2 - Pos 6: Reflection(Mix Random) + teleport LEFT (next: 0.145)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.145,0.04,adjust=False,frequency=1
+Label,f2_pos_7
+Comment,Floor 2 - Pos 7: Reflection(Mix Random) + teleport LEFT (next: 0.113)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.113,0.04,adjust=False,frequency=1
+Label,f2_pos_8
+Comment,Floor 2 - Pos 8: Reflection(Mix Random) + teleport LEFT (next: 0.095)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.095,0.04,adjust=False,frequency=1
+Label,f2_pos_9
+Comment,Floor 2 - Pos 9: Reflection(Mix Random) + teleport LEFT (next: 0.063)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.063,0.034,adjust=False,frequency=1
+Label,f2_pos_10
+Comment,Floor 2 - Pos 10: Reflection(Mix Random) + teleport LEFT (next: 0.032)
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+
+# ========================================
+# TRANSITION: JUMP DOWN TO FLOOR 1
+# ========================================
+Comment,=== TRANSITION: Jump Down to Floor 1 - CRITICAL ===
+*,0.032,0.034,adjust=True,frequency=1
+Label,jump_down_position
+Comment,At (0.032, 0.034): Perform jump_down to Floor 1 (safe distance from edge)
+wait_random,0.25,0.40
+jump_down,1
+wait_random,1.0,1.8
+
+# ========================================
+# ROUTINE COMPLETE - RETURN TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE - Return to Floor 1 Start ===
+Jump,floor_1_start
+
+

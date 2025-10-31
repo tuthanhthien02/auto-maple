@@ -1,0 +1,190 @@
+# Routine for 2-floor map - FINAL OPTIMIZED V3 VERSION
+# Floor 1: y = 0.077 (Left to Right movement)
+# Floor 2: y = 0.034, y = 0.04 (Right to Left movement)
+# adjust=True ONLY for critical positions (jump_teleport_up, jump_down)
+# adjust=False for regular farming positions (faster execution)
+# FREQUENCY: All positions = 2, Jump positions = 1
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT TO RIGHT (y = 0.077)
+# ========================================
+Label,floor_1_start
+Comment,=== FLOOR 1: Left to Right movement (y = 0.077) ===
+
+*,0.073,0.077,adjust=False,frequency=2
+Label,floor_1_pos_1
+Comment,Floor 1 - Position 1: Reflection + teleport right (next: 0.105) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.105,0.077,adjust=False,frequency=2
+Label,floor_1_pos_2
+Comment,Floor 1 - Position 2: Reflection + teleport right (next: 0.137) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.137,0.077,adjust=False,frequency=2
+Label,floor_1_pos_3
+Comment,Floor 1 - Position 3: Reflection + teleport right (next: 0.169) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.169,0.077,adjust=False,frequency=2
+Label,floor_1_pos_4
+Comment,Floor 1 - Position 4: Reflection + teleport right (next: 0.201) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.201,0.077,adjust=False,frequency=2
+Label,floor_1_pos_5
+Comment,Floor 1 - Position 5: Reflection + teleport right (next: 0.233) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.233,0.077,adjust=False,frequency=2
+Label,floor_1_pos_6
+Comment,Floor 1 - Position 6: Reflection + teleport right (next: 0.265) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.265,0.077,adjust=False,frequency=2
+Label,floor_1_pos_7
+Comment,Floor 1 - Position 7: Reflection + teleport right (next: 0.297) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.297,0.077,adjust=False,frequency=2
+Label,floor_1_pos_8
+Comment,Floor 1 - Position 8: Reflection + teleport right (next: 0.329) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.329,0.077,adjust=False,frequency=2
+Label,floor_1_pos_9
+Comment,Floor 1 - Position 9: Reflection + teleport right (next: 0.337) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+# ========================================
+# TRANSITION: JUMP TELEPORT UP TO FLOOR 2
+# ========================================
+Comment,=== TRANSITION: Jump Teleport Up to Floor 2 - CRITICAL POSITION ===
+*,0.337,0.077,adjust=True,frequency=1
+Label,jump_teleport_up_position
+Comment,Jump Teleport Up to Floor 2 - CRITICAL POSITION - Frequency 1
+jump_teleport_up,1
+wait_random,0.8,1.5
+
+# ========================================
+# FLOOR 2: RIGHT TO LEFT (y = 0.034, 0.04)
+# ========================================
+Label,floor_2_start
+Comment,=== FLOOR 2: Right to Left movement (y = 0.034, 0.04) ===
+
+*,0.329,0.034,adjust=False,frequency=2
+Label,floor_2_pos_1
+Comment,Floor 2 - Position 1: Reflection + teleport left (next: 0.297) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.297,0.034,adjust=False,frequency=2
+Label,floor_2_pos_2
+Comment,Floor 2 - Position 2: Reflection + teleport left (next: 0.265) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.265,0.034,adjust=False,frequency=2
+Label,floor_2_pos_3
+Comment,Floor 2 - Position 3: Reflection + teleport left (next: 0.233) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.233,0.034,adjust=False,frequency=2
+Label,floor_2_pos_4
+Comment,Floor 2 - Position 4: Reflection + teleport left (next: 0.201) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.201,0.034,adjust=False,frequency=2
+Label,floor_2_pos_5
+Comment,Floor 2 - Position 5: Reflection + teleport left (next: 0.169) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.169,0.034,adjust=False,frequency=2
+Label,floor_2_pos_6
+Comment,Floor 2 - Position 6: Reflection + teleport left (next: 0.137) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.137,0.034,adjust=False,frequency=2
+Label,floor_2_pos_7
+Comment,Floor 2 - Position 7: Reflection + teleport left (next: 0.105) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.105,0.034,adjust=False,frequency=2
+Label,floor_2_pos_8
+Comment,Floor 2 - Position 8: Reflection + teleport left (next: 0.073) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.073,0.034,adjust=False,frequency=2
+Label,floor_2_pos_9
+Comment,Floor 2 - Position 9: Reflection + teleport left (next: 0.117) - Frequency 2
+reflection,1
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+# ========================================
+# TRANSITION: JUMP DOWN TO FLOOR 1
+# ========================================
+Comment,=== TRANSITION: Jump Down to Floor 1 - CRITICAL POSITION ===
+*,0.117,0.04,adjust=True,frequency=1
+Label,jump_down_position
+Comment,Jump Down to Floor 1 - CRITICAL POSITION - Frequency 1
+jump_down,1
+wait_random,0.8,1.5
+
+# ========================================
+# ROUTINE COMPLETE - RETURN TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE - Return to Floor 1 Start ===
+Jump,floor_1_start

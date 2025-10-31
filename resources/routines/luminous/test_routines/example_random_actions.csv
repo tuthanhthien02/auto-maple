@@ -1,0 +1,30 @@
+@, start
+#, move_tolerance, 5
+#, adjust_tolerance, 3
+
+# Example 1: RandomTeleport with 50% chance to teleport up
+*, 0.463, 0.185, adjust=True
+random_teleport, up, 0.5, 1
+attack, 2
+
+# Example 2: RandomAttack (70% reflection, 30% apocalypse)
+*, 0.387, 0.200, adjust=True
+random_attack, 3
+
+# Example 3: RandomTeleport right with 80% chance
+*, 0.316, 0.200, adjust=True
+random_teleport, right, 0.8, 2
+attack, 2
+
+# Example 4: ConditionalAction (50% attack, 50% teleport)
+*, 0.496, 0.185, adjust=True
+conditional_action, attack, 0.5, teleport, 0.5
+attack, 1
+
+# Example 5: RandomSkill (pick one of multiple skills)
+*, 0.615, 0.200, adjust=True
+random_skill, reflection, apocalypse, light_reflection
+attack, 2
+
+~, start
+
