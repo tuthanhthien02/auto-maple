@@ -8,8 +8,8 @@
 ; 🥷 STEALTH MODE FEATURES:
 ; → NO TRAY ICON (Không hiện icon ở system tray)
 ; → NO VISIBLE WINDOW (Chạy ngầm hoàn toàn)
-; → HOTKEY CHECK STATUS: Ctrl+Alt+S (kiểm tra script đang chạy)
-; → HOTKEY EXIT: Ctrl+Alt+Q (thoát script)
+; → HOTKEY CHECK STATUS: PgDn (kiểm tra script đang chạy)
+; → HOTKEY EXIT: PgUp (thoát script)
 ; → STARTUP CONFIRMATION: Beep + Tooltip 1.5s khi script bắt đầu
 ; ═══════════════════════════════════════════════════════════════════════
 ; 🎮 SENDINPUT MODE: GIỐNG AUTO-MAPLE BOT 100%!
@@ -43,17 +43,9 @@
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ ⌨️ HOTKEYS (Phím tắt khi script đang chạy) - QUAN TRỌNG!            │
 ; └─────────────────────────────────────────────────────────────────────┘
-; 🔸 Ctrl+Alt+T: Bật/Tắt script (beep + tooltip)
-;    → Bật: Beep cao (1000Hz) + tooltip "ENABLED"
-;    → Tắt: Beep thấp (500Hz) + tooltip "DISABLED"
-;
-; 🔸 Ctrl+Alt+S: Check status (kiểm tra script có đang chạy không)
-;    → Hiện tooltip: Script status + Next pause time
-;    → Tooltip tự tắt sau 3 giây
-;
-; 🔸 Ctrl+Alt+Q: Exit script (thoát hoàn toàn)
-;    → Beep 2 tiếng → Script dừng
-;    → PHẢI dùng hotkey này để thoát (vì không có tray icon!)
+; 🔸 End: Toggle remap (beep + tooltip trạng thái)
+; 🔸 PgDn: Check status (tooltip chi tiết)
+; 🔸 PgUp: Exit script (thoát hoàn toàn)
 ;
 ; ┌─────────────────────────────────────────────────────────────────────┐
 ; │ 🎯 MUỐN CUSTOM? (Chỉ 3 BƯỚC - Cực dễ!)                              │
@@ -80,12 +72,12 @@
 ; └─────────────────────────────────────────────────────────────────────┘
 ; 
 ; ❌ VẤN ĐỀ: Không biết script có đang chạy không
-;    ✅ GIẢI PHÁP: Nhấn Ctrl+Alt+S → Xem tooltip status
+;    ✅ GIẢI PHÁP: Nhấn PgDn → Xem tooltip status
 ;    → Nếu hiện tooltip → Đang chạy!
 ;    → Nếu không hiện gì → Script chưa chạy hoặc đã tắt
 ;
 ; ❌ VẤN ĐỀ: Không thể thoát script (không có tray icon)
-;    ✅ GIẢI PHÁP: Nhấn Ctrl+Alt+Q → Beep 2 tiếng → Script thoát
+;    ✅ GIẢI PHÁP: Nhấn PgUp → Beep 2 tiếng → Script thoát
 ;    → Hoặc Task Manager → Tìm tên .exe → End task
 ;
 ; ❌ VẤN ĐỀ: Key chỉ nhích 1 chút, không hold được
@@ -155,8 +147,8 @@ SendMode Input  ; ← Dùng user32.SendInput GIỐNG auto-maple bot!
 ; global MaxDesync := 300
 
 ; ━━━ MỨC TRUNG BÌNH (4-6 giờ/ngày) - Cân bằng (KHUYẾN NGHỊ! ⭐) ━━━
-global MinDesync := 0
-global MaxDesync := 500
+global MinDesync := 50
+global MaxDesync := 150
 
 ; ━━━ MỨC NẶNG (8-10 giờ/ngày) - Mạo hiểm hơn ━━━
 ; global MinDesync := 100
@@ -171,9 +163,9 @@ global MaxDesync := 500
 ; ═══════════════════════════════════════════════════════════════════════
 ; Phần này đã tối ưu, KHÔNG NÊN thay đổi trừ khi bạn biết rõ mình đang làm gì
 ; ═══════════════════════════════════════════════════════════════════════
-global MinJitter := 30     ; Jitter tối thiểu (ms) - KHÔNG THAY ĐỔI
-global MaxJitter := 80     ; Jitter tối đa (ms) - KHÔNG THAY ĐỔI
-global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
+global MinJitter := 10     ; Hardcode từ settings.ini
+global MaxJitter := 50
+global UseGaussian := false
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 🧪 TEST MODE: TẮT DESYNC/JITTER (Chỉ dùng để test!)                ┃
@@ -182,12 +174,12 @@ global UseGaussian := true ; Dùng phân phối Gaussian - KHÔNG THAY ĐỔI
 ; 💡 TẬP RIÊNG TỪNG FEATURE để test dễ hơn!
 
 ; ━━━ DESYNC (0-500ms delay - Phá vỡ Multiplicity sync!) ━━━
-global DISABLE_DESYNC := false  ; ⭐ false = BẬT (khuyến nghị!)
-; global DISABLE_DESYNC := true   ; ⚠️ true = TẮT (test mode!)
+global DISABLE_DESYNC := true   ; Hardcode: tắt desync (settings.ini)
+; global DISABLE_DESYNC := false  ; ⭐ false = BẬT (khuyến nghị!)
 
 ; ━━━ JITTER (30-80ms delay - Làm timing không đều!) ━━━
-global DISABLE_JITTER := false  ; ⭐ false = BẬT (khuyến nghị!)
-; global DISABLE_JITTER := true   ; ⚠️ true = TẮT (test mode!)
+global DISABLE_JITTER := true   ; Hardcode: tắt jitter (settings.ini)
+; global DISABLE_JITTER := false  ; ⭐ false = BẬT (khuyến nghị!)
 
 ; 📊 CÁC TỔ HỢP:
 ; • false + false = BẬT CẢ 2 (0-580ms delay) - KHUYẾN NGHỊ! ⭐
@@ -206,11 +198,11 @@ global DISABLE_JITTER := false  ; ⭐ false = BẬT (khuyến nghị!)
 ; global MinPauseDuration := 1000
 ; global MaxPauseDuration := 3000
 
-; ━━━ PAUSE VỪA PHẢI (Cân bằng - KHUYẾN NGHỊ! ⭐) ━━━
-global MinPauseInterval := 180000
-global MaxPauseInterval := 300000
-global MinPauseDuration := 800
-global MaxPauseDuration := 2500
+; ━━━ PAUSE VỪA PHẢI (Hardcode theo settings.ini) ━━━
+global MinPauseInterval := 300000
+global MaxPauseInterval := 600000
+global MinPauseDuration := 2000
+global MaxPauseDuration := 5000
 
 ; ━━━ PAUSE ÍT (Pause ít, rủi ro cao hơn) ━━━
 ; global MinPauseInterval := 300000
@@ -232,6 +224,7 @@ global remapEnabled := true  ; ⚠️ KHÔNG SỬA DÒNG NÀY! (Remap control)
 ; ┃ SETTINGS FILE PATH                                              ┃
 ; ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 global SettingsFile := A_ScriptDir . "\settings.ini"
+global USE_SETTINGS_INI := true ; Đọc cấu hình trực tiếp từ settings.ini
 
 ; ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ; ┃ 2️⃣ ARROW KEYS JITTER (Movement mượt hay giật?)                     ┃
@@ -265,12 +258,12 @@ global SettingsFile := A_ScriptDir . "\settings.ini"
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ; ━━━ OPTION 1: KHÔNG JITTER (Movement mượt - KHUYẾN NGHỊ! ⭐) ━━━
-; global ArrowKeysUseJitter := false  ; Arrow keys = instant (0ms delay)
+global ArrowKeysUseJitter := false  ; Hardcode: instant (settings.ini)
 ; ✅ Ưu điểm: Di chuyển mượt mà, không giật
 ; ⚠️ Nhược điểm: Có thể bị detect (instant response)
 
 ; ━━━ OPTION 2: CÓ JITTER (Anti-detect tốt hơn, nhưng giật!) ━━━
-global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐ ĐANG DÙNG
+; global ArrowKeysUseJitter := true   ; Arrow keys = có desync+jitter ⭐
 ; ✅ Ưu điểm: Anti-detect tốt hơn (random timing)
 ; ⚠️ Nhược điểm: Delay 0-500ms KHI ẤN XUỐNG (hơi lag khi bắt đầu di chuyển)
 
@@ -322,7 +315,6 @@ remap["k"] := "b"           ; K → B
 ; Modifier keys
 remap["Alt"] := "f"         ; Alt → F
 remap["Space"] := "d"       ; Space → D
-remap["Escape"] := "`"      ; Esc → `
 
 ; Function keys
 remap["F1"] := "F12"        ; F1 → F12
@@ -337,6 +329,7 @@ remap["2"] := "8"           ; 2 → 8
 remap["8"] := "1"           ; 8 → 1
 remap["7"] := "2"           ; 7 → 2
 remap["5"] := "4"           ; 5 → 4
+remap["6"] := "v"           ; 6 → V
 remap["v"] := "6"           ; V → 6
 remap["3"] := "c"           ; 3 → C
 
@@ -404,7 +397,7 @@ remap["Numpad5"] := "Up"     ; Numpad5 → Up
 ; ━━━ STARTUP CONFIRMATION ━━━
 ; STEALTH MODE: No beep, no tooltip - completely silent!
 ; SoundBeep, 800, 100
-; ToolTip, STEALTH SCRIPT STARTED`nCtrl+Alt+S = Status`nCtrl+Alt+Q = Exit, 0, 0
+; ToolTip, STEALTH SCRIPT STARTED`nPgDn = Status`nPgUp = Exit, 0, 0
 ; SetTimer, RemoveStartupTooltip, 1500
 ; Return
 
@@ -419,10 +412,12 @@ LoadSettings()
 ; ━━━ REWRITE: Tạo hotkeys DOWN và UP riêng biệt! ━━━
 ; Tự động tạo hotkeys DOWN và UP cho mỗi key
 For sourceKey, targetKey in remap {
+    if (targetKey = "")
+        continue
     ; DOWN event
-    Hotkey, $%sourceKey%, HandleKeyDown
+    Hotkey, *$%sourceKey%, HandleKeyDown
     ; UP event  
-    Hotkey, $%sourceKey% up, HandleKeyUp
+    Hotkey, *$%sourceKey% up, HandleKeyUp
 }
 
 ; Bắt đầu timer cho behavioral pause
@@ -435,29 +430,18 @@ Return
 ; 🎛️ STEALTH HOTKEYS
 ; ═══════════════════════════════════════════════════════════════════════
 
-; ━━━ Ctrl+Alt+T - Toggle script ON/OFF ━━━
-^!t::
-    global ScriptEnabled
-    ScriptEnabled := !ScriptEnabled
-    
-    if (ScriptEnabled) {
-        SoundBeep, 1000, 100
-        ToolTip, SCRIPT ENABLED, 0, 0
-    } else {
-        SoundBeep, 500, 100
-        ToolTip, SCRIPT DISABLED (Passthrough mode), 0, 0
-    }
-    
-    SetTimer, RemoveToggleTooltip, 2000
+; ━━━ End - Toggle remap ON/OFF ━━━
+End::
+    global remapEnabled
+    remapEnabled := !remapEnabled
+    SoundBeep, remapEnabled ? 1000 : 500, 120
+    msg := remapEnabled ? "REMAPPING ENABLED" : "REMAPPING DISABLED"
+    ToolTip, %msg%, 0, 0
+    SetTimer, RemoveRemapTooltip, 2000
 Return
 
-RemoveToggleTooltip:
-    ToolTip
-    SetTimer, RemoveToggleTooltip, Off
-Return
-
-; ━━━ Ctrl+Alt+S - Check status (ENHANCED!) ━━━
-^!s::
+; ━━━ PgDn - Check status ━━━
+PgDn::
     global ScriptEnabled, IsPaused, NextPauseTime, MinDesync, MaxDesync, DISABLE_DESYNC
     global DISABLE_JITTER, MinJitter, MaxJitter, ArrowKeysUseJitter, remapEnabled
     global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
@@ -531,16 +515,9 @@ Return
     
     ; === HOTKEYS ===
     statusMsg .= "`n=== HOTKEYS ===`n"
-    statusMsg .= "Ctrl+Alt+T = Toggle ON/OFF`n"
-    statusMsg .= "Ctrl+Alt+S = Show this status`n"
-    statusMsg .= "Ctrl+Alt+D = Toggle Desync ON/OFF`n"
-    statusMsg .= "Ctrl+Alt+J = Toggle Jitter ON/OFF`n"
-    statusMsg .= "Ctrl+Alt+A = Toggle Arrow Keys Jitter`n"
-    statusMsg .= "End = Toggle Key Remapping`n"
-    statusMsg .= "Ctrl+Alt+W = Save Settings`n"
-    statusMsg .= "Ctrl+Alt+L = Load Settings`n"
-    statusMsg .= "Ctrl+Alt+R = Reset Settings`n"
-    statusMsg .= "Ctrl+Alt+Q = Exit script"
+    statusMsg .= "End = Toggle remap ON/OFF`n"
+    statusMsg .= "PgDn = Show this status`n"
+    statusMsg .= "PgUp = Exit script"
     
     SoundBeep, 600, 50
     ToolTip, %statusMsg%, 0, 0
@@ -552,85 +529,6 @@ RemoveStatusTooltip:
     SetTimer, RemoveStatusTooltip, Off
 Return
 
-; ━━━ Ctrl+Alt+D - Toggle Desync ON/OFF ━━━
-^!d::
-    global DISABLE_DESYNC
-    DISABLE_DESYNC := !DISABLE_DESYNC
-    
-    if (DISABLE_DESYNC) {
-        SoundBeep, 800, 100
-        ToolTip, DESYNC: OFF (Test mode), 0, 0
-    } else {
-        SoundBeep, 1200, 100
-        ToolTip, DESYNC: ON (Anti-detect mode), 0, 0
-    }
-    
-    SetTimer, RemoveDesyncTooltip, 2000
-Return
-
-RemoveDesyncTooltip:
-    ToolTip
-    SetTimer, RemoveDesyncTooltip, Off
-Return
-
-; ━━━ Ctrl+Alt+J - Toggle Jitter ON/OFF ━━━
-^!j::
-    global DISABLE_JITTER
-    DISABLE_JITTER := !DISABLE_JITTER
-    
-    if (DISABLE_JITTER) {
-        SoundBeep, 800, 100
-        ToolTip, JITTER: OFF (Test mode), 0, 0
-    } else {
-        SoundBeep, 1200, 100
-        ToolTip, JITTER: ON (Anti-detect mode), 0, 0
-    }
-    
-    SetTimer, RemoveJitterTooltip, 2000
-Return
-
-RemoveJitterTooltip:
-    ToolTip
-    SetTimer, RemoveJitterTooltip, Off
-Return
-
-; ━━━ Ctrl+Alt+A - Toggle Arrow Keys Jitter ON/OFF ━━━
-^!a::
-    global ArrowKeysUseJitter
-    ArrowKeysUseJitter := !ArrowKeysUseJitter
-    
-    if (ArrowKeysUseJitter) {
-        SoundBeep, 1200, 100
-        ToolTip, ARROW KEYS: JITTER ENABLED (Anti-detect), 0, 0
-    } else {
-        SoundBeep, 800, 100
-        ToolTip, ARROW KEYS: INSTANT (0ms - Smooth movement), 0, 0
-    }
-    
-    SetTimer, RemoveArrowTooltip, 2000
-Return
-
-RemoveArrowTooltip:
-    ToolTip
-    SetTimer, RemoveArrowTooltip, Off
-Return
-
-; ━━━ End - Toggle Key Remapping ON/OFF ━━━
-End::
-    global remapEnabled
-    remapEnabled := !remapEnabled
-    
-    if (remapEnabled) {
-        SoundBeep, 1200, 100
-        ToolTip, KEY REMAPPING: ENABLED (Keys will be remapped), 0, 0
-    } else {
-        SoundBeep, 800, 100
-        ToolTip, KEY REMAPPING: DISABLED (Keys pass through directly), 0, 0
-    }
-    
-    SetTimer, RemoveRemapTooltip, 2000
-Return
-
 RemoveRemapTooltip:
     ToolTip
     SetTimer, RemoveRemapTooltip, Off
@@ -638,10 +536,17 @@ Return
 
 ; ━━━ SETTINGS FUNCTIONS ━━━
 SaveSettings() {
-    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter, USE_SETTINGS_INI
     global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
     global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
     global SettingsFile
+    
+    if (!USE_SETTINGS_INI) {
+        SoundBeep, 500, 80
+        ToolTip, HARD-CODED MODE: Không lưu settings., 0, 0
+        SetTimer, RemoveSaveTooltip, 2000
+        return
+    }
     
     ; Create settings file
     FileDelete, %SettingsFile%
@@ -649,13 +554,13 @@ SaveSettings() {
     ; Write settings
     IniWrite, %ScriptEnabled%, %SettingsFile%, Script, Enabled
     IniWrite, %remapEnabled%, %SettingsFile%, Script, RemapEnabled
-    IniWrite, %DISABLE_DESYNC%, %SettingsFile%, Desync, Disabled
+    IniWrite, % (DISABLE_DESYNC ? 0 : 1), %SettingsFile%, Desync, Enabled
     IniWrite, %MinDesync%, %SettingsFile%, Desync, MinDelay
     IniWrite, %MaxDesync%, %SettingsFile%, Desync, MaxDelay
-    IniWrite, %DISABLE_JITTER%, %SettingsFile%, Jitter, Disabled
+    IniWrite, % (DISABLE_JITTER ? 0 : 1), %SettingsFile%, Jitter, Enabled
     IniWrite, %MinJitter%, %SettingsFile%, Jitter, MinDelay
     IniWrite, %MaxJitter%, %SettingsFile%, Jitter, MaxDelay
-    IniWrite, %ArrowKeysUseJitter%, %SettingsFile%, ArrowKeys, UseJitter
+    IniWrite, % (ArrowKeysUseJitter ? 1 : 0), %SettingsFile%, ArrowKeys, Enabled
     IniWrite, %UseGaussian%, %SettingsFile%, Jitter, UseGaussian
     IniWrite, %MinPauseInterval%, %SettingsFile%, Pause, MinInterval
     IniWrite, %MaxPauseInterval%, %SettingsFile%, Pause, MaxInterval
@@ -671,10 +576,15 @@ SaveSettings() {
 }
 
 LoadSettings() {
-    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter, USE_SETTINGS_INI
     global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
     global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
     global SettingsFile
+
+    if (!USE_SETTINGS_INI) {
+        ApplyHardcodedSettings()
+        return
+    }
     
     ; Check if settings file exists
     if (!FileExist(SettingsFile)) {
@@ -687,13 +597,13 @@ LoadSettings() {
     ; Load settings
     IniRead, ScriptEnabled, %SettingsFile%, Script, Enabled, 1
     IniRead, remapEnabled, %SettingsFile%, Script, RemapEnabled, 1
-    IniRead, DISABLE_DESYNC, %SettingsFile%, Desync, Disabled, 1
+    IniRead, DesyncEnabled, %SettingsFile%, Desync, Enabled, 1
     IniRead, MinDesync, %SettingsFile%, Desync, MinDelay, 50
     IniRead, MaxDesync, %SettingsFile%, Desync, MaxDelay, 150
-    IniRead, DISABLE_JITTER, %SettingsFile%, Jitter, Disabled, 0
+    IniRead, JitterEnabled, %SettingsFile%, Jitter, Enabled, 1
     IniRead, MinJitter, %SettingsFile%, Jitter, MinDelay, 10
     IniRead, MaxJitter, %SettingsFile%, Jitter, MaxDelay, 50
-    IniRead, ArrowKeysUseJitter, %SettingsFile%, ArrowKeys, UseJitter, 1
+    IniRead, ArrowKeysEnabled, %SettingsFile%, ArrowKeys, Enabled, 1
     IniRead, UseGaussian, %SettingsFile%, Jitter, UseGaussian, 0
     IniRead, MinPauseInterval, %SettingsFile%, Pause, MinInterval, 300000
     IniRead, MaxPauseInterval, %SettingsFile%, Pause, MaxInterval, 600000
@@ -703,13 +613,18 @@ LoadSettings() {
     ; Convert string to number
     ScriptEnabled := ScriptEnabled ? true : false
     remapEnabled := remapEnabled ? true : false
-    DISABLE_DESYNC := DISABLE_DESYNC ? true : false
-    DISABLE_JITTER := DISABLE_JITTER ? true : false
-    ArrowKeysUseJitter := ArrowKeysUseJitter ? true : false
+    DesyncEnabled := DesyncEnabled + 0
+    JitterEnabled := JitterEnabled + 0
+    ArrowKeysEnabled := ArrowKeysEnabled + 0
     UseGaussian := UseGaussian ? true : false
+
+    DISABLE_DESYNC := (DesyncEnabled = 0)
+    DISABLE_JITTER := (JitterEnabled = 0)
+    ArrowKeysUseJitter := (ArrowKeysEnabled != 0)
     
     ; Load remap settings
     LoadRemapSettings()
+    ScheduleNextPause()
     
     SoundBeep, 1000, 100
     ToolTip, SETTINGS LOADED! (%SettingsFile%), 0, 0
@@ -717,14 +632,44 @@ LoadSettings() {
 }
 
 ResetSettings() {
-    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter, USE_SETTINGS_INI
     global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
     global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
     
     ; Reset to defaults
+    if (!USE_SETTINGS_INI) {
+        ApplyHardcodedSettings()
+    } else {
+        ScriptEnabled := true
+        remapEnabled := true
+        DISABLE_DESYNC := false
+        DISABLE_JITTER := false
+        ArrowKeysUseJitter := true
+        UseGaussian := false
+        MinDesync := 50
+        MaxDesync := 150
+        MinJitter := 10
+        MaxJitter := 50
+        MinPauseInterval := 300000
+        MaxPauseInterval := 600000
+        MinPauseDuration := 2000
+        MaxPauseDuration := 5000
+        LoadDefaultRemap()
+    }
+    
+    SoundBeep, 800, 100
+    ToolTip, SETTINGS RESET TO DEFAULTS!, 0, 0
+    SetTimer, RemoveResetTooltip, 2000
+}
+
+ApplyHardcodedSettings() {
+    global ScriptEnabled, remapEnabled, DISABLE_DESYNC, DISABLE_JITTER, ArrowKeysUseJitter
+    global MinDesync, MaxDesync, MinJitter, MaxJitter, UseGaussian
+    global MinPauseInterval, MaxPauseInterval, MinPauseDuration, MaxPauseDuration
+    
     ScriptEnabled := true
     remapEnabled := true
-    DISABLE_DESYNC := false
+    DISABLE_DESYNC := true
     DISABLE_JITTER := false
     ArrowKeysUseJitter := true
     UseGaussian := false
@@ -736,17 +681,16 @@ ResetSettings() {
     MaxPauseInterval := 600000
     MinPauseDuration := 2000
     MaxPauseDuration := 5000
-    
-    ; Reset remap to defaults
     LoadDefaultRemap()
-    
-    SoundBeep, 800, 100
-    ToolTip, SETTINGS RESET TO DEFAULTS!, 0, 0
-    SetTimer, RemoveResetTooltip, 2000
+    ScheduleNextPause()
 }
 
 LoadRemapSettings() {
-    global remap, SettingsFile
+    global remap, SettingsFile, USE_SETTINGS_INI
+    if (!USE_SETTINGS_INI) {
+        LoadDefaultRemap()
+        return
+    }
     
     ; Clear existing remap table
     remap := {}
@@ -818,6 +762,8 @@ LoadRemapSettings() {
 LoadDefaultRemap() {
     global remap
     
+    remap := {}
+    
     ; Load default remap settings
     remap["q"] := "]"
     remap["w"] := "["
@@ -835,7 +781,6 @@ LoadDefaultRemap() {
     remap["k"] := "b"
     remap["Alt"] := "f"
     remap["Space"] := "d"
-    remap["Escape"] := "`"
     remap["F1"] := "F12"
     remap["F2"] := "F11"
     remap["F3"] := "F10"
@@ -846,6 +791,7 @@ LoadDefaultRemap() {
     remap["8"] := "1"
     remap["7"] := "2"
     remap["5"] := "4"
+    remap["6"] := "v"
     remap["v"] := "6"
     remap["3"] := "c"
     
@@ -857,7 +803,9 @@ LoadDefaultRemap() {
 }
 
 SaveRemapSettings() {
-    global remap, SettingsFile
+    global remap, SettingsFile, USE_SETTINGS_INI
+    if (!USE_SETTINGS_INI)
+        return
     
     ; Save all remap settings
     for key, value in remap
@@ -887,28 +835,23 @@ RemoveResetTooltip:
     SetTimer, RemoveResetTooltip, Off
 Return
 
-; ━━━ Ctrl+Alt+W - Save Settings ━━━
-^!w::
-    SaveSettings()
+RemoveExitTooltip:
+    ToolTip
+    SetTimer, RemoveExitTooltip, Off
 Return
 
-; ━━━ Ctrl+Alt+L - Load Settings ━━━
-^!l::
-    LoadSettings()
-Return
-
-; ━━━ Ctrl+Alt+R - Reset Settings ━━━
-^!r::
-    ResetSettings()
-Return
-
-; ━━━ Ctrl+Alt+Q - Exit script (NEW!) ━━━
-^!q::
+; ━━━ PgUp - Exit script (STEALTH) ━━━
+PgUp::
+    global ScriptEnabled, remapEnabled
+    ScriptEnabled := false
+    remapEnabled := false
+    SaveRemapSettings()
     SoundBeep, 1000, 150
     Sleep, 100
     SoundBeep, 800, 150
     ToolTip, STEALTH SCRIPT EXITING..., 0, 0
-    Sleep, 500
+    SetTimer, RemoveExitTooltip, 2000
+    Sleep, 400
     ExitApp
 Return
 
@@ -922,6 +865,7 @@ HandleKeyDown:
     ; Nếu script bị tắt, passthrough phím gốc
     if (!ScriptEnabled) {
         pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        pressedKey := StrReplace(pressedKey, "*", "")
         pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
         SendInput, {%pressedKey% down}
         return
@@ -930,6 +874,7 @@ HandleKeyDown:
     ; Nếu remap bị tắt, passthrough phím gốc
     if (!remapEnabled) {
         pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        pressedKey := StrReplace(pressedKey, "*", "")
         pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
         SendInput, {%pressedKey% down}
         return
@@ -942,10 +887,19 @@ HandleKeyDown:
     
     ; Lấy phím được ấn
     pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    pressedKey := StrReplace(pressedKey, "*", "")
     pressedKey := StrReplace(pressedKey, " up", "")  ; Remove " up" if exists
     
     ; Lấy phím đích từ bảng remap
     targetKey := remap[pressedKey]
+    if (targetKey = "")
+        return
+    targetVK := GetKeyVK(targetKey)
+    targetSC := GetKeySC(targetKey)
+    if (targetVK != "" && targetSC != "") {
+        vkHex := Format("{:02X}", targetVK)
+        scHex := Format("{:03X}", targetSC)
+    }
     
     ; ⚡ CHECK ARROW KEYS (Numpad hoặc Arrow keys)
     isArrowKey := (pressedKey = "Numpad1" || pressedKey = "Numpad2" || pressedKey = "Numpad3" || pressedKey = "Numpad5" || pressedKey = "Left" || pressedKey = "Right" || pressedKey = "Up" || pressedKey = "Down")
@@ -953,7 +907,11 @@ HandleKeyDown:
     ; ━━━ ARROW KEYS INSTANT (nếu ArrowKeysUseJitter = false) ━━━
     if (isArrowKey && !ArrowKeysUseJitter) {
         ; INSTANT: Send DOWN ngay lập tức (0ms delay)
-        SendInput, {%targetKey% down}
+        if (targetVK != "" && targetSC != "") {
+            SendInput, {Blind}{vk%vkHex%sc%scHex% down}
+        } else {
+            SendInput, {%targetKey% down}
+        }
         return
     }
     
@@ -978,7 +936,11 @@ HandleKeyDown:
     }
     
     ; BƯỚC 3: Send target key DOWN
-    SendInput, {%targetKey% down}
+    if (targetVK != "" && targetSC != "") {
+        SendInput, {Blind}{vk%vkHex%sc%scHex% down}
+    } else {
+        SendInput, {%targetKey% down}
+    }
 Return
 
 ; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -990,6 +952,7 @@ HandleKeyUp:
     ; Nếu script bị tắt, passthrough
     if (!ScriptEnabled) {
         pressedKey := StrReplace(A_ThisHotkey, "$", "")
+        pressedKey := StrReplace(pressedKey, "*", "")
         pressedKey := StrReplace(pressedKey, " up", "")
         SendInput, {%pressedKey% up}
         return
@@ -1002,13 +965,22 @@ HandleKeyUp:
     
     ; Lấy phím được nhả
     pressedKey := StrReplace(A_ThisHotkey, "$", "")
+    pressedKey := StrReplace(pressedKey, "*", "")
     pressedKey := StrReplace(pressedKey, " up", "")
     
     ; Lấy phím đích
     targetKey := remap[pressedKey]
-    
-    ; Send target key UP (NGAY LẬP TỨC - KHÔNG DELAY!)
-    SendInput, {%targetKey% up}
+    if (targetKey = "")
+        return
+    targetVK := GetKeyVK(targetKey)
+    targetSC := GetKeySC(targetKey)
+    if (targetVK != "" && targetSC != "") {
+        vkHex := Format("{:02X}", targetVK)
+        scHex := Format("{:03X}", targetSC)
+        SendInput, {Blind}{vk%vkHex%sc%scHex% up}
+    } else {
+        SendInput, {%targetKey% up}
+    }
 Return
 
 ; Hàm tạo số ngẫu nhiên Gaussian
