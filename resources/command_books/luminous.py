@@ -126,22 +126,24 @@ class Reflection_Random(Command):
 
 
 class Reflection_Mix_Random(Command):
-    """Mix skills per call: 60% Reflection (1–3), 30% Apocalypse (1–3), 10% Death Scythe (1)."""
+    """Mix skills per call: 85% Reflection (2–3 casts), 10% Apocalypse (2–3 casts), 5% Death Scythe (1 cast)."""
     
-    def __init__(self, min_times=1, max_times=3):
+    def __init__(self, min_times=2, max_times=3):
         super().__init__(locals())
         self.min_times = int(min_times)
         self.max_times = int(max_times)
     
     def main(self):
         roll = random.random()
-        if roll < 0.6:
-            times = random.randint(self.min_times, self.max_times)
+        if roll < 0.85:
+            min_casts = max(2, self.min_times)
+            max_casts = max(3, self.max_times)
+            times = random.randint(min_casts, max_casts)
             for _ in range(times):
                 press(Key.reflection, 1, down_time=0.1, up_time=0.1)
                 time.sleep(random.uniform(*TimingConfig.REFLECTION['long_between_casts']))
-        elif roll < 0.9:
-            times = random.randint(1, 3)
+        elif roll < 0.95:
+            times = random.randint(2, 3)
             for _ in range(times):
                 press(Key.apocalypse, 1, down_time=0.1, up_time=0.1)
                 time.sleep(random.uniform(*TimingConfig.HEAVY['long_between_casts']))
