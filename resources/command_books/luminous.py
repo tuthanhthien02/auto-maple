@@ -634,3 +634,19 @@ class Conditional_Action(Command):
         
         time.sleep(0.1)
 
+
+class Face_Right(Command):
+    """Tap right key briefly to ensure character faces right."""
+
+    def main(self):
+        press(Key.right, 1, down_time=0.05, up_time=0.05)
+        time.sleep(random.uniform(0.03, 0.08))
+
+
+class Face_Left(Command):
+    """Tap left key briefly to ensure character faces left."""
+
+    def main(self):
+        press(Key.left, 1, down_time=0.05, up_time=0.05)
+        time.sleep(random.uniform(0.03, 0.08))
+
