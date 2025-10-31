@@ -922,24 +922,33 @@ HandleKeyDown:
         Random, desyncDelay, %MinDesync%, %MaxDesync%
         Sleep, %desyncDelay%
     }
-    
-    ; BƯỚC 2: JITTER (nếu không disable)
+
+    ; Chuẩn bị JITTER (nếu bật)
+    jitterDelay := 0
     if (!DISABLE_JITTER) {
         if (UseGaussian) {
             mean := (MinJitter + MaxJitter) / 2.0
             stdDev := (MaxJitter - MinJitter) / 6.0
-            jitter := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
+            jitterDelay := GaussianRandom(mean, stdDev, MinJitter, MaxJitter)
         } else {
-            Random, jitter, %MinJitter%, %MaxJitter%
+            Random, jitterDelay, %MinJitter%, %MaxJitter%
         }
-        Sleep, %jitter%
+        Sleep, %jitterDelay%
     }
-    
-    ; BƯỚC 3: Send target key DOWN
+
+    ; BƯỚC 2: Gửi phím mục tiêu
     if (targetVK != "" && targetSC != "") {
-        SendInput, {Blind}{vk%vkHex%sc%scHex% down}
+        if (isArrowKey) {
+            SendInput, {Blind}{vk%vkHex%sc%scHex% down}
+        } else {
+            SendInput, {Blind}{vk%vkHex%sc%scHex%}
+        }
     } else {
-        SendInput, {%targetKey% down}
+        if (isArrowKey) {
+            SendInput, {%targetKey% down}
+        } else {
+            SendInput, {%targetKey%}
+        }
     }
 Return
 
