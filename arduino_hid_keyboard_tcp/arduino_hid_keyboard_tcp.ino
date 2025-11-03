@@ -105,6 +105,28 @@ void setup() {
   // Initialize watchdog timer
   lastReceiveMs = millis();
   
+  // Disable LED to avoid annoying blinking
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);  // Turn off LED
+  
+  // Disable RX/TX LED blinking (Pro Micro has separate RX/TX LEDs)
+  // These LEDs blink during Serial activity - disable them by setting pins to INPUT
+  // Pro Micro: RX LED on pin 17, TX LED on pin 30 (varies by board version)
+  // Set pins to INPUT to disable hardware Serial LED blinking
+  #ifdef LED_BUILTIN_RX
+    pinMode(LED_BUILTIN_RX, INPUT);  // Disable RX LED
+  #endif
+  #ifdef LED_BUILTIN_TX
+    pinMode(LED_BUILTIN_TX, INPUT);  // Disable TX LED
+  #endif
+  
+  // Direct pin disable for Pro Micro (if macros not defined)
+  // Pro Micro 5V/16MHz: RX=17, TX=30
+  // Pro Micro 3.3V/8MHz: RX=17, TX=30
+  // Setting to INPUT disables hardware LED control
+  pinMode(17, INPUT);  // RX LED pin (most Pro Micro boards)
+  pinMode(30, INPUT);  // TX LED pin (most Pro Micro boards)
+  
   // Optional: wait for serial connection (for debugging only)
   // while (!Serial) {
   //   ; // wait for serial port to connect
@@ -231,6 +253,9 @@ void processCommand(const char* command, uint8_t cmdLen) {
 }
 
 void loop() {
+  // Ensure LED stays off (prevent any automatic blinking)
+  digitalWrite(LED_BUILTIN, LOW);
+  
   // Fast serial reading - no String class overhead
   while (Serial.available()) {
     char inChar = (char)Serial.read();

@@ -178,14 +178,52 @@ user32.SendInput.argtypes = (wintypes.UINT, LPINPUT, ctypes.c_int)
 #################################
 #           Functions           #
 #################################
-@utils.run_if_enabled
-def key_down(key):
-    """
-    Simulates a key-down action. Can be cancelled by Bot.toggle_enabled.
-    :param key:     The key to press.
-    :return:        None
-    """
 
+# Arduino output instance (lazy import)
+_arduino_output = None
+
+def _get_arduino_output():
+    """Get or create Arduino output instance"""
+    global _arduino_output
+    if _arduino_output is None:
+        # Check if Arduino is enabled in config
+        try:
+            from src.common import config
+            if hasattr(config, 'use_arduino') and config.use_arduino:
+                try:
+                    from src.common.output_arduino import ArduinoSerialOutput
+                    com_port = getattr(config, 'arduino_com_port', None)
+                    baudrate = getattr(config, 'arduino_baudrate', 115200)
+                    key_mapping = getattr(config, 'arduino_key_mapping', None)
+                    remapping_enabled = getattr(config, 'arduino_remapping_enabled', True)
+                    _arduino_output = ArduinoSerialOutput(
+                        com_port=com_port,
+                        baudrate=baudrate,
+                        key_mapping=key_mapping,
+                        remapping_enabled=remapping_enabled
+                    )
+                    if not _arduino_output.connected:
+                        log.warning("Arduino output enabled but connection failed, falling back to SendInput")
+                        _arduino_output = False  # Mark as unavailable
+                    else:
+                        log.info("Arduino output initialized successfully")
+                except Exception as e:
+                    log.warning(f"Failed to initialize Arduino output: {e}, falling back to SendInput")
+                    _arduino_output = False  # Mark as unavailable
+            else:
+                # Arduino not enabled
+                _arduino_output = False
+        except ImportError:
+            # Config module not available
+            _arduino_output = False
+        except Exception as e:
+            log.warning(f"Error checking Arduino config: {e}")
+            _arduino_output = False
+    
+    return _arduino_output
+
+def _key_down_sendinput(key):
+    """Original SendInput key_down implementation"""
     key = key.lower()
     if key not in KEY_MAP.keys():
         log.warning("Invalid keyboard input: '%s'", key)
@@ -194,15 +232,26 @@ def key_down(key):
         x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key]))
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
-
-def key_up(key):
+@utils.run_if_enabled
+def key_down(key):
     """
-    Simulates a key-up action. Cannot be cancelled by Bot.toggle_enabled.
-    This is to ensure no keys are left in the 'down' state when the program pauses.
+    Simulates a key-down action. Can be cancelled by Bot.toggle_enabled.
+    Uses Arduino if enabled, otherwise SendInput.
     :param key:     The key to press.
     :return:        None
     """
+    # Check if Arduino is enabled and available
+    arduino = _get_arduino_output()
+    if arduino and arduino.connected:
+        arduino.key_down(key)
+        return
+    
+    # Fallback to SendInput
+    _key_down_sendinput(key)
 
+
+def _key_up_sendinput(key):
+    """Original SendInput key_up implementation"""
     key = key.lower()
     if key not in KEY_MAP.keys():
         log.warning("Invalid keyboard input: '%s'", key)
@@ -211,10 +260,27 @@ def key_up(key):
         x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key], dwFlags=KEYEVENTF_KEYUP))
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
-
-@utils.run_if_enabled
-def press(key, n, down_time=0.05, up_time=0.1):
+def key_up(key):
     """
+    Simulates a key-up action. Cannot be cancelled by Bot.toggle_enabled.
+    This is to ensure no keys are left in the 'down' state when the program pauses.
+    Uses Arduino if enabled, otherwise SendInput.
+    :param key:     The key to press.
+    :return:        None
+    """
+    # Check if Arduino is enabled and available
+    arduino = _get_arduino_output()
+    if arduino and arduino.connected:
+        arduino.key_up(key)
+        return
+    
+    # Fallback to SendInput
+    _key_up_sendinput(key)
+
+
+def _press_sendinput(key, n, down_time=0.05, up_time=0.1):
+    """
+    Original SendInput press implementation.
     Presses KEY N times, holding it for DOWN_TIME seconds, and releasing for UP_TIME seconds.
     Enhanced with advanced anti-detect timing randomization.
     :param key:         The keyboard input to press.
@@ -223,8 +289,7 @@ def press(key, n, down_time=0.05, up_time=0.1):
     :param up_time:     Duration of release (in seconds).
     :return:            None
     """
-
-    action_log.debug("press('%s', n=%d, down_time=%.3f, up_time=%.3f)", key, n, down_time, up_time)
+    action_log.debug("press('%s', n=%d, down_time=%.3f, up_time=%.3f) [SendInput]", key, n, down_time, up_time)
 
     for i in range(n):
         # Advanced timing randomization
@@ -239,15 +304,37 @@ def press(key, n, down_time=0.05, up_time=0.1):
             up_delay,
         )
 
-        key_down(key)
+        _key_down_sendinput(key)
         time.sleep(down_delay)
-        key_up(key)
+        _key_up_sendinput(key)
         time.sleep(up_delay)
         
         # Add micro-pauses between rapid key presses
         if i < n - 1 and n > 1:
             micro_pause = _get_micro_pause()
             time.sleep(micro_pause)
+
+@utils.run_if_enabled
+def press(key, n, down_time=0.05, up_time=0.1):
+    """
+    Presses KEY N times, holding it for DOWN_TIME seconds, and releasing for UP_TIME seconds.
+    Enhanced with advanced anti-detect timing randomization.
+    Uses Arduino if enabled, otherwise SendInput.
+    :param key:         The keyboard input to press.
+    :param n:           Number of times to press KEY.
+    :param down_time:   Duration of down-press (in seconds).
+    :param up_time:     Duration of release (in seconds).
+    :return:            None
+    """
+    # Check if Arduino is enabled and available
+    arduino = _get_arduino_output()
+    if arduino and arduino.connected:
+        # Use Arduino
+        arduino.press(key, n, down_time, up_time)
+        return
+    
+    # Fallback to SendInput
+    _press_sendinput(key, n, down_time, up_time)
 
 
 @utils.run_if_enabled
