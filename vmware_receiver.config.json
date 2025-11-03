@@ -5,8 +5,8 @@
     "block_local_input": false,
     "enable_logging": true,
     "key_mapping": {
-        "a": "]",
-        "w": "[",
+        "a": "rbracket",
+        "w": "lbracket",
         "e": "p"
     },
     "_comment": {
@@ -15,6 +15,6 @@
         "server_port": "TCP server port to listen for Host sender. Recommended: 12345",
         "block_local_input": "Block local keyboard input (not implemented, always false). Reserved for future use",
         "enable_logging": "Enable debug logging. true = verbose logs, false = minimal",
-        "key_mapping": "Key remapping for game customization. Format: {\"original_key\": \"mapped_key\"}. Example: {\"a\": \"]\", \"w\": \"[\", \"e\": \"p\"}"
+        "key_mapping": "Key remapping for game customization. Format: {\"original_key\": \"mapped_key\"}. Use Arduino key names (e.g. 'rbracket', 'lbracket', 'space', 'enter'). Example: {\"a\": \"rbracket\", \"w\": \"lbracket\", \"e\": \"p\"}"
     }
 }

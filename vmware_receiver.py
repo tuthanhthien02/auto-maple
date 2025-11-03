@@ -105,11 +105,13 @@ class VMwareReceiver:
                     if key_mapping_config:
                         self.key_mapping = {k.lower(): v.lower() for k, v in key_mapping_config.items()}
                         print(f"[CONFIG] Loaded key remapping: {len(self.key_mapping)} mappings")
+                        print(f"[CONFIG] Key mappings: {self.key_mapping}")  # Debug: Print actual mappings
                         if self.enable_logging:
                             for orig, mapped in self.key_mapping.items():
                                 print(f"[CONFIG]   {orig} → {mapped}")
                     else:
                         self.key_mapping = {}
+                        print(f"[CONFIG] No key mapping found in config")
                     
                     if self.enable_logging:
                         print(f"[CONFIG] Loaded: com_port={self.com_port}, "
@@ -340,7 +342,8 @@ class VMwareReceiver:
                 return False
             
             self.stats['total_forwarded'] += 1
-            print(f"[FORWARD] {action}:{key_name} ({bytes_written} bytes) → Arduino")
+            if self.enable_logging:
+                print(f"[FORWARD] {action}:{key_name} ({bytes_written} bytes) → Arduino")
             return True
             
         except Exception as e:
@@ -431,10 +434,14 @@ class VMwareReceiver:
             if self.remapping_enabled and key_name in self.key_mapping:
                 key_name = self.key_mapping[key_name]
                 self.stats['total_remapped'] += 1
-                if self.enable_logging:
-                    print(f"[REMAP] {original_key} → {key_name}")
+                print(f"[REMAP] {original_key} → {key_name}")  # Always print remap
             else:
-                if self.enable_logging:
+                if not self.remapping_enabled:
+                    print(f"[REMAP DISABLED] {original_key} (remapping is OFF)")
+                elif key_name not in self.key_mapping:
+                    if self.enable_logging:
+                        print(f"[PROCESS] Parsed: action='{action}', key='{key_name}' (no mapping for this key)")
+                elif self.enable_logging:
                     print(f"[PROCESS] Parsed: action='{action}', key='{key_name}'")
             
             result = self.send_key_to_arduino(key_name, action)
