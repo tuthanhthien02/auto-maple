@@ -160,14 +160,22 @@ void processCommand(String command) {
     return;
   }
   
-  // Execute action với duplicate prevention
+  // Execute action với key repeat support
   if (action == "down") {
-    // Check duplicate: chỉ press nếu key chưa được giữ
-    if (keyCode < MAX_KEYS && !keyStates[keyCode]) {
-      Keyboard.press(keyCode);
-      keyStates[keyCode] = true;  // Mark as pressed
+    // Support key repeat: if key is already held, release and press again to generate new key event
+    if (keyCode < MAX_KEYS) {
+      if (keyStates[keyCode]) {
+        // Key already held - release and press again for key repeat
+        Keyboard.release(keyCode);
+        delay(1);  // Small delay to ensure release is processed
+        Keyboard.press(keyCode);
+        // Key remains pressed (keyStates[keyCode] = true)
+      } else {
+        // Key not held - press it
+        Keyboard.press(keyCode);
+        keyStates[keyCode] = true;  // Mark as pressed
+      }
     }
-    // Nếu key đã được giữ, ignore duplicate down
   } else if (action == "up") {
     // Release key nếu đang được giữ
     if (keyCode < MAX_KEYS && keyStates[keyCode]) {

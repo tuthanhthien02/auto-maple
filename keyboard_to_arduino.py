@@ -101,12 +101,19 @@ class KeyboardToArduino:
         self.stuck_key_timeout = stuck_key_timeout  # Timeout để auto-release stuck keys (giây)
         self.enable_logging = enable_logging  # Log key events để debug
         
-        # Key state tracking: {key_name: (is_down: bool, down_timestamp: float)}
+        # Key state tracking: {key_name: (is_down: bool, down_timestamp: float, last_repeat_time: float)}
+        # last_repeat_time: timestamp of last repeat send (for key repeat when holding)
         self.key_states = {}
         self.key_states_lock = threading.Lock()  # Thread-safe access
         
         # Stuck key monitor thread
         self.stuck_key_monitor_thread = None
+        
+        # Key repeat thread for hold down keys
+        self.key_repeat_thread = None
+        self.key_repeat_enabled = True  # Enable key repeat when holding keys
+        self.key_repeat_initial_delay = 0.5  # Initial delay before repeat starts (seconds)
+        self.key_repeat_interval = 0.05  # Repeat interval (50ms = ~20 keys/second)
 
         # Runtime toggles
         self.forwarding_enabled = True  # Toggle forward to Arduino on/off
@@ -388,18 +395,18 @@ class KeyboardToArduino:
             current_time = time.time()
             if is_down:
                 # Key down: check duplicate prevention
-                if key_name in self.key_states and self.key_states[key_name][0]:
+                if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
                     # Key đã đang down, skip duplicate
                     if self.enable_logging:
                         print(f"[LOG] Duplicate key down ignored: {key_name}")
                     return False
-                # Set key down với timestamp
-                self.key_states[key_name] = (True, current_time)
+                # Set key down với timestamp, reset last_repeat_time
+                self.key_states[key_name] = (True, current_time, 0.0)
                 return True
             else:
                 # Key up: check nếu key đang down
-                if key_name in self.key_states and self.key_states[key_name][0]:
-                    self.key_states[key_name] = (False, current_time)
+                if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
+                    self.key_states[key_name] = (False, current_time, 0.0)
                     return True
                 else:
                     # Key không đang down, có thể là duplicate key up
@@ -410,8 +417,8 @@ class KeyboardToArduino:
     def _release_key_safe(self, key_name):
         """Release key an toàn (thread-safe)"""
         with self.key_states_lock:
-            if key_name in self.key_states and self.key_states[key_name][0]:
-                self.key_states[key_name] = (False, time.time())
+            if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
+                self.key_states[key_name] = (False, time.time(), 0.0)
                 try:
                     if self.serial and self.serial.is_open:
                         command = f"up:{key_name}\n"
@@ -598,8 +605,9 @@ class KeyboardToArduino:
                 stuck_keys = []
                 
                 with self.key_states_lock:
-                    for key_name, (is_down, down_timestamp) in self.key_states.items():
-                        if is_down:
+                    for key_name, state in self.key_states.items():
+                        if len(state) >= 2 and state[0]:  # is_down
+                            is_down, down_timestamp = state[0], state[1]
                             # Key đang down, check timeout
                             elapsed = current_time - down_timestamp
                             if elapsed > self.stuck_key_timeout:
@@ -617,6 +625,47 @@ class KeyboardToArduino:
                 if self.enable_logging:
                     print(f"[ERROR] Stuck key monitor error: {e}")
                 time.sleep(1.0)
+    
+    def _key_repeat_loop(self):
+        """Key repeat thread - sends key down repeatedly while key is held"""
+        while self.running:
+            try:
+                current_time = time.time()
+                keys_to_repeat = []
+                
+                with self.key_states_lock:
+                    for key_name, state in self.key_states.items():
+                        if len(state) >= 3 and state[0] and self.forwarding_enabled:  # is_down
+                            is_down, down_timestamp, last_repeat_time = state[0], state[1], state[2]
+                            elapsed = current_time - down_timestamp
+                            
+                            # Only repeat if past initial delay
+                            if elapsed > self.key_repeat_initial_delay:
+                                # Check if it's time to repeat (based on interval)
+                                last_repeat = last_repeat_time if last_repeat_time > 0 else down_timestamp + self.key_repeat_initial_delay
+                                time_since_last_repeat = current_time - last_repeat
+                                if time_since_last_repeat >= self.key_repeat_interval:
+                                    keys_to_repeat.append(key_name)
+                
+                # Send repeat commands for held keys
+                for key_name in keys_to_repeat:
+                    if self.key_repeat_enabled:
+                        # Send key down again to simulate key repeat
+                        success = self.send_key_to_arduino(key_name, 'down')
+                        if success:
+                            # Update last_repeat_time
+                            with self.key_states_lock:
+                                if key_name in self.key_states and len(self.key_states[key_name]) >= 3:
+                                    is_down, down_timestamp, _ = self.key_states[key_name]
+                                    self.key_states[key_name] = (is_down, down_timestamp, current_time)
+                
+                # Sleep for repeat interval
+                time.sleep(self.key_repeat_interval)
+                
+            except Exception as e:
+                if self.enable_logging:
+                    print(f"[ERROR] Key repeat error: {e}")
+                time.sleep(0.05)
     
     def message_loop(self):
         """Windows message loop - optimized for low latency with Raw Input blocking"""
@@ -653,8 +702,9 @@ class KeyboardToArduino:
                     self.user32.TranslateMessage(ctypes.byref(msg))
                     self.user32.DispatchMessageW(ctypes.byref(msg))
             else:
-                # No message available, small sleep to prevent CPU spinning
-                time.sleep(0.001)  # 1ms sleep
+                # No message available, minimal sleep to prevent CPU spinning while maintaining low latency
+                # Reduced from 1ms to 0ms (yield only) for maximum responsiveness
+                time.sleep(0)  # Yield to other threads without delay
     
     def start(self):
         """Bắt đầu hook và forward input"""
@@ -679,6 +729,13 @@ class KeyboardToArduino:
             )
             self.stuck_key_monitor_thread.start()
             
+            # Start key repeat thread for hold down keys
+            self.key_repeat_thread = threading.Thread(
+                target=self._key_repeat_loop,
+                daemon=True
+            )
+            self.key_repeat_thread.start()
+            
             if self.block_original_input:
                 print("Đã bắt đầu nhận input từ Multiplicity và forward qua Arduino...")
                 print("[WARNING] Input gốc đã bị BLOCK - Game chỉ nhận input từ Arduino")
@@ -687,6 +744,7 @@ class KeyboardToArduino:
                 print("Đã bắt đầu nhận input từ Multiplicity và forward qua Arduino...")
                 print("[INFO] Input gốc vẫn được forward - Game có thể nhận cả 2 nguồn")
             print(f"[INFO] Stuck key auto-release: {self.stuck_key_timeout}s timeout")
+            print(f"[INFO] Key repeat: {'ENABLED' if self.key_repeat_enabled else 'DISABLED'} (delay: {self.key_repeat_initial_delay}s, interval: {self.key_repeat_interval}s)")
             self._print_status()
             print("[HOTKEYS] PageDown: Toggle blocking | PageUp: Toggle forwarding | Home: Show stats | End: Exit")
             print("Nhấn Ctrl+C để dừng")
@@ -715,8 +773,8 @@ class KeyboardToArduino:
         print("Đang cleanup và release tất cả keys...")
         with self.key_states_lock:
             keys_to_release = [
-                key_name for key_name, (is_down, _) in self.key_states.items()
-                if is_down
+                key_name for key_name, state in self.key_states.items()
+                if len(state) >= 1 and state[0]  # is_down
             ]
         
         for key_name in keys_to_release:
