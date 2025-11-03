@@ -24,6 +24,7 @@ WM_SYSKEYDOWN = 0x0104
 WM_SYSKEYUP = 0x0105
 HC_ACTION = 0
 PM_REMOVE = 0x0001
+PM_NOYIELD = 0x0002  # Don't yield CPU time slice (for lower latency)
 
 # Compat: some Python builds lack wintypes.ULONG_PTR
 if not hasattr(wintypes, 'ULONG_PTR'):
@@ -196,24 +197,37 @@ class VMwareReceiver:
         self.user32.PostQuitMessage.restype = None
     
     def _low_level_keyboard_proc(self, nCode, wParam, lParam):
-        """Low-level keyboard hook callback - detect End key to toggle remapping"""
-        if nCode >= HC_ACTION:
-            kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            vk_code = kb_data.vkCode
-            
-            # Check for End key (toggle remapping)
-            if vk_code == self.VK_END:
-                if wParam == WM_KEYDOWN:
-                    self.remapping_enabled = not self.remapping_enabled
-                    status = "ENABLED" if self.remapping_enabled else "DISABLED"
-                    print(f"[HOTKEY] End → Key remapping: {status}")
-                    if self.remapping_enabled:
-                        winsound.Beep(800, 150)  # ON - Higher pitch
-                    else:
-                        winsound.Beep(400, 150)  # OFF - Lower pitch
-                return 1  # Block End key - prevent it from being processed
+        """
+        Low-level keyboard hook callback - ZERO DELAY for local input
+        CRITICAL: This hook ONLY intercepts End key for hotkey
+        ALL other keys (including all local input) pass through IMMEDIATELY
+        This hook does NOT process, block, or delay ANY local input except End key
+        """
+        # Fast path 1: if not action code, pass through immediately (zero processing)
+        if nCode < HC_ACTION:
+            return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         
-        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+        # Parse structure to get vkCode (minimal overhead, necessary for End key check)
+        kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+        vk_code = kb_data.vkCode
+        
+        # Fast path 2: if NOT End key, pass through IMMEDIATELY (ZERO delay for local input)
+        # This is the critical path - 99.9% of keys (all local input) take this path
+        # No processing, no blocking, no delay - just immediate pass through
+        if vk_code != self.VK_END:
+            return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+        
+        # Only End key reaches here (0.1% of cases) - handle hotkey
+        # CRITICAL: Local input NEVER reaches here, only End key does
+        if wParam == WM_KEYDOWN:
+            self.remapping_enabled = not self.remapping_enabled
+            status = "ENABLED" if self.remapping_enabled else "DISABLED"
+            print(f"[HOTKEY] End → Key remapping: {status}")
+            if self.remapping_enabled:
+                winsound.Beep(800, 150)  # ON - Higher pitch
+            else:
+                winsound.Beep(400, 150)  # OFF - Lower pitch
+        return 1  # Block End key only - prevent it from reaching applications
     
     def install_hook(self):
         """Install low-level keyboard hook"""
@@ -255,17 +269,25 @@ class VMwareReceiver:
                 print(f"[ERROR] Hook uninstallation error: {e}")
     
     def message_loop(self):
-        """Windows message loop for keyboard hook"""
+        """
+        Windows message loop for keyboard hook - optimized for zero delay
+        Only processes messages needed for hook, doesn't block local input
+        Hook callback passes through all non-End keys immediately
+        """
         msg = wintypes.MSG()
         while self.running:
-            bRet = self.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE)
+            # PM_NOYIELD: Don't yield CPU time slice (faster, less delay)
+            # This hook only listens for End key, all other keys pass through immediately
+            bRet = self.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE | PM_NOYIELD)
             if bRet:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
                 self.user32.TranslateMessage(ctypes.byref(msg))
                 self.user32.DispatchMessageW(ctypes.byref(msg))
             else:
-                time.sleep(0)
+                # No messages - yield without delay to avoid CPU spin
+                # Use sleep(0) for minimal latency (yield only, no actual sleep)
+                time.sleep(0)  # Yield to other threads without delay
     
     def find_arduino_port(self):
         """Tự động tìm COM port của Arduino"""
@@ -522,11 +544,15 @@ class VMwareReceiver:
             print(f"[RETRY] Arduino connection failed (attempt {retry_count}). Retrying in 2s...")
             time.sleep(2.0)
         
-        # Install keyboard hook for hotkeys
+        # Install keyboard hook for hotkeys (End key only)
+        # IMPORTANT: Hook does NOT block or delay local input
+        # It only listens for End key, all other keys pass through with ZERO delay
         try:
             if self.install_hook():
-                print(f"[HOOK] ✓ Keyboard hook installed for hotkeys")
+                print(f"[HOOK] ✓ Keyboard hook installed (hotkeys only)")
                 print(f"[HOTKEYS] End = toggle key remapping")
+                print(f"[NOTE] Hook does NOT block/delay local input - only listens for End key")
+                print(f"[NOTE] Local input passes through immediately, even when connected to host")
             else:
                 print(f"[WARN] Failed to install keyboard hook (hotkeys disabled)")
         except Exception as e:
