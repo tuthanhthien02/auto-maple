@@ -88,7 +88,7 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
 
 
 class KeyboardToArduino:
-    def __init__(self, com_port=None, baudrate=9600, block_original_input=True, 
+    def __init__(self, com_port=None, baudrate=115200, block_original_input=True, 
                  stuck_key_timeout=10.0, enable_logging=False):
         self.serial = None
         self.hook = None
@@ -112,7 +112,7 @@ class KeyboardToArduino:
         # Ignore Arduino HID events to prevent loop
         # Track last command send time to ignore events from Arduino for a short period
         self.last_command_sent_time = {}  # {key_name: timestamp}
-        self.ignore_window_ms = 150  # Ignore events within 150ms after sending command (prevent loop)
+        self.ignore_window_ms = 100  # Reduced from 150ms to 100ms for faster response
 
         # Safety hotkeys (VK codes)
         self.VK_PGDN = 0x22        # Page Down -> toggle blocking
@@ -170,6 +170,12 @@ class KeyboardToArduino:
             ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT
         ]
         self.user32.GetMessageW.restype = wintypes.BOOL
+        
+        # PeekMessageW signature (for non-blocking message loop)
+        self.user32.PeekMessageW.argtypes = [
+            ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT
+        ]
+        self.user32.PeekMessageW.restype = wintypes.BOOL
         
         self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
         self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
@@ -242,9 +248,16 @@ class KeyboardToArduino:
             raise RuntimeError("Không tìm thấy Arduino. Vui lòng chỉ định COM port.")
         
         try:
-            self.serial = serial.Serial(self.com_port, self.baudrate, timeout=1)
-            time.sleep(2)  # Đợi Arduino khởi động
-            print(f"Đã kết nối với Arduino tại {self.com_port}")
+            # Use lower timeout for faster response, write_timeout to prevent blocking
+            self.serial = serial.Serial(
+                self.com_port, 
+                self.baudrate, 
+                timeout=0.1,  # Reduced from 1s to 100ms for faster response
+                write_timeout=0.1,  # Prevent write blocking
+                inter_byte_timeout=0.01  # Fast byte timeout
+            )
+            time.sleep(0.5)  # Reduced from 2s to 0.5s
+            print(f"Đã kết nối với Arduino tại {self.com_port} (baudrate: {self.baudrate})")
             # Đồng bộ trạng thái: release tất cả keys trên Arduino
             self.send_all_up()
             return True
@@ -265,9 +278,11 @@ class KeyboardToArduino:
         try:
             command = f"{action}:{key_name}\n"
             self.serial.write(command.encode('utf-8'))
+            self.serial.flush()  # Force immediate send, don't wait for buffer
             
             # Record timestamp to ignore Arduino HID events (prevent loop)
-            current_time_ms = int(time.time() * 1000)
+            # Use perf_counter for more accurate timing
+            current_time_ms = int(time.perf_counter() * 1000)
             self.last_command_sent_time[key_name] = current_time_ms
             
             if self.enable_logging:
@@ -283,6 +298,7 @@ class KeyboardToArduino:
         try:
             if self.serial and self.serial.is_open:
                 self.serial.write(b"all_up\n")
+                self.serial.flush()  # Force immediate send
                 if self.enable_logging:
                     print("[LOG] Sent: all_up")
         except Exception as e:
@@ -401,7 +417,8 @@ class KeyboardToArduino:
             if key_name:
                 # CRITICAL: Check if this event is from Arduino HID (prevent loop)
                 # Ignore events within ignore_window_ms after sending command to Arduino
-                current_time_ms = int(time.time() * 1000)
+                # Use perf_counter for more accurate timing
+                current_time_ms = int(time.perf_counter() * 1000)
                 if key_name in self.last_command_sent_time:
                     time_since_command = current_time_ms - self.last_command_sent_time[key_name]
                     if time_since_command < self.ignore_window_ms:
@@ -528,25 +545,33 @@ class KeyboardToArduino:
                 time.sleep(1.0)
     
     def message_loop(self):
-        """Windows message loop"""
+        """Windows message loop - optimized for low latency"""
         msg = wintypes.MSG()
         
+        # Use PeekMessage instead of GetMessage for non-blocking behavior
+        # This allows faster response to keyboard events
+        PM_REMOVE = 0x0001
+        PM_NOYIELD = 0x0002
+        
         while self.running:
-            ret = self.user32.GetMessageW(
+            # PeekMessage with PM_REMOVE to get messages without blocking
+            ret = self.user32.PeekMessageW(
                 ctypes.byref(msg),
                 None,
                 0,
-                0
+                0,
+                PM_REMOVE | PM_NOYIELD
             )
             
-            if ret == 0:  # WM_QUIT
-                break
-            elif ret == -1:  # Error
-                print("Lỗi trong message loop")
-                break
+            if ret:
+                if msg.message == 0x0012:  # WM_QUIT
+                    break
+                else:
+                    self.user32.TranslateMessage(ctypes.byref(msg))
+                    self.user32.DispatchMessageW(ctypes.byref(msg))
             else:
-                self.user32.TranslateMessage(ctypes.byref(msg))
-                self.user32.DispatchMessageW(ctypes.byref(msg))
+                # No message available, small sleep to prevent CPU spinning
+                time.sleep(0.001)  # 1ms sleep
     
     def start(self):
         """Bắt đầu hook và forward input"""
