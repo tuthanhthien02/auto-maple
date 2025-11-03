@@ -18,8 +18,10 @@ WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
 WM_SYSKEYDOWN = 0x0104
 WM_SYSKEYUP = 0x0105
+WM_INPUT = 0x00FF  # Raw Input message
 HC_ACTION = 0
 PM_REMOVE = 0x0001
+PM_NOYIELD = 0x0002
 
 # Compat: some Python builds lack wintypes.ULONG_PTR
 if not hasattr(wintypes, 'ULONG_PTR'):
@@ -545,13 +547,8 @@ class KeyboardToArduino:
                 time.sleep(1.0)
     
     def message_loop(self):
-        """Windows message loop - optimized for low latency"""
+        """Windows message loop - optimized for low latency with Raw Input blocking"""
         msg = wintypes.MSG()
-        
-        # Use PeekMessage instead of GetMessage for non-blocking behavior
-        # This allows faster response to keyboard events
-        PM_REMOVE = 0x0001
-        PM_NOYIELD = 0x0002
         
         while self.running:
             # PeekMessage with PM_REMOVE to get messages without blocking
@@ -566,7 +563,19 @@ class KeyboardToArduino:
             if ret:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
+                elif msg.message == WM_INPUT:
+                    # CRITICAL: Block Raw Input API messages to prevent original input
+                    # Raw Input bypasses low-level keyboard hook
+                    if self.block_original_input:
+                        # Block Raw Input - don't dispatch, don't translate
+                        # This prevents Raw Input API from receiving keyboard events
+                        continue  # Skip processing this message
+                    else:
+                        # Allow Raw Input if not blocking
+                        self.user32.TranslateMessage(ctypes.byref(msg))
+                        self.user32.DispatchMessageW(ctypes.byref(msg))
                 else:
+                    # Normal messages - process normally
                     self.user32.TranslateMessage(ctypes.byref(msg))
                     self.user32.DispatchMessageW(ctypes.byref(msg))
             else:
