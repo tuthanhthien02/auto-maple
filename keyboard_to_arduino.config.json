@@ -1,0 +1,8 @@
+{
+    "com_port": "COM13",
+    "baudrate": 115200,
+    "block_original_input": true,
+    "forwarding_enabled": true,
+    "stuck_key_timeout": 10.0,
+    "enable_logging": false
+}
