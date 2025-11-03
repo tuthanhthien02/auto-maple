@@ -6,4 +6,5 @@ opencv-python-headless
 Pillow
 pygame
 pywin32
+pyserial
 tensorflow

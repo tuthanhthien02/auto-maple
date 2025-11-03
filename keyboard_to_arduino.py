@@ -108,6 +108,11 @@ class KeyboardToArduino:
 
         # Runtime toggles
         self.forwarding_enabled = True  # Toggle forward to Arduino on/off
+        
+        # Ignore Arduino HID events to prevent loop
+        # Track last command send time to ignore events from Arduino for a short period
+        self.last_command_sent_time = {}  # {key_name: timestamp}
+        self.ignore_window_ms = 150  # Ignore events within 150ms after sending command (prevent loop)
 
         # Safety hotkeys (VK codes)
         self.VK_PGDN = 0x22        # Page Down -> toggle blocking
@@ -261,6 +266,10 @@ class KeyboardToArduino:
             command = f"{action}:{key_name}\n"
             self.serial.write(command.encode('utf-8'))
             
+            # Record timestamp to ignore Arduino HID events (prevent loop)
+            current_time_ms = int(time.time() * 1000)
+            self.last_command_sent_time[key_name] = current_time_ms
+            
             if self.enable_logging:
                 print(f"[LOG] Sent: {action}:{key_name}")
         except Exception as e:
@@ -390,6 +399,18 @@ class KeyboardToArduino:
             key_name = VK_TO_KEY.get(vk_code)
             
             if key_name:
+                # CRITICAL: Check if this event is from Arduino HID (prevent loop)
+                # Ignore events within ignore_window_ms after sending command to Arduino
+                current_time_ms = int(time.time() * 1000)
+                if key_name in self.last_command_sent_time:
+                    time_since_command = current_time_ms - self.last_command_sent_time[key_name]
+                    if time_since_command < self.ignore_window_ms:
+                        # This event is likely from Arduino HID - ignore to prevent loop
+                        if self.enable_logging:
+                            print(f"[LOG] Ignored Arduino event: {key_name} (sent {time_since_command}ms ago)")
+                        # Allow this event to pass through (don't block it, don't forward it)
+                        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                
                 # Check if key down or up
                 if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
                     # Key down event - check duplicate và update state
