@@ -10,6 +10,24 @@ import json
 import os
 import sys
 import time
+import ctypes
+import ctypes.wintypes
+import winsound
+from typing import Optional
+from ctypes import wintypes
+
+# Windows API constants
+WH_KEYBOARD_LL = 13
+WM_KEYDOWN = 0x0100
+WM_KEYUP = 0x0101
+WM_SYSKEYDOWN = 0x0104
+WM_SYSKEYUP = 0x0105
+HC_ACTION = 0
+PM_REMOVE = 0x0001
+
+# Compat: some Python builds lack wintypes.ULONG_PTR
+if not hasattr(wintypes, 'ULONG_PTR'):
+    wintypes.ULONG_PTR = wintypes.WPARAM
 
 # Ensure console can print UTF-8
 try:
@@ -19,34 +37,56 @@ except Exception:
     pass
 
 
+class KBDLLHOOKSTRUCT(ctypes.Structure):
+    _fields_ = [
+        ("vkCode", wintypes.DWORD),
+        ("scanCode", wintypes.DWORD),
+        ("flags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", wintypes.ULONG_PTR)
+    ]
+
+
 class VMwareReceiver:
     """TCP Server nhận commands từ Host và forward đến Arduino"""
     
     def __init__(self, com_port=None, baudrate=115200, server_port=12345, 
-                 block_local_input=False, enable_logging=False):
+                 block_local_input=False, enable_logging=False, key_mapping=None):
         self.serial = None
         self.com_port = com_port
         self.baudrate = baudrate
         self.server_port = server_port
         self.block_local_input = block_local_input
         self.enable_logging = enable_logging
+        self.key_mapping = key_mapping or {}  # Key remapping dictionary: {'original': 'mapped'}
+        self.remapping_enabled = True  # Toggle for key remapping
         
         self.server_socket = None
         self.running = False
         self.client_socket = None
         self.client_address = None
         
+        # Keyboard hook for hotkeys
+        self.hook = None
+        self.user32 = None
+        self.kernel32 = None
+        self.VK_END = 0x23  # End key -> toggle remapping
+        
         # Stats
         self.stats = {
             'total_received': 0,
             'total_forwarded': 0,
             'total_errors': 0,
-            'total_clients': 0
+            'total_clients': 0,
+            'total_remapped': 0  # Count of remapped keys
         }
         
         # Config
         self.CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'vmware_receiver.config.json')
         self._load_config()
+        
+        # Initialize Windows API for keyboard hook
+        self._init_windows_api()
     
     def _load_config(self):
         """Load config from JSON file"""
@@ -59,6 +99,18 @@ class VMwareReceiver:
                     self.server_port = config.get('server_port', self.server_port)
                     self.block_local_input = config.get('block_local_input', self.block_local_input)
                     self.enable_logging = config.get('enable_logging', self.enable_logging)
+                    
+                    # Load key remapping
+                    key_mapping_config = config.get('key_mapping', {})
+                    if key_mapping_config:
+                        self.key_mapping = {k.lower(): v.lower() for k, v in key_mapping_config.items()}
+                        print(f"[CONFIG] Loaded key remapping: {len(self.key_mapping)} mappings")
+                        if self.enable_logging:
+                            for orig, mapped in self.key_mapping.items():
+                                print(f"[CONFIG]   {orig} → {mapped}")
+                    else:
+                        self.key_mapping = {}
+                    
                     if self.enable_logging:
                         print(f"[CONFIG] Loaded: com_port={self.com_port}, "
                               f"server_port={self.server_port}")
@@ -74,13 +126,144 @@ class VMwareReceiver:
                 'baudrate': self.baudrate,
                 'server_port': self.server_port,
                 'block_local_input': self.block_local_input,
-                'enable_logging': self.enable_logging
+                'enable_logging': self.enable_logging,
+                'key_mapping': self.key_mapping if self.key_mapping else None
             }
             with open(self.CONFIG_PATH, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4)
+                json.dump(config, f, indent=4, ensure_ascii=False)
         except Exception as e:
             if self.enable_logging:
                 print(f"[CONFIG] Save error: {e}")
+    
+    def _init_windows_api(self):
+        """Initialize Windows API for keyboard hook"""
+        self.user32 = ctypes.windll.user32
+        self.kernel32 = ctypes.windll.kernel32
+        
+        # Define SetWindowsHookExW signature
+        HOOKPROC = ctypes.WINFUNCTYPE(
+            ctypes.c_int,
+            ctypes.c_int,
+            wintypes.WPARAM,
+            wintypes.LPARAM
+        )
+        
+        self.user32.SetWindowsHookExW.argtypes = [
+            ctypes.c_int,
+            HOOKPROC,
+            wintypes.HINSTANCE,
+            wintypes.DWORD
+        ]
+        self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
+        
+        # Define CallNextHookEx
+        self.user32.CallNextHookEx.argtypes = [
+            wintypes.HHOOK,
+            ctypes.c_int,
+            wintypes.WPARAM,
+            wintypes.LPARAM
+        ]
+        self.user32.CallNextHookEx.restype = ctypes.c_int
+        
+        # Define UnhookWindowsHookEx
+        self.user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+        self.user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+        
+        # Define GetModuleHandleW
+        self.kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+        self.kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
+        
+        # Define PeekMessageW
+        self.user32.PeekMessageW.argtypes = [
+            ctypes.POINTER(wintypes.MSG),
+            wintypes.HWND,
+            wintypes.UINT,
+            wintypes.UINT,
+            wintypes.UINT
+        ]
+        self.user32.PeekMessageW.restype = wintypes.BOOL
+        
+        # Define TranslateMessage and DispatchMessageW
+        self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
+        self.user32.TranslateMessage.restype = wintypes.BOOL
+        
+        self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
+        
+        # Define PostQuitMessage
+        self.user32.PostQuitMessage.argtypes = [ctypes.c_int]
+        self.user32.PostQuitMessage.restype = None
+    
+    def _low_level_keyboard_proc(self, nCode, wParam, lParam):
+        """Low-level keyboard hook callback - detect End key to toggle remapping"""
+        if nCode >= HC_ACTION:
+            kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            vk_code = kb_data.vkCode
+            
+            # Check for End key (toggle remapping)
+            if vk_code == self.VK_END:
+                if wParam == WM_KEYDOWN:
+                    self.remapping_enabled = not self.remapping_enabled
+                    status = "ENABLED" if self.remapping_enabled else "DISABLED"
+                    print(f"[HOTKEY] End → Key remapping: {status}")
+                    if self.remapping_enabled:
+                        winsound.Beep(800, 150)  # ON - Higher pitch
+                    else:
+                        winsound.Beep(400, 150)  # OFF - Lower pitch
+                return 1  # Block End key - prevent it from being processed
+        
+        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+    
+    def install_hook(self):
+        """Install low-level keyboard hook"""
+        try:
+            HOOKPROC = ctypes.WINFUNCTYPE(
+                ctypes.c_int,
+                ctypes.c_int,
+                wintypes.WPARAM,
+                wintypes.LPARAM
+            )
+            
+            self.hook_proc = HOOKPROC(self._low_level_keyboard_proc)
+            hMod = self.kernel32.GetModuleHandleW(None)
+            self.hook = self.user32.SetWindowsHookExW(
+                WH_KEYBOARD_LL,
+                self.hook_proc,
+                hMod,
+                0
+            )
+            
+            if not self.hook:
+                error_code = self.kernel32.GetLastError()
+                print(f"[ERROR] Failed to install keyboard hook. Error code: {error_code}")
+                return False
+            
+            return True
+        except Exception as e:
+            print(f"[ERROR] Hook installation error: {e}")
+            return False
+    
+    def uninstall_hook(self):
+        """Uninstall keyboard hook"""
+        if self.hook:
+            try:
+                self.user32.UnhookWindowsHookEx(self.hook)
+                self.hook = None
+                self.hook_proc = None
+            except Exception as e:
+                print(f"[ERROR] Hook uninstallation error: {e}")
+    
+    def message_loop(self):
+        """Windows message loop for keyboard hook"""
+        msg = wintypes.MSG()
+        while self.running:
+            bRet = self.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE)
+            if bRet:
+                if msg.message == 0x0012:  # WM_QUIT
+                    break
+                self.user32.TranslateMessage(ctypes.byref(msg))
+                self.user32.DispatchMessageW(ctypes.byref(msg))
+            else:
+                time.sleep(0)
     
     def find_arduino_port(self):
         """Tự động tìm COM port của Arduino"""
@@ -222,6 +405,7 @@ class VMwareReceiver:
         """
         Xử lý command từ Host
         Commands: "down:<key>", "up:<key>", "all_up"
+        Applies key remapping if configured
         """
         command = command.strip()
         
@@ -242,7 +426,17 @@ class VMwareReceiver:
         key_name = key_name.strip().lower()
         
         if action in ('down', 'up'):
-            print(f"[PROCESS] Parsed: action='{action}', key='{key_name}'")
+            # Apply key remapping (if enabled)
+            original_key = key_name
+            if self.remapping_enabled and key_name in self.key_mapping:
+                key_name = self.key_mapping[key_name]
+                self.stats['total_remapped'] += 1
+                if self.enable_logging:
+                    print(f"[REMAP] {original_key} → {key_name}")
+            else:
+                if self.enable_logging:
+                    print(f"[PROCESS] Parsed: action='{action}', key='{key_name}'")
+            
             result = self.send_key_to_arduino(key_name, action)
             if not result:
                 print(f"[PROCESS] ✗ Failed to forward: {action}:{key_name}")
@@ -304,6 +498,12 @@ class VMwareReceiver:
         print(f"[CONFIG] Baudrate: {self.baudrate}")
         print(f"[CONFIG] Server Port: {self.server_port}")
         print(f"[CONFIG] Logging: {self.enable_logging}")
+        if self.key_mapping:
+            print(f"[CONFIG] Key Remapping: {len(self.key_mapping)} mappings active")
+            print(f"[CONFIG] Remapping Status: {'ENABLED' if self.remapping_enabled else 'DISABLED'}")
+            if self.enable_logging:
+                for orig, mapped in self.key_mapping.items():
+                    print(f"[CONFIG]   {orig} → {mapped}")
         
         # Connect Arduino (retry until success)
         print(f"\n[ARDUINO] Connecting to Arduino...")
@@ -315,6 +515,20 @@ class VMwareReceiver:
             print(f"[RETRY] Arduino connection failed (attempt {retry_count}). Retrying in 2s...")
             time.sleep(2.0)
         
+        # Install keyboard hook for hotkeys
+        try:
+            if self.install_hook():
+                print(f"[HOOK] ✓ Keyboard hook installed for hotkeys")
+                print(f"[HOTKEYS] End = toggle key remapping")
+            else:
+                print(f"[WARN] Failed to install keyboard hook (hotkeys disabled)")
+        except Exception as e:
+            print(f"[WARN] Hook installation failed: {e}")
+        
+        # Start message loop thread for keyboard hook
+        self.message_loop_thread = threading.Thread(target=self.message_loop, daemon=True)
+        self.message_loop_thread.start()
+        
         # Start TCP server
         print(f"\n[SERVER] Starting TCP server on port {self.server_port}...")
         self.start_server()
@@ -323,6 +537,9 @@ class VMwareReceiver:
         """Dừng receiver"""
         self.running = False
         
+        # Uninstall keyboard hook
+        self.uninstall_hook()
+        
         # Close client connection
         if self.client_socket:
             try:
@@ -330,6 +547,7 @@ class VMwareReceiver:
             except:
                 pass
             self.client_socket = None
+            self.client_address = None
         
         # Close server socket
         if self.server_socket:
@@ -368,6 +586,7 @@ class VMwareReceiver:
         print(f"Client connected: {self.client_socket is not None}")
         print(f"Total received: {self.stats['total_received']}")
         print(f"Total forwarded: {self.stats['total_forwarded']}")
+        print(f"Total remapped: {self.stats['total_remapped']}")
         print(f"Total errors: {self.stats['total_errors']}")
         print(f"Total clients: {self.stats['total_clients']}")
 

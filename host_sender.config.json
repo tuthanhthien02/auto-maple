@@ -4,13 +4,5 @@
     "reconnect_interval": 1.0,
     "enable_logging": false,
     "block_original_input": false,
-    "forwarding_enabled": true,
-    "_comment": {
-        "vmware_ip": "IP address of VMware (required). Example: '192.168.1.100'",
-        "vmware_port": "TCP port for VMware receiver. Default: 12345",
-        "reconnect_interval": "Auto-reconnect interval in seconds. Default: 1.0",
-        "enable_logging": "Enable debug logging. true = verbose, false = minimal",
-        "block_original_input": "Block original keyboard input on Host. true = block, false = allow both",
-        "forwarding_enabled": "Enable forwarding to VMware. true = forward, false = only capture"
-    }
+    "forwarding_enabled": true
 }

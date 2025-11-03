@@ -10,6 +10,7 @@ import time
 import threading
 import ctypes
 import ctypes.wintypes
+import winsound
 from typing import Optional
 from ctypes import wintypes
 
@@ -34,17 +35,25 @@ except Exception:
     pass
 
 # Virtual Key Codes mapping to Arduino key names
+# Full keyboard layout support - all keys will be mirrored
 VK_TO_KEY = {
+    # Control keys
     0x08: 'backspace', 0x09: 'tab', 0x0D: 'enter',
     0x10: 'shift', 0x11: 'ctrl', 0x12: 'alt',
     0x14: 'caps', 0x1B: 'esc', 0x20: 'space',
+    
+    # Navigation keys
     0x21: 'pgup', 0x22: 'pgdn', 0x23: 'end',
     0x24: 'home', 0x25: 'left', 0x26: 'up',
     0x27: 'right', 0x28: 'down', 0x2D: 'insert',
     0x2E: 'delete',
+    
+    # Numbers (top row)
     0x30: '0', 0x31: '1', 0x32: '2', 0x33: '3',
     0x34: '4', 0x35: '5', 0x36: '6', 0x37: '7',
     0x38: '8', 0x39: '9',
+    
+    # Letters (A-Z)
     0x41: 'a', 0x42: 'b', 0x43: 'c', 0x44: 'd',
     0x45: 'e', 0x46: 'f', 0x47: 'g', 0x48: 'h',
     0x49: 'i', 0x4A: 'j', 0x4B: 'k', 0x4C: 'l',
@@ -52,16 +61,37 @@ VK_TO_KEY = {
     0x51: 'q', 0x52: 'r', 0x53: 's', 0x54: 't',
     0x55: 'u', 0x56: 'v', 0x57: 'w', 0x58: 'x',
     0x59: 'y', 0x5A: 'z',
+    
+    # Function keys (F1-F12)
     0x70: 'f1', 0x71: 'f2', 0x72: 'f3', 0x73: 'f4',
     0x74: 'f5', 0x75: 'f6', 0x76: 'f7', 0x77: 'f8',
     0x78: 'f9', 0x79: 'f10', 0x7A: 'f11', 0x7B: 'f12',
+    
+    # System keys (Windows, Menu)
     0x5B: 'l_gui', 0x5C: 'r_gui', 0x5D: 'menu',
+    
+    # Special keys
     0x2C: 'printscreen', 0x91: 'scroll', 0x13: 'pause', 0x90: 'numlock',
+    
+    # Right modifiers (map to left equivalents for Arduino compatibility)
+    0xA0: 'shift',    # VK_LSHIFT / VK_RSHIFT -> 'shift'
+    0xA1: 'shift',    # VK_RSHIFT
+    0xA2: 'ctrl',     # VK_LCONTROL / VK_RCONTROL -> 'ctrl'
+    0xA3: 'ctrl',     # VK_RCONTROL
+    0xA4: 'alt',      # VK_LMENU / VK_RMENU -> 'alt'
+    0xA5: 'alt',      # VK_RMENU
+    
+    # Numpad keys
     0x60: 'np0', 0x61: 'np1', 0x62: 'np2', 0x63: 'np3',
     0x64: 'np4', 0x65: 'np5', 0x66: 'np6', 0x67: 'np7',
     0x68: 'np8', 0x69: 'np9',
     0x6A: 'np_mul', 0x6B: 'np_add', 0x6D: 'np_sub',
     0x6E: 'np_dec', 0x6F: 'np_div',
+    
+    # Numpad Enter (map to regular enter)
+    0x0A: 'enter',   # VK_CLEAR (numpad clear/enter)
+    
+    # Special characters (punctuation)
     0xBA: 'semicolon', 0xBB: 'equals', 0xBC: 'comma',
     0xBD: 'minus', 0xBE: 'period', 0xBF: 'slash',
     0xC0: 'grave', 0xDB: 'lbracket', 0xDC: 'backslash',
@@ -108,7 +138,7 @@ class HostSender:
         # Hotkeys
         self.VK_PGDN = 0x22  # Page Down -> toggle blocking
         self.VK_PGUP = 0x21  # Page Up -> toggle forwarding
-        self.VK_END = 0x23   # End -> exit
+        # VK_END removed - now handled by receiver for toggle remapping
         self.VK_HOME = 0x24  # Home -> show stats
         
         # Stats
@@ -183,7 +213,7 @@ class HostSender:
         self.user32.TranslateMessage.restype = wintypes.BOOL
         
         self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        self.user32.DispatchMessageW.restype = ctypes.LONG
+        # DispatchMessageW.restype not set (returns default c_long on Windows)
         
         # Define PostQuitMessage
         self.user32.PostQuitMessage.argtypes = [ctypes.c_int]
@@ -246,30 +276,40 @@ class HostSender:
         """Low-level keyboard hook callback - capture keyboard input"""
         if nCode >= HC_ACTION:
             kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            vk_code = kb_data.vk_code
+            vk_code = kb_data.vkCode
             
-            # Hotkeys
+            # Hotkeys - MUST be checked BEFORE mapping to key names
+            # This ensures hotkeys are not forwarded and are handled immediately
             if wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 if vk_code == self.VK_PGDN:
+                    # Toggle block original input
                     self.block_original_input = not self.block_original_input
                     status = "ON (BLOCK)" if self.block_original_input else "OFF (PASS)"
                     print(f"[HOTKEY] PageDown → Block original input: {status}")
+                    # Beep: High pitch for ON, Low pitch for OFF
+                    if self.block_original_input:
+                        winsound.Beep(800, 150)  # ON - Higher pitch
+                    else:
+                        winsound.Beep(400, 150)  # OFF - Lower pitch
                     self._save_config()
-                    return 1  # Block hotkey
+                    return 1  # Block hotkey - prevent forwarding
                 elif vk_code == self.VK_PGUP:
+                    # Toggle forwarding (mirror input on/off)
                     self.forwarding_enabled = not self.forwarding_enabled
                     status = "ENABLED" if self.forwarding_enabled else "DISABLED"
-                    print(f"[HOTKEY] PageUp → Forwarding: {status}")
+                    print(f"[HOTKEY] PageUp → Mirror input: {status}")
+                    # Beep: High pitch for ON, Low pitch for OFF
+                    if self.forwarding_enabled:
+                        winsound.Beep(784, 333)  # G5 - Mirror ON
+                    else:
+                        winsound.Beep(523, 333)  # C5 - Mirror OFF
                     self._save_config()
-                    return 1  # Block hotkey
-                elif vk_code == self.VK_END:
-                    print("[HOTKEY] End → Exit requested")
-                    self.running = False
-                    self.user32.PostQuitMessage(0)
-                    self._save_config()
-                    return 1  # Block hotkey
+                    return 1  # Block hotkey - prevent forwarding
+                # End key removed - now handled by receiver for toggle remapping
                 elif vk_code == self.VK_HOME:
+                    # Show statistics
                     self._print_statistics()
+                    winsound.Beep(600, 100)  # Quick beep for stats
                     return 1  # Block hotkey
             
             # Map VK code to key name
@@ -279,7 +319,9 @@ class HostSender:
             if wParam in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
                 self.stats['total_hardware_keys'] += 1
             
-            # Process hardware input - forward via TCP
+            # Process hardware input - forward via TCP (MIRROR mode)
+            # ALWAYS forward ALL keys to receiver (full keyboard mirroring)
+            # Backspace, Space, Alt, F1-F12, Arrow keys, and ALL other keys are mirrored
             if key_name and self.forwarding_enabled:
                 if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
                     if self._update_key_state(key_name, True):
@@ -300,11 +342,13 @@ class HostSender:
                 if self.enable_logging:
                     print(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
             
-            # Block original input nếu enabled
+            # ALWAYS allow original input to pass through (MIRROR mode)
+            # Input is forwarded to VMware receiver AND passed through to Host
+            # Set block_original_input=True in config if you want to block original input
             if self.block_original_input:
-                return 1  # Block hardware input
+                return 1  # Block hardware input (only if explicitly enabled)
         
-        # Allow input to pass through
+        # Allow input to pass through (default behavior - MIRROR mode)
         return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
     
     def _print_statistics(self):
@@ -499,7 +543,7 @@ class HostSender:
         print(f"\n[CONFIG] VMware IP: {self.vmware_ip}")
         print(f"[CONFIG] VMware Port: {self.vmware_port}")
         print(f"[CONFIG] Reconnect Interval: {self.reconnect_interval}s")
-        print(f"[CONFIG] Block original input: {self.block_original_input}")
+        print(f"[CONFIG] Block original input: {self.block_original_input} (MIRROR mode: forward + allow through)")
         print(f"[CONFIG] Forwarding enabled: {self.forwarding_enabled}")
         print(f"[CONFIG] Logging: {self.enable_logging}")
         
@@ -517,7 +561,7 @@ class HostSender:
             self.install_hook()
             print("[START] Host sender started - mirroring keyboard input to VMware")
             print(f"[STATUS] Connection: {'CONNECTED' if self.connected else 'DISCONNECTED'}")
-            print(f"[HOTKEYS] PageDown = toggle blocking, PageUp = toggle forwarding, Home = stats, End = exit")
+            print(f"[HOTKEYS] PageDown = toggle blocking, PageUp = toggle forwarding, Home = stats")
             print(f"[STATUS] Press Ctrl+C to exit\n")
             
             # Start message loop

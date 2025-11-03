@@ -23,8 +23,8 @@ unsigned long lastReceiveMs = 0;
 const unsigned long WATCHDOG_TIMEOUT_MS = 3000; // 3 giây (reduced từ 5s để faster response)
 
 // Key state tracking: track các phím đang được giữ
-// Sử dụng bit array để tiết kiệm memory (tối đa 128 keys)
-#define MAX_KEYS 128
+// Tăng lên 256 để support arrow keys và control keys (keyCode > 127)
+#define MAX_KEYS 256
 bool keyStates[MAX_KEYS] = {false};  // Track state của mỗi key code
 
 // Key name to HID keycode mapping - optimized lookup
@@ -49,8 +49,12 @@ KeyMapping keyMap[] = {
   {"8", 1, '8'}, {"9", 1, '9'},
   
   // 2-char keys
-  {"up", 2, KEY_UP_ARROW}, {"down", 4, KEY_DOWN_ARROW},
-  {"left", 4, KEY_LEFT_ARROW}, {"right", 5, KEY_RIGHT_ARROW},
+  {"up", 2, KEY_UP_ARROW},
+  // 3-char keys  
+  // 4-char keys
+  {"down", 4, KEY_DOWN_ARROW}, {"left", 4, KEY_LEFT_ARROW},
+  // 5-char keys
+  {"right", 5, KEY_RIGHT_ARROW},
   
   // Common keys (3-4 chars)
   {"esc", 3, KEY_ESC}, {"tab", 3, KEY_TAB}, {"alt", 3, KEY_LEFT_ALT},
@@ -108,8 +112,8 @@ void setup() {
 }
 
 void releaseAllKeys() {
-  // Emergency: release all keys (cleanup)
-  for (uint8_t i = 0; i < MAX_KEYS; i++) {
+  // Emergency: release all keys (cleanup) - support up to 256 keys
+  for (uint16_t i = 0; i < MAX_KEYS; i++) {
     if (keyStates[i]) {
       Keyboard.release(i);
       keyStates[i] = false;
@@ -190,13 +194,19 @@ void processCommand(const char* command, uint8_t cmdLen) {
   // Find key code
   uint8_t keyCode = getKeyCode(keyName, keyLen);
   if (keyCode == 0 && keyLen > 1) {
-    // Not found in map, skip
+    // Not found in map - might be unsupported key (printscreen, scroll, pause, menu, numlock)
+    // These keys have keyCode = 0 in keyMap and will be skipped
+    return;
+  }
+  
+  // Special handling: single char keys with keyCode = 0 should be skipped too
+  if (keyCode == 0) {
     return;
   }
   
   // Execute action - optimized for low latency
   if (actionLen == 4 && strEq(action, "down", 4)) {
-    // Key down
+    // Key down - support all keys including arrows and modifiers (keyCode can be > 127)
     if (keyCode < MAX_KEYS) {
       if (keyStates[keyCode]) {
         // Key already held - release and press again for key repeat
@@ -212,7 +222,7 @@ void processCommand(const char* command, uint8_t cmdLen) {
       }
     }
   } else if (actionLen == 2 && strEq(action, "up", 2)) {
-    // Key up
+    // Key up - support all keys including arrows and modifiers
     if (keyCode < MAX_KEYS && keyStates[keyCode]) {
       Keyboard.release(keyCode);
       keyStates[keyCode] = false;
@@ -242,9 +252,9 @@ void loop() {
   // Watchdog: auto-release nếu quá timeout
   unsigned long currentMs = millis();
   if ((currentMs - lastReceiveMs) > WATCHDOG_TIMEOUT_MS) {
-    // Check if any keys are held
+    // Check if any keys are held - support up to 256 keys
     bool anyHeld = false;
-    for (uint8_t i = 0; i < MAX_KEYS; i++) {
+    for (uint16_t i = 0; i < MAX_KEYS; i++) {
       if (keyStates[i]) {
         anyHeld = true;
         break;
