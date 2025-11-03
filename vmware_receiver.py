@@ -61,13 +61,14 @@ class VMwareReceiver:
         self.enable_logging = enable_logging
         self.key_mapping = key_mapping or {}  # Key remapping dictionary: {'original': 'mapped'}
         self.remapping_enabled = True  # Toggle for key remapping
+        self.enable_hotkey_hook = False  # Enable keyboard hook for End key hotkey (DISABLED by default to eliminate delay)
         
         self.server_socket = None
         self.running = False
         self.client_socket = None
         self.client_address = None
         
-        # Keyboard hook for hotkeys
+        # Keyboard hook for hotkeys (OPTIONAL - can disable to eliminate delay)
         self.hook = None
         self.user32 = None
         self.kernel32 = None
@@ -114,6 +115,12 @@ class VMwareReceiver:
                         self.key_mapping = {}
                         print(f"[CONFIG] No key mapping found in config")
                     
+                    # Load hotkey hook enable setting (disable by default to eliminate delay)
+                    self.enable_hotkey_hook = config.get('enable_hotkey_hook', False)
+                    if self.enable_logging:
+                        hook_status = "ENABLED" if self.enable_hotkey_hook else "DISABLED (recommended: zero delay)"
+                        print(f"[CONFIG] Hotkey hook: {hook_status}")
+                    
                     if self.enable_logging:
                         print(f"[CONFIG] Loaded: com_port={self.com_port}, "
                               f"server_port={self.server_port}")
@@ -130,6 +137,7 @@ class VMwareReceiver:
                 'server_port': self.server_port,
                 'block_local_input': self.block_local_input,
                 'enable_logging': self.enable_logging,
+                'enable_hotkey_hook': self.enable_hotkey_hook,
                 'key_mapping': self.key_mapping if self.key_mapping else None
             }
             with open(self.CONFIG_PATH, 'w', encoding='utf-8') as f:
@@ -544,23 +552,27 @@ class VMwareReceiver:
             print(f"[RETRY] Arduino connection failed (attempt {retry_count}). Retrying in 2s...")
             time.sleep(2.0)
         
-        # Install keyboard hook for hotkeys (End key only)
-        # IMPORTANT: Hook does NOT block or delay local input
-        # It only listens for End key, all other keys pass through with ZERO delay
-        try:
-            if self.install_hook():
-                print(f"[HOOK] ✓ Keyboard hook installed (hotkeys only)")
-                print(f"[HOTKEYS] End = toggle key remapping")
-                print(f"[NOTE] Hook does NOT block/delay local input - only listens for End key")
-                print(f"[NOTE] Local input passes through immediately, even when connected to host")
-            else:
-                print(f"[WARN] Failed to install keyboard hook (hotkeys disabled)")
-        except Exception as e:
-            print(f"[WARN] Hook installation failed: {e}")
-        
-        # Start message loop thread for keyboard hook
-        self.message_loop_thread = threading.Thread(target=self.message_loop, daemon=True)
-        self.message_loop_thread.start()
+        # Install keyboard hook for hotkeys (OPTIONAL - disabled by default to eliminate delay)
+        # IMPORTANT: Hook causes delay even when passing through - disable for zero delay
+        # Set enable_hotkey_hook=true in config ONLY if you need End key hotkey
+        if self.enable_hotkey_hook:
+            try:
+                if self.install_hook():
+                    print(f"[HOOK] ✓ Keyboard hook installed (hotkeys only)")
+                    print(f"[HOTKEYS] End = toggle key remapping")
+                    print(f"[WARN] Hook is enabled - this causes delay even when passing through")
+                    print(f"[WARN] Disable hook in config (enable_hotkey_hook=false) for ZERO delay")
+                    # Start message loop thread for keyboard hook
+                    self.message_loop_thread = threading.Thread(target=self.message_loop, daemon=True)
+                    self.message_loop_thread.start()
+                else:
+                    print(f"[WARN] Failed to install keyboard hook (hotkeys disabled)")
+            except Exception as e:
+                print(f"[WARN] Hook installation failed: {e}")
+        else:
+            print(f"[HOOK] ✓ Keyboard hook DISABLED (zero delay mode)")
+            print(f"[NOTE] End key hotkey disabled - remapping can be toggled via config restart")
+            print(f"[NOTE] Local input has ZERO delay - maximum performance")
         
         # Start TCP server
         print(f"\n[SERVER] Starting TCP server on port {self.server_port}...")
