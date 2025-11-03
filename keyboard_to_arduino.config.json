@@ -1,8 +1,16 @@
 {
-    "com_port": "COM13",
+    "com_port": null,
     "baudrate": 115200,
     "block_original_input": true,
     "forwarding_enabled": true,
     "stuck_key_timeout": 10.0,
-    "enable_logging": false
+    "enable_logging": false,
+    "_comment": {
+        "com_port": "Arduino COM port (null = auto-detect). Example: 'COM13', 'COM3'",
+        "baudrate": "Serial baudrate. Recommended: 115200 for low latency",
+        "block_original_input": "Block original keyboard input (only forward via Arduino). true = block, false = allow both",
+        "forwarding_enabled": "Enable forwarding to Arduino. true = forward, false = only block",
+        "stuck_key_timeout": "Auto-release stuck keys after timeout (seconds). Recommended: 10.0",
+        "enable_logging": "Enable debug logging. true = verbose logs, false = minimal"
+    }
 }

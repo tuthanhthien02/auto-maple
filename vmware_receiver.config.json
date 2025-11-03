@@ -1,0 +1,14 @@
+{
+    "com_port": null,
+    "baudrate": 115200,
+    "server_port": 12345,
+    "block_local_input": false,
+    "enable_logging": false,
+    "_comment": {
+        "com_port": "Arduino COM port (null = auto-detect). Example: 'COM13', 'COM3'",
+        "baudrate": "Serial baudrate. Recommended: 115200 for low latency",
+        "server_port": "TCP server port to listen for Host sender. Recommended: 12345",
+        "block_local_input": "Block local keyboard input (not implemented, always false). Reserved for future use",
+        "enable_logging": "Enable debug logging. true = verbose logs, false = minimal"
+    }
+}

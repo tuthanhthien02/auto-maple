@@ -1,0 +1,5 @@
+{
+    "block_simulate_input": true,
+    "ignore_window_ms": 200,
+    "enable_logging": false
+}

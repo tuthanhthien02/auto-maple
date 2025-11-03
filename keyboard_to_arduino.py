@@ -121,7 +121,11 @@ class KeyboardToArduino:
         # Ignore Arduino HID events to prevent loop
         # Track last command send time to ignore events from Arduino for a short period
         self.last_command_sent_time = {}  # {key_name: timestamp}
-        self.ignore_window_ms = 100  # Reduced from 150ms to 100ms for faster response
+        self.ignore_window_ms = 200  # Increased to 200ms to ensure Arduino events are detected
+        
+        # Track Arduino device handles (for Raw Input filtering)
+        # Arduino HID device handles will be detected and stored here
+        self.arduino_device_handles = set()  # Set of device handles from Arduino HID
         
         # Statistics for mirroring reliability
         self.stats = {
@@ -242,6 +246,51 @@ class KeyboardToArduino:
         # LocalFree signature
         self.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
         self.kernel32.LocalFree.restype = ctypes.c_void_p
+        
+        # GetRawInputData for parsing Raw Input to get device handle
+        self.user32.GetRawInputData.argtypes = [
+            wintypes.HRAWINPUT, wintypes.UINT, ctypes.c_void_p, ctypes.POINTER(wintypes.UINT), wintypes.UINT
+        ]
+        self.user32.GetRawInputData.restype = wintypes.UINT
+        
+        # RAWINPUTHEADER structure
+        class RAWINPUTHEADER(ctypes.Structure):
+            _fields_ = [
+                ("dwType", wintypes.DWORD),
+                ("dwSize", wintypes.DWORD),
+                ("hDevice", wintypes.HANDLE),
+                ("wParam", wintypes.WPARAM),
+            ]
+        self.RAWINPUTHEADER = RAWINPUTHEADER
+        
+        # GetRawInputDeviceList to enumerate devices
+        self.user32.GetRawInputDeviceList.argtypes = [
+            ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.UINT), wintypes.UINT
+        ]
+        self.user32.GetRawInputDeviceList.restype = wintypes.UINT
+        
+        # GetRawInputDeviceInfoW to get device info
+        RIDI_DEVICENAME = 0x20000007
+        RIDI_DEVICEINFO = 0x2000000B
+        self.user32.GetRawInputDeviceInfoW.argtypes = [
+            wintypes.HANDLE, wintypes.UINT, ctypes.c_void_p, ctypes.POINTER(wintypes.UINT)
+        ]
+        self.user32.GetRawInputDeviceInfoW.restype = wintypes.UINT
+        
+        # RegisterRawInputDevices to filter devices at system level
+        class RAWINPUTDEVICE(ctypes.Structure):
+            _fields_ = [
+                ("usUsagePage", wintypes.USHORT),
+                ("usUsage", wintypes.USHORT),
+                ("dwFlags", wintypes.DWORD),
+                ("hwndTarget", wintypes.HWND),
+            ]
+        self.RAWINPUTDEVICE = RAWINPUTDEVICE
+        
+        self.user32.RegisterRawInputDevices.argtypes = [
+            ctypes.POINTER(RAWINPUTDEVICE), wintypes.UINT, wintypes.UINT
+        ]
+        self.user32.RegisterRawInputDevices.restype = wintypes.BOOL
         
         # Hook callback type
         HOOKPROC = ctypes.WINFUNCTYPE(
@@ -472,19 +521,36 @@ class KeyboardToArduino:
             if wParam in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
                 self.stats['total_hardware_keys'] += 1
             
-            # Check if this event is from Arduino HID (prevent loop)
-            # Ignore events within ignore_window_ms after sending command to Arduino
+            # CRITICAL: Detect Arduino HID events (simulate input)
+            # Arduino events MUST ALWAYS pass through - never block
             is_arduino_event = False
             if key_name:
                 current_time_ms = int(time.perf_counter() * 1000)
                 if key_name in self.last_command_sent_time:
                     time_since_command = current_time_ms - self.last_command_sent_time[key_name]
-                    if time_since_command < self.ignore_window_ms:
-                        # This event is likely from Arduino HID - mark to ignore
+                    # Check if this event is from Arduino (within ignore window)
+                    # Use longer window and also check if time is close (even if slightly over)
+                    # This ensures we catch Arduino events even with slight timing variations
+                    if time_since_command < self.ignore_window_ms or (time_since_command < self.ignore_window_ms * 1.5 and key_name in self.key_states):
+                        # This event is from Arduino HID - MUST allow to pass through
                         is_arduino_event = True
                         self.stats['total_arduino_events_ignored'] += 1
                         if self.enable_logging:
-                            print(f"[LOG] Ignored Arduino event: {key_name} (sent {time_since_command}ms ago)")
+                            print(f"[ARDUINO EVENT] Detected Arduino input: {key_name} (sent {time_since_command}ms ago) - ALLOWING")
+                    # Fallback: If key was recently in key_states and we sent command recently
+                    # This catches Arduino events that might have slight timing drift
+                    elif time_since_command < self.ignore_window_ms * 2:
+                        with self.key_states_lock:
+                            if key_name in self.key_states and len(self.key_states[key_name]) >= 2:
+                                state = self.key_states[key_name]
+                                is_down, down_timestamp = state[0], state[1]
+                                # If key was recently pressed (within last 500ms) and we sent command recently
+                                current_time_sec = current_time_ms / 1000.0
+                                if is_down and (current_time_sec - down_timestamp) < 0.5:
+                                    is_arduino_event = True
+                                    self.stats['total_arduino_events_ignored'] += 1
+                                    if self.enable_logging:
+                                        print(f"[ARDUINO EVENT] Fallback detected: {key_name} - ALLOWING")
             
             # Process hardware input (not from Arduino)
             if not is_arduino_event:
@@ -514,23 +580,96 @@ class KeyboardToArduino:
                     if self.enable_logging:
                         print(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
             
-            # CRITICAL: Block ALL original hardware input to prevent interleaving
-            # Only allow Arduino HID events to pass through
+            # CRITICAL: Block original hardware input, but Arduino input MUST ALWAYS pass through
             if self.block_original_input:
                 if is_arduino_event:
-                    # Arduino event - allow to pass through (game receives it)
+                    # Arduino event (simulate input) - ALWAYS allow to pass through
+                    # This is simulate input from Arduino, must NEVER be blocked
+                    if self.enable_logging:
+                        print(f"[ARDUINO PASS] Allowing Arduino input: {key_name} - NEVER BLOCK")
                     return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
                 else:
                     # Hardware input - BLOCK completely (only forward via Arduino)
                     self.stats['total_blocked'] += 1
                     return 1  # Block input gốc - game sẽ chỉ nhận từ Arduino
+            else:
+                # Not blocking - allow all
+                return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         
         # Default behavior based on blocking setting
         if not self.block_original_input:
             return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         else:
-            # Block all unmapped keys when blocking is enabled
+            # Block all unmapped keys when blocking is enabled (but Arduino events already handled above)
             return 1
+    
+    def _detect_arduino_devices(self):
+        """Enumerate Raw Input devices to detect Arduino HID devices by name"""
+        try:
+            # Get device count
+            device_count = wintypes.UINT(0)
+            result = self.user32.GetRawInputDeviceList(None, ctypes.byref(device_count), ctypes.sizeof(wintypes.UINT))
+            
+            if result == 0xFFFFFFFF:  # Error
+                return
+            
+            if device_count.value == 0:
+                return
+            
+            # Allocate buffer for device list
+            class RAWINPUTDEVICELIST(ctypes.Structure):
+                _fields_ = [
+                    ("hDevice", wintypes.HANDLE),
+                    ("dwType", wintypes.DWORD),
+                ]
+            
+            device_list_size = device_count.value * ctypes.sizeof(RAWINPUTDEVICELIST)
+            device_buffer = (RAWINPUTDEVICELIST * device_count.value)()
+            
+            result = self.user32.GetRawInputDeviceList(
+                ctypes.cast(device_buffer, ctypes.POINTER(ctypes.c_void_p)),
+                ctypes.byref(device_count),
+                ctypes.sizeof(wintypes.UINT)
+            )
+            
+            if result == 0xFFFFFFFF:
+                return
+            
+            # Enumerate devices
+            RIDI_DEVICENAME = 0x20000007
+            RIM_TYPEKEYBOARD = 1
+            
+            for i in range(device_count.value):
+                device = device_buffer[i]
+                if device.dwType == RIM_TYPEKEYBOARD:
+                    # Get device name
+                    name_size = wintypes.UINT(0)
+                    self.user32.GetRawInputDeviceInfoW(
+                        device.hDevice,
+                        RIDI_DEVICENAME,
+                        None,
+                        ctypes.byref(name_size)
+                    )
+                    
+                    if name_size.value > 0:
+                        name_buffer = ctypes.create_unicode_buffer(name_size.value)
+                        result = self.user32.GetRawInputDeviceInfoW(
+                            device.hDevice,
+                            RIDI_DEVICENAME,
+                            name_buffer,
+                            ctypes.byref(name_size)
+                        )
+                        
+                        if result > 0:
+                            device_name = name_buffer.value if name_buffer.value else ""
+                            # Check if this is Arduino (common Arduino HID identifiers)
+                            if device_name and any(keyword in device_name.lower() for keyword in ['arduino', 'micro', 'leonardo', 'hid']):
+                                self.arduino_device_handles.add(device.hDevice)
+                                if self.enable_logging:
+                                    print(f"[DETECTED] Arduino device: {device_name} (handle: 0x{device.hDevice:016X})")
+        except Exception as e:
+            if self.enable_logging:
+                print(f"[ERROR] Failed to detect Arduino devices: {e}")
     
     def install_hook(self):
         """Cài đặt keyboard hook"""
@@ -539,6 +678,9 @@ class KeyboardToArduino:
         if not module_handle:
             error_code = self.kernel32.GetLastError()
             raise RuntimeError(f"Không thể lấy module handle. Mã lỗi Windows: {error_code}")
+        
+        # Detect Arduino devices first (for Raw Input filtering)
+        self._detect_arduino_devices()
         
         # Install hook
         self.hook = self.user32.SetWindowsHookExW(
@@ -559,6 +701,8 @@ class KeyboardToArduino:
             )
         
         print("Keyboard hook đã được cài đặt")
+        if self.arduino_device_handles:
+            print(f"[INFO] Đã detect {len(self.arduino_device_handles)} Arduino device(s) - Raw Input sẽ allow cho Arduino")
     
     def _get_windows_error_message(self, error_code):
         """Lấy thông báo lỗi Windows bằng FormatMessageW"""
@@ -685,18 +829,44 @@ class KeyboardToArduino:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
                 elif msg.message == WM_INPUT:
-                    # CRITICAL: Block Raw Input API messages to prevent original hardware input
-                    # Raw Input bypasses low-level keyboard hook
-                    # This is essential to prevent interleaving between hardware and Arduino input
-                    if self.block_original_input:
-                        # Block ALL Raw Input - don't dispatch, don't translate
-                        # This prevents Raw Input API from receiving keyboard events from hardware
-                        # Arduino HID will still work because it uses standard keyboard messages
-                        continue  # Skip processing this message completely
-                    else:
-                        # Allow Raw Input if not blocking
-                        self.user32.TranslateMessage(ctypes.byref(msg))
-                        self.user32.DispatchMessageW(ctypes.byref(msg))
+                    # Raw Input - user accepts interleaving, so allow all Raw Input to pass through
+                    # Only check Arduino devices for logging purposes
+                    hRawInput = msg.wParam
+                    try:
+                        # Get header size first
+                        header_size = ctypes.sizeof(self.RAWINPUTHEADER)
+                        size = wintypes.UINT(header_size)
+                        
+                        # Allocate buffer for header
+                        header_buffer = ctypes.create_string_buffer(header_size)
+                        
+                        # Get Raw Input header to get device handle
+                        RID_HEADER = 0x10000005
+                        result = self.user32.GetRawInputData(
+                            hRawInput,
+                            RID_HEADER,
+                            header_buffer,
+                            ctypes.byref(size),
+                            ctypes.sizeof(wintypes.UINT)
+                        )
+                        
+                        if result == header_size:
+                            # Parse header to get device handle and type
+                            header = ctypes.cast(header_buffer, ctypes.POINTER(self.RAWINPUTHEADER)).contents
+                            device_handle = header.hDevice
+                            device_type = header.dwType
+                            
+                            # Logging only - allow all Raw Input
+                            if device_type == 1:  # Keyboard device
+                                if device_handle in self.arduino_device_handles:
+                                    if self.enable_logging:
+                                        print(f"[RAW INPUT] Arduino device: 0x{device_handle:016X}")
+                    except Exception:
+                        pass  # Ignore parse errors - allow Raw Input anyway
+                    
+                    # CRITICAL: Always allow Raw Input to pass through (user accepts interleaving)
+                    self.user32.TranslateMessage(ctypes.byref(msg))
+                    self.user32.DispatchMessageW(ctypes.byref(msg))
                 else:
                     # Normal messages - process normally
                     self.user32.TranslateMessage(ctypes.byref(msg))
