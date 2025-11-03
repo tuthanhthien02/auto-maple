@@ -1,4 +1,7 @@
 @echo off
+:: Change to script directory
+cd /d "%~dp0"
+
 echo Starting keyboard block Arduino (admin mode)...
 echo.
 
@@ -13,5 +16,11 @@ if %errorLevel% neq 0 (
 :: Run Python script with admin privileges
 python keyboard_block_arduino.py
 
-pause >nul
+if %errorLevel% neq 0 (
+    echo.
+    echo Script exited with error code %errorLevel%
+    pause
+) else (
+    pause >nul
+)
 
