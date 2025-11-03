@@ -3,7 +3,7 @@
     "baudrate": 115200,
     "server_port": 12345,
     "block_local_input": false,
-    "enable_logging": false,
+    "enable_logging": true,
     "_comment": {
         "com_port": "Arduino COM port (null = auto-detect). Example: 'COM13', 'COM3'",
         "baudrate": "Serial baudrate. Recommended: 115200 for low latency",

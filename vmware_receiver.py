@@ -157,8 +157,7 @@ class VMwareReceiver:
                 return False
             
             self.stats['total_forwarded'] += 1
-            if self.enable_logging:
-                print(f"[FORWARD] {action}:{key_name} ({bytes_written} bytes)")
+            print(f"[FORWARD] {action}:{key_name} ({bytes_written} bytes) → Arduino")
             return True
             
         except Exception as e:
@@ -202,6 +201,8 @@ class VMwareReceiver:
                     
                     if line:
                         self.stats['total_received'] += 1
+                        if self.enable_logging:
+                            print(f"[RECEIVED] Command: {line}")
                         self.process_command(line)
                 
         except Exception as e:
@@ -233,8 +234,7 @@ class VMwareReceiver:
         
         # Parse: "action:key"
         if ':' not in command:
-            if self.enable_logging:
-                print(f"[WARN] Invalid command format: {command}")
+            print(f"[WARN] Invalid command format: {command}")
             return
         
         action, key_name = command.split(':', 1)
@@ -242,10 +242,12 @@ class VMwareReceiver:
         key_name = key_name.strip().lower()
         
         if action in ('down', 'up'):
-            self.send_key_to_arduino(key_name, action)
+            print(f"[PROCESS] Parsed: action='{action}', key='{key_name}'")
+            result = self.send_key_to_arduino(key_name, action)
+            if not result:
+                print(f"[PROCESS] ✗ Failed to forward: {action}:{key_name}")
         else:
-            if self.enable_logging:
-                print(f"[WARN] Unknown action: {action}")
+            print(f"[WARN] Unknown action: {action} (command: {command})")
     
     def start_server(self):
         """Bắt đầu TCP server"""
