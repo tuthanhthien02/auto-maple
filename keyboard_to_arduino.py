@@ -115,11 +115,22 @@ class KeyboardToArduino:
         # Track last command send time to ignore events from Arduino for a short period
         self.last_command_sent_time = {}  # {key_name: timestamp}
         self.ignore_window_ms = 100  # Reduced from 150ms to 100ms for faster response
+        
+        # Statistics for mirroring reliability
+        self.stats = {
+            'total_hardware_keys': 0,      # Total hardware key events captured
+            'total_forwarded': 0,          # Total keys forwarded to Arduino
+            'total_blocked': 0,            # Total keys blocked (original input)
+            'total_unmapped': 0,           # Total keys not mapped (unmapped keys)
+            'total_errors': 0,             # Total errors when sending to Arduino
+            'total_arduino_events_ignored': 0  # Total Arduino HID events ignored
+        }
 
         # Safety hotkeys (VK codes)
         self.VK_PGDN = 0x22        # Page Down -> toggle blocking
         self.VK_PGUP = 0x21        # Page Up   -> toggle forwarding
         self.VK_END = 0x23         # End       -> exit
+        self.VK_HOME = 0x24        # Home      -> show statistics
         
         # Config persistence
         self.CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'keyboard_to_arduino.config.json')
@@ -132,6 +143,26 @@ class KeyboardToArduino:
         block_status = "ON (BLOCK)" if self.block_original_input else "OFF (PASS)"
         fwd_status = "ENABLED" if self.forwarding_enabled else "DISABLED"
         print(f"[STATUS] Block original input: {block_status} | Forwarding: {fwd_status}")
+    
+    def _print_statistics(self):
+        """Print mirroring statistics"""
+        stats = self.stats
+        total = stats['total_hardware_keys']
+        if total > 0:
+            forwarded_rate = (stats['total_forwarded'] / total * 100) if total > 0 else 0
+            error_rate = (stats['total_errors'] / total * 100) if total > 0 else 0
+            unmapped_rate = (stats['total_unmapped'] / total * 100) if total > 0 else 0
+            
+            print("\n=== MIRRORING STATISTICS ===")
+            print(f"Total hardware keys captured: {total}")
+            print(f"Forwarded to Arduino: {stats['total_forwarded']} ({forwarded_rate:.1f}%)")
+            print(f"Blocked (original input): {stats['total_blocked']}")
+            print(f"Errors: {stats['total_errors']} ({error_rate:.1f}%)")
+            print(f"Unmapped keys: {stats['total_unmapped']} ({unmapped_rate:.1f}%)")
+            print(f"Arduino events ignored: {stats['total_arduino_events_ignored']}")
+            print("===========================\n")
+        else:
+            print("[STATS] No keyboard events captured yet")
 
     def _load_config(self):
         try:
@@ -273,14 +304,22 @@ class KeyboardToArduino:
         Format: <action>:<key>\n
         action: 'down' hoặc 'up'
         key: tên phím
+        Returns: True if sent successfully, False otherwise
         """
         if not self.serial or not self.serial.is_open:
-            return
+            if self.enable_logging:
+                print(f"[ERROR] Serial not connected: {action}:{key_name}")
+            return False
         
         try:
             command = f"{action}:{key_name}\n"
-            self.serial.write(command.encode('utf-8'))
+            bytes_written = self.serial.write(command.encode('utf-8'))
             self.serial.flush()  # Force immediate send, don't wait for buffer
+            
+            if bytes_written == 0:
+                if self.enable_logging:
+                    print(f"[ERROR] Failed to write: {action}:{key_name}")
+                return False
             
             # Record timestamp to ignore Arduino HID events (prevent loop)
             # Use perf_counter for more accurate timing
@@ -288,13 +327,15 @@ class KeyboardToArduino:
             self.last_command_sent_time[key_name] = current_time_ms
             
             if self.enable_logging:
-                print(f"[LOG] Sent: {action}:{key_name}")
+                print(f"[LOG] Sent: {action}:{key_name} ({bytes_written} bytes)")
+            return True
         except Exception as e:
             print(f"Lỗi gửi command: {e}")
             # Nếu lỗi, release key để tránh stuck
             self._release_key_safe(key_name)
-            # Thử reconnect
-            self._reconnect_loop()
+            # Thử reconnect (async - không block)
+            threading.Thread(target=self._reconnect_loop, daemon=True).start()
+            return False
 
     def send_all_up(self):
         try:
@@ -412,46 +453,77 @@ class KeyboardToArduino:
                     self.user32.PostQuitMessage(0)
                     self._save_config()
                     return 1  # consume
+                elif vk_code == self.VK_HOME:
+                    # Show statistics (Home key - not forwarded, just show stats)
+                    self._print_statistics()
+                    return 1  # consume - don't forward Home key
 
             # Map VK code to key name
             key_name = VK_TO_KEY.get(vk_code)
             
+            # Track all hardware keyboard events (for statistics)
+            if wParam in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
+                self.stats['total_hardware_keys'] += 1
+            
+            # Check if this event is from Arduino HID (prevent loop)
+            # Ignore events within ignore_window_ms after sending command to Arduino
+            is_arduino_event = False
             if key_name:
-                # CRITICAL: Check if this event is from Arduino HID (prevent loop)
-                # Ignore events within ignore_window_ms after sending command to Arduino
-                # Use perf_counter for more accurate timing
                 current_time_ms = int(time.perf_counter() * 1000)
                 if key_name in self.last_command_sent_time:
                     time_since_command = current_time_ms - self.last_command_sent_time[key_name]
                     if time_since_command < self.ignore_window_ms:
-                        # This event is likely from Arduino HID - ignore to prevent loop
+                        # This event is likely from Arduino HID - mark to ignore
+                        is_arduino_event = True
+                        self.stats['total_arduino_events_ignored'] += 1
                         if self.enable_logging:
                             print(f"[LOG] Ignored Arduino event: {key_name} (sent {time_since_command}ms ago)")
-                        # Allow this event to pass through (don't block it, don't forward it)
-                        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
-                
-                # Check if key down or up
-                if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
-                    # Key down event - check duplicate và update state
-                    if self._update_key_state(key_name, True) and self.forwarding_enabled:
-                        # Chỉ gửi nếu không phải duplicate
-                        self.send_key_to_arduino(key_name, 'down')
-                elif wParam == WM_KEYUP or wParam == WM_SYSKEYUP:
-                    # Key up event - update state và gửi
-                    if self._update_key_state(key_name, False) and self.forwarding_enabled:
-                        # Chỉ gửi nếu key đang down
-                        self.send_key_to_arduino(key_name, 'up')
-                
-                # QUAN TRỌNG: Block input gốc để game chỉ nhận input từ Arduino
-                # Return 1 để block, return CallNextHookEx để allow
-                if self.block_original_input:
+            
+            # Process hardware input (not from Arduino)
+            if not is_arduino_event:
+                if key_name:
+                    # This is hardware input - forward to Arduino
+                    if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
+                        # Key down event - check duplicate và update state
+                        if self._update_key_state(key_name, True) and self.forwarding_enabled:
+                            # Chỉ gửi nếu không phải duplicate
+                            success = self.send_key_to_arduino(key_name, 'down')
+                            if success:
+                                self.stats['total_forwarded'] += 1
+                            else:
+                                self.stats['total_errors'] += 1
+                    elif wParam == WM_KEYUP or wParam == WM_SYSKEYUP:
+                        # Key up event - update state và gửi
+                        if self._update_key_state(key_name, False) and self.forwarding_enabled:
+                            # Chỉ gửi nếu key đang down
+                            success = self.send_key_to_arduino(key_name, 'up')
+                            if success:
+                                self.stats['total_forwarded'] += 1
+                            else:
+                                self.stats['total_errors'] += 1
+                else:
+                    # Key not mapped - cannot forward
+                    self.stats['total_unmapped'] += 1
+                    if self.enable_logging:
+                        print(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
+            
+            # CRITICAL: Block ALL original hardware input to prevent interleaving
+            # Only allow Arduino HID events to pass through
+            if self.block_original_input:
+                if is_arduino_event:
+                    # Arduino event - allow to pass through (game receives it)
+                    return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                else:
+                    # Hardware input - BLOCK completely (only forward via Arduino)
+                    self.stats['total_blocked'] += 1
                     return 1  # Block input gốc - game sẽ chỉ nhận từ Arduino
         
-        # Allow input (nếu không block) hoặc cho phép các input không được map
+        # Default behavior based on blocking setting
         if not self.block_original_input:
             return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         else:
-            return 1  # Block tất cả input đã được forward
+            # Block all unmapped keys when blocking is enabled
+            return 1
     
     def install_hook(self):
         """Cài đặt keyboard hook"""
@@ -564,12 +636,14 @@ class KeyboardToArduino:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
                 elif msg.message == WM_INPUT:
-                    # CRITICAL: Block Raw Input API messages to prevent original input
+                    # CRITICAL: Block Raw Input API messages to prevent original hardware input
                     # Raw Input bypasses low-level keyboard hook
+                    # This is essential to prevent interleaving between hardware and Arduino input
                     if self.block_original_input:
-                        # Block Raw Input - don't dispatch, don't translate
-                        # This prevents Raw Input API from receiving keyboard events
-                        continue  # Skip processing this message
+                        # Block ALL Raw Input - don't dispatch, don't translate
+                        # This prevents Raw Input API from receiving keyboard events from hardware
+                        # Arduino HID will still work because it uses standard keyboard messages
+                        continue  # Skip processing this message completely
                     else:
                         # Allow Raw Input if not blocking
                         self.user32.TranslateMessage(ctypes.byref(msg))
@@ -614,6 +688,7 @@ class KeyboardToArduino:
                 print("[INFO] Input gốc vẫn được forward - Game có thể nhận cả 2 nguồn")
             print(f"[INFO] Stuck key auto-release: {self.stuck_key_timeout}s timeout")
             self._print_status()
+            print("[HOTKEYS] PageDown: Toggle blocking | PageUp: Toggle forwarding | Home: Show stats | End: Exit")
             print("Nhấn Ctrl+C để dừng")
             
             # Run message loop in main thread
@@ -671,6 +746,10 @@ class KeyboardToArduino:
         # Clear key states
         with self.key_states_lock:
             self.key_states.clear()
+        
+        # Print final statistics
+        print("\n=== FINAL MIRRORING STATISTICS ===")
+        self._print_statistics()
 
 
 if __name__ == "__main__":
