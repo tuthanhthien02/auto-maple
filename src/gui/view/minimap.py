@@ -23,7 +23,9 @@ class Minimap(LabelFrame):
         self.cached_minimap_hash = None
         self.cached_minimap = None
         self.cached_size = None
+        # CPU Optimization: Cache PhotoImage when base minimap + overlays unchanged
         self.cached_photo_hash = None
+        self.cached_photo_image = None
 
     def display_minimap(self):
         """Updates the Main page with the current minimap."""
@@ -92,12 +94,38 @@ class Minimap(LabelFrame):
                        (0, 0, 255),
                        -1)
 
+            # CPU Optimization: Cache PhotoImage when base minimap + overlays unchanged
+            # Hash includes: minimap base, path, rune, player_pos, routine, enabled state
+            path_str = str(path) if path else ""
+            rune_tuple = (rune_active, rune_pos[0] if rune_pos else None, rune_pos[1] if rune_pos else None)
+            player_tuple = (player_pos[0] if player_pos else None, player_pos[1] if player_pos else None)
+            routine_str = str(config.routine.sequence) if config.routine else ""
+            enabled_hash = config.enabled
+            
+            # Create combined hash for PhotoImage caching (using hashable types)
+            combined_hash = (
+                minimap_hash,
+                hash(path_str),
+                hash(rune_tuple),
+                hash(player_tuple),
+                hash(routine_str),
+                enabled_hash
+            )
+            
+            # Only create PhotoImage if something changed
+            if combined_hash != self.cached_photo_hash or self.cached_photo_image is None:
+                img_photo = ImageTk.PhotoImage(Image.fromarray(img))
+                self.cached_photo_hash = combined_hash
+                self.cached_photo_image = img_photo
+            else:
+                # Reuse cached PhotoImage
+                img_photo = self.cached_photo_image
+
             # Display the minimap in the Canvas
-            img = ImageTk.PhotoImage(Image.fromarray(img))
             if self.container is None:
                 self.container = self.canvas.create_image(self.WIDTH // 2,
                                                           self.HEIGHT // 2,
-                                                          image=img, anchor=tk.CENTER)
+                                                          image=img_photo, anchor=tk.CENTER)
             else:
-                self.canvas.itemconfig(self.container, image=img)
-            self._img = img                 # Prevent garbage collection
+                self.canvas.itemconfig(self.container, image=img_photo)
+            self._img = img_photo                 # Prevent garbage collection

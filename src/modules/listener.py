@@ -56,7 +56,11 @@ class Listener(Configurable):
                     Listener.reload_routine()
                 elif self.restricted_pressed('Record position'):
                     Listener.record_position()
-            time.sleep(0.01)
+                # CPU Optimization: 50 Hz when enabled (sufficient for keyboard responsiveness)
+                time.sleep(0.02)
+            else:
+                # CPU Optimization: 20 Hz when disabled (enough to detect enable)
+                time.sleep(0.05)
 
     def restricted_pressed(self, action):
         """Returns whether the key bound to ACTION is pressed only if the bot is disabled."""

@@ -51,7 +51,7 @@ gui = None
 use_arduino = True
 
 # Arduino Serial port (None = auto-detect)
-arduino_com_port = "COM13"
+arduino_com_port = None
 
 # Arduino Serial baudrate
 arduino_baudrate = 115200
