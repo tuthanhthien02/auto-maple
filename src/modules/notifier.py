@@ -91,7 +91,9 @@ class Notifier:
                 # CPU Optimization: Check elite warning every 0.5s (2 Hz)
                 if current_time - last_elite_check > 0.5:
                     elite_frame = frame[height // 4:3 * height // 4, width // 4:3 * width // 4]
-                    elite = utils.multi_match(elite_frame, ELITE_TEMPLATE, threshold=0.9)
+                    # CPU Optimization: Pre-convert to grayscale once
+                    elite_frame_gray = cv2.cvtColor(elite_frame, cv2.COLOR_BGR2GRAY)
+                    elite = utils.multi_match(elite_frame_gray, ELITE_TEMPLATE, threshold=0.9, is_gray=True)
                     if len(elite) > 0:
                         self._alert('siren')
                     last_elite_check = current_time
@@ -99,7 +101,9 @@ class Notifier:
                 # CPU Optimization: Check other players every 0.3s (~3.3 Hz)
                 if current_time - last_others_check > 0.3:
                     filtered = utils.filter_color(minimap, OTHER_RANGES)
-                    others = len(utils.multi_match(filtered, OTHER_TEMPLATE, threshold=0.5))
+                    # CPU Optimization: Pre-convert to grayscale once
+                    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+                    others = len(utils.multi_match(filtered_gray, OTHER_TEMPLATE, threshold=0.5, is_gray=True))
                     config.stage_fright = others > 0
                     if others != prev_others:
                         if others > prev_others:
@@ -112,7 +116,9 @@ class Notifier:
                 if current_time - last_rune_check > 0.5:
                     if not config.bot.rune_active:
                         filtered = utils.filter_color(minimap, RUNE_RANGES)
-                        matches = utils.multi_match(filtered, RUNE_TEMPLATE, threshold=0.9)
+                        # CPU Optimization: Pre-convert to grayscale once
+                        filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+                        matches = utils.multi_match(filtered_gray, RUNE_TEMPLATE, threshold=0.9, is_gray=True)
                         rune_start_time = now
                         if matches and config.routine.sequence:
                             abs_rune_pos = (matches[0][0], matches[0][1])

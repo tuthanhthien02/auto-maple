@@ -72,15 +72,20 @@ def separate_args(arguments):
     return args, kwargs
 
 
-def single_match(frame, template):
+def single_match(frame, template, is_gray=False):
     """
     Finds the best match within FRAME.
     :param frame:       The image in which to search for TEMPLATE.
     :param template:    The template to match with.
+    :param is_gray:     If True, FRAME is already grayscale (CPU optimization).
     :return:            The top-left and bottom-right positions of the best match.
     """
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # CPU Optimization: Skip color conversion if frame is already grayscale
+    if is_gray:
+        gray = frame
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF)
     _, _, _, top_left = cv2.minMaxLoc(result)
     w, h = template.shape[::-1]
@@ -88,18 +93,23 @@ def single_match(frame, template):
     return top_left, bottom_right
 
 
-def multi_match(frame, template, threshold=0.95):
+def multi_match(frame, template, threshold=0.95, is_gray=False):
     """
     Finds all matches in FRAME that are similar to TEMPLATE by at least THRESHOLD.
     :param frame:       The image in which to search.
     :param template:    The template to match with.
     :param threshold:   The minimum percentage of TEMPLATE that each result must match.
+    :param is_gray:     If True, FRAME is already grayscale (CPU optimization).
     :return:            An array of matches that exceed THRESHOLD.
     """
 
     if template.shape[0] > frame.shape[0] or template.shape[1] > frame.shape[1]:
         return []
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # CPU Optimization: Skip color conversion if frame is already grayscale
+    if is_gray:
+        gray = frame
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
     locations = np.where(result >= threshold)
     locations = list(zip(*locations[::-1]))

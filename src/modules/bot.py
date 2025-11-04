@@ -175,9 +175,9 @@ class Bot(Configurable):
                     for _ in range(3):
                         time.sleep(0.3)
                         frame = config.capture.frame
-                        rune_buff = utils.multi_match(frame[:frame.shape[0] // 8, :],
-                                                      RUNE_BUFF_TEMPLATE,
-                                                      threshold=0.9)
+                        # CPU Optimization: Pre-convert to grayscale once
+                        frame_top_gray = cv2.cvtColor(frame[:frame.shape[0] // 8, :], cv2.COLOR_BGR2GRAY)
+                        rune_buff = utils.multi_match(frame_top_gray, RUNE_BUFF_TEMPLATE, threshold=0.9, is_gray=True)
                         if rune_buff:
                             rune_buff_pos = min(rune_buff, key=lambda p: p[0])
                             target = (

@@ -300,6 +300,9 @@ class Capture:
                         # Convert BGRA to BGR for template matching
                         minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
                         
+                        # CPU Optimization: Pre-convert to grayscale once, reuse for all template matches
+                        minimap_gray = cv2.cvtColor(minimap_bgr, cv2.COLOR_BGR2GRAY)
+                        
                         # Determine the player's position using the first matching template
                         player = []
                         for name, tpl in PLAYER_TEMPLATES:
@@ -307,7 +310,8 @@ class Capture:
                             # Slightly lower threshold for larger/new template
                             if name.endswith('player_template_new.png'):
                                 thr = 0.55
-                            player = utils.multi_match(minimap_bgr, tpl, threshold=thr)
+                            # Pass is_gray=True since minimap_gray is already grayscale
+                            player = utils.multi_match(minimap_gray, tpl, threshold=thr, is_gray=True)
                             if player:
                                 break
                         
