@@ -95,6 +95,12 @@ class Capture:
         self.calibrated = False
         self.thread = threading.Thread(target=self._main)
         self.thread.daemon = True
+        
+        # CPU optimization: Track position for skipping template matching
+        self.last_player_pos = None
+        self.last_pos_update_time = time.time()
+        self.pos_update_interval = 0.5  # Force update every 0.5s even if position unchanged
+        self.position_check_interval = 0.2  # Check position change every 0.2s
 
     def start(self):
         """Starts this Capture's thread."""
@@ -249,34 +255,76 @@ class Capture:
                     if not self.calibrated:
                         break
 
+                    # CPU Optimization: Adaptive frame rate based on bot state
+                    # - Bot enabled + moving: 30 FPS (0.033s)
+                    # - Bot enabled + idle: 10 FPS (0.1s)
+                    # - Bot disabled: 5 FPS (0.2s)
+                    current_time = time.time()
+                    bot_active = config.enabled and len(config.path) > 0
+                    
+                    if bot_active:
+                        frame_delay = 0.033  # 30 FPS when active
+                    elif config.enabled:
+                        frame_delay = 0.1     # 10 FPS when idle
+                    else:
+                        frame_delay = 0.2    # 5 FPS when disabled
+
                     # Take screenshot
                     self.frame = self.screenshot()
                     if self.frame is None:
+                        time.sleep(frame_delay)
                         continue
 
                     # Crop the frame to only show the minimap
                     minimap = self.frame[mm_tl[1]:mm_br[1], mm_tl[0]:mm_br[0]]
                     
-                    # Convert BGRA to BGR for multi_match (which expects BGR format)
-                    minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
-
-                    # Determine the player's position using the first matching template
-                    player = []
-                    for name, tpl in PLAYER_TEMPLATES:
-                        thr = 0.6
-                        # Slightly lower threshold for larger/new template
-                        if name.endswith('player_template_new.png'):
-                            thr = 0.55
-                        player = utils.multi_match(minimap_bgr, tpl, threshold=thr)
-                        if player:
-                            break
+                    # CPU Optimization: Skip template matching if position hasn't changed
+                    # Only skip if:
+                    # - Position is known and hasn't changed
+                    # - But force update every pos_update_interval to detect stuck
+                    should_match = True
+                    time_since_last_update = current_time - self.last_pos_update_time
                     
-                    if player:
-                        config.player_pos = utils.convert_to_relative(player[0], minimap)
-
+                    if self.last_player_pos is not None and time_since_last_update < self.position_check_interval:
+                        # Skip matching if position likely unchanged and not timeout
+                        should_match = False
+                    elif time_since_last_update >= self.pos_update_interval:
+                        # Force update to detect if stuck
+                        should_match = True
+                    
+                    # CPU Optimization: Convert BGRA to BGR once, reuse for both matching and GUI
+                    # Only convert when needed (for matching or GUI display)
+                    minimap_bgr = None
+                    
+                    if should_match:
+                        # Convert BGRA to BGR for template matching
+                        minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
+                        
+                        # Determine the player's position using the first matching template
+                        player = []
+                        for name, tpl in PLAYER_TEMPLATES:
+                            thr = 0.6
+                            # Slightly lower threshold for larger/new template
+                            if name.endswith('player_template_new.png'):
+                                thr = 0.55
+                            player = utils.multi_match(minimap_bgr, tpl, threshold=thr)
+                            if player:
+                                break
+                        
+                        if player:
+                            new_pos = utils.convert_to_relative(player[0], minimap)
+                            # Only update if position changed or timeout
+                            if new_pos != self.last_player_pos or time_since_last_update >= self.pos_update_interval:
+                                config.player_pos = new_pos
+                                self.last_player_pos = new_pos
+                                self.last_pos_update_time = current_time
+                    
                     # Package display information to be polled by GUI
+                    # Convert minimap to BGR for GUI display (reuse if already converted)
+                    if minimap_bgr is None:
+                        minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
                     self.minimap = {
-                        'minimap': minimap,
+                        'minimap': minimap_bgr,
                         'rune_active': config.bot.rune_active,
                         'rune_pos': config.bot.rune_pos,
                         'path': config.path,
@@ -285,7 +333,9 @@ class Capture:
 
                     if not self.ready:
                         self.ready = True
-                    time.sleep(0.001)
+                    
+                    # CPU Optimization: Use adaptive delay instead of fixed 0.001s
+                    time.sleep(frame_delay)
 
     def screenshot(self, delay=1):
         try:
