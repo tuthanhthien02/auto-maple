@@ -138,8 +138,11 @@ class Bot(Configurable):
                 #     self._solve_rune(model)
                 element.execute()
                 config.routine.step()
+                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
+                time.sleep(0.05)
             else:
-                time.sleep(0.01)
+                # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
+                time.sleep(0.2)
 
     @utils.run_if_enabled
     def _solve_rune(self, model):

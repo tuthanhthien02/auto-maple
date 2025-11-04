@@ -18,6 +18,12 @@ class Minimap(LabelFrame):
                                 borderwidth=0, highlightthickness=0)
         self.canvas.pack(expand=True, fill='both', padx=5, pady=5)
         self.container = None
+        
+        # CPU Optimization: Cache converted and resized minimap to avoid repeated conversions
+        self.cached_minimap_hash = None
+        self.cached_minimap = None
+        self.cached_size = None
+        self.cached_photo_hash = None
 
     def display_minimap(self):
         """Updates the Main page with the current minimap."""
@@ -29,15 +35,29 @@ class Minimap(LabelFrame):
             path = minimap['path']
             player_pos = minimap['player_pos']
 
-            img = cv2.cvtColor(minimap['minimap'], cv2.COLOR_BGR2RGB)
-            height, width, _ = img.shape
+            # CPU Optimization: Cache converted and resized minimap
+            # Only convert/resize if minimap data has changed
+            minimap_hash = hash(minimap['minimap'].tobytes()) if minimap['minimap'] is not None else None
+            
+            if minimap_hash != self.cached_minimap_hash or self.cached_minimap is None:
+                # Convert and resize only when minimap changes
+                img = cv2.cvtColor(minimap['minimap'], cv2.COLOR_BGR2RGB)
+                height, width, _ = img.shape
 
-            # Resize minimap to fit the Canvas
-            ratio = min(self.WIDTH / width, self.HEIGHT / height)
-            new_width = int(width * ratio)
-            new_height = int(height * ratio)
-            if new_height * new_width > 0:
-                img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                # Resize minimap to fit the Canvas
+                ratio = min(self.WIDTH / width, self.HEIGHT / height)
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
+                if new_height * new_width > 0:
+                    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                
+                # Cache the converted/resized image
+                self.cached_minimap = img.copy()
+                self.cached_minimap_hash = minimap_hash
+                self.cached_size = (new_width, new_height)
+            else:
+                # Reuse cached image (still need to draw on it)
+                img = self.cached_minimap.copy()
 
             # Mark the position of the active rune
             if rune_active:

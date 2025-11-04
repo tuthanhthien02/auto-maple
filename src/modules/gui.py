@@ -10,7 +10,8 @@ import os
 
 
 class GUI:
-    DISPLAY_FRAME_RATE = 30
+    # CPU Optimization: Reduced from 30 FPS to 10 FPS (sufficient for GUI, human eye can't distinguish >15 FPS)
+    DISPLAY_FRAME_RATE = 10
     RESOLUTIONS = {
         'DEFAULT': '800x800',
         'Edit': '1400x800'

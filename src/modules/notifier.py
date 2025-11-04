@@ -67,50 +67,68 @@ class Notifier:
         self.ready = True
         prev_others = 0
         rune_start_time = time.time()
+        
+        # CPU Optimization: Throttle checks with different intervals
+        last_black_check = time.time()
+        last_elite_check = time.time()
+        last_others_check = time.time()
+        last_rune_check = time.time()
+        
         while True:
             if config.enabled:
+                current_time = time.time()
                 frame = config.capture.frame
                 height, width, _ = frame.shape
                 minimap = config.capture.minimap['minimap']
 
-                # Check for unexpected black screen
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                if np.count_nonzero(gray < 15) / height / width > self.room_change_threshold:
-                    self._alert('siren')
+                # CPU Optimization: Check black screen every 0.2s (5 Hz)
+                if current_time - last_black_check > 0.2:
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    if np.count_nonzero(gray < 15) / height / width > self.room_change_threshold:
+                        self._alert('siren')
+                    last_black_check = current_time
 
-                # Check for elite warning
-                elite_frame = frame[height // 4:3 * height // 4, width // 4:3 * width // 4]
-                elite = utils.multi_match(elite_frame, ELITE_TEMPLATE, threshold=0.9)
-                if len(elite) > 0:
-                    self._alert('siren')
+                # CPU Optimization: Check elite warning every 0.5s (2 Hz)
+                if current_time - last_elite_check > 0.5:
+                    elite_frame = frame[height // 4:3 * height // 4, width // 4:3 * width // 4]
+                    elite = utils.multi_match(elite_frame, ELITE_TEMPLATE, threshold=0.9)
+                    if len(elite) > 0:
+                        self._alert('siren')
+                    last_elite_check = current_time
 
-                # Check for other players entering the map
-                filtered = utils.filter_color(minimap, OTHER_RANGES)
-                others = len(utils.multi_match(filtered, OTHER_TEMPLATE, threshold=0.5))
-                config.stage_fright = others > 0
-                if others != prev_others:
-                    if others > prev_others:
-                        self._ping('ding')
-                    prev_others = others
+                # CPU Optimization: Check other players every 0.3s (~3.3 Hz)
+                if current_time - last_others_check > 0.3:
+                    filtered = utils.filter_color(minimap, OTHER_RANGES)
+                    others = len(utils.multi_match(filtered, OTHER_TEMPLATE, threshold=0.5))
+                    config.stage_fright = others > 0
+                    if others != prev_others:
+                        if others > prev_others:
+                            self._ping('ding')
+                        prev_others = others
+                    last_others_check = current_time
 
-                # Check for rune
+                # CPU Optimization: Check rune every 0.5s (2 Hz)
                 now = time.time()
-                if not config.bot.rune_active:
-                    filtered = utils.filter_color(minimap, RUNE_RANGES)
-                    matches = utils.multi_match(filtered, RUNE_TEMPLATE, threshold=0.9)
-                    rune_start_time = now
-                    if matches and config.routine.sequence:
-                        abs_rune_pos = (matches[0][0], matches[0][1])
-                        config.bot.rune_pos = utils.convert_to_relative(abs_rune_pos, minimap)
-                        distances = list(map(distance_to_rune, config.routine.sequence))
-                        index = np.argmin(distances)
-                        config.bot.rune_closest_pos = config.routine[index].location
-                        config.bot.rune_active = True
-                        self._ping('rune_appeared', volume=0.75)
-                elif now - rune_start_time > self.rune_alert_delay:     # Alert if rune hasn't been solved
-                    config.bot.rune_active = False
-                    self._alert('siren')
-            time.sleep(0.05)
+                if current_time - last_rune_check > 0.5:
+                    if not config.bot.rune_active:
+                        filtered = utils.filter_color(minimap, RUNE_RANGES)
+                        matches = utils.multi_match(filtered, RUNE_TEMPLATE, threshold=0.9)
+                        rune_start_time = now
+                        if matches and config.routine.sequence:
+                            abs_rune_pos = (matches[0][0], matches[0][1])
+                            config.bot.rune_pos = utils.convert_to_relative(abs_rune_pos, minimap)
+                            distances = list(map(distance_to_rune, config.routine.sequence))
+                            index = np.argmin(distances)
+                            config.bot.rune_closest_pos = config.routine[index].location
+                            config.bot.rune_active = True
+                            self._ping('rune_appeared', volume=0.75)
+                    elif now - rune_start_time > self.rune_alert_delay:     # Alert if rune hasn't been solved
+                        config.bot.rune_active = False
+                        self._alert('siren')
+                    last_rune_check = current_time
+            
+            # CPU Optimization: 10 Hz instead of 20 Hz (sufficient for notifier)
+            time.sleep(0.1)
 
     def _alert(self, name, volume=0.75):
         """
