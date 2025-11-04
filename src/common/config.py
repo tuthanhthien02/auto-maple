@@ -63,4 +63,4 @@ arduino_key_mapping = {
 }
 
 # Enable/disable key remapping (can be toggled at runtime)
-arduino_remapping_enabled = True
+arduino_remapping_enabled = False

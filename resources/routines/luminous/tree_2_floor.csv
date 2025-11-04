@@ -13,6 +13,7 @@ Label,f1_pos_0
 Comment,Floor 1 Pos 0: Reflection Mix Random then teleport RIGHT to pos 1
 buff
 buff_secondary
+face_right
 reflection_mix_random
 wait_random,0.1,0.3
 teleport,right,1
