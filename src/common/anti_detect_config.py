@@ -83,23 +83,23 @@ ANTI_DETECT_CONFIG = {
         'day_night_cycle': False      # Different behavior during day/night
     },
     
-    # Routine Randomization
+    # Routine Randomization - DISABLED
     'routine_randomization': {
-        'enabled': True,
+        'enabled': False,  # DISABLED - Feature removed
         'point_selection': {
-            'enabled': True,
-            'skip_probability': 0.10,  # 10% chance to skip a point
-            'randomize_order': False,  # Randomize order (disabled by default - too risky)
-            'max_skip_per_loop': 2,   # Maximum points to skip per loop
-            'min_points_between_skips': 3,  # Minimum points between skips
-            'never_skip_labels': True,  # Never skip Label components
-            'never_skip_jumps': True,   # Never skip Jump components
-            'never_skip_transitions': True  # Never skip transition points (adjust=True)
+            'enabled': False,  # DISABLED
+            'skip_probability': 0.10,
+            'randomize_order': False,
+            'max_skip_per_loop': 2,
+            'min_points_between_skips': 3,
+            'never_skip_labels': True,
+            'never_skip_jumps': True,
+            'never_skip_transitions': True
         },
         'routine_pattern': {
-            'enabled': True,
-            'variant_switch_probability': 0.15,  # 15% chance to switch variant after loop
-            'min_loops_before_switch': 3,  # Minimum loops before switching variant
+            'enabled': False,  # DISABLED
+            'variant_switch_probability': 0.15,
+            'min_loops_before_switch': 3,
             'variants': {
                 'normal': {'weight': 0.70, 'description': 'Normal routine execution'},
                 'reverse': {'weight': 0.15, 'description': 'Reverse floor order'},

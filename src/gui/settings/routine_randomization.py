@@ -58,8 +58,8 @@ class RoutineRandomization(LabelFrame):
 
 class RoutineRandomizationSettings(Configurable):
     DEFAULT_CONFIG = {
-        POINT_SELECTION_KEY: True,
-        ROUTINE_PATTERN_KEY: True
+        POINT_SELECTION_KEY: False,  # DISABLED by default
+        ROUTINE_PATTERN_KEY: False   # DISABLED by default
     }
 
     def get(self, key):

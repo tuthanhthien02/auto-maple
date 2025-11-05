@@ -158,13 +158,9 @@ class Routine:
     @utils.run_if_enabled
     def step(self):
         """Increments config.seq_index and wraps back to 0 at the end of config.sequence."""
-        from src.common.routine_randomization import get_next_routine_index, check_loop_completion
-        
-        old_index = self.index
-        self.index = get_next_routine_index(self.index)
-        
-        # Check if we completed a loop (for variant switching)
-        check_loop_completion(old_index, self.index)
+        # Routine randomization - DISABLED
+        # Normal sequential stepping
+        self.index = (self.index + 1) % len(self.sequence) if len(self.sequence) > 0 else 0
 
     def save(self, file_path):
         """Encodes and saves the current Routine at location PATH."""
