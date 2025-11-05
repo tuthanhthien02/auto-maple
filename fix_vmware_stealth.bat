@@ -21,12 +21,15 @@ if %errorLevel% neq 0 (
 )
 
 echo [1/5] Stopping VMware processes...
+REM Only kill VM processes, not Host VMware Workstation processes
 taskkill /F /IM vmwaretools.exe >nul 2>&1
 taskkill /F /IM vmtoolsd.exe >nul 2>&1
 taskkill /F /IM vmwaretray.exe >nul 2>&1
 taskkill /F /IM vmwareuser.exe >nul 2>&1
 taskkill /F /IM vmwareauthd.exe >nul 2>&1
 echo Done.
+echo.
+echo [NOTE] Skipping vmware.exe and vmware-vmx.exe (these are Host processes, not VM processes)
 
 echo.
 echo [2/5] Disabling VMware services...
@@ -44,6 +47,13 @@ sc stop "vmci" >nul 2>&1
 
 sc config "VMwareAuthorizationService" start= disabled >nul 2>&1
 sc stop "VMwareAuthorizationService" >nul 2>&1
+
+sc config "VMware NAT Service" start= disabled >nul 2>&1
+sc stop "VMware NAT Service" >nul 2>&1
+
+REM Disable VMware Autostart Service
+sc config "VmwareAutostartService" start= disabled >nul 2>&1
+sc stop "VmwareAutostartService" >nul 2>&1
 
 echo Done.
 

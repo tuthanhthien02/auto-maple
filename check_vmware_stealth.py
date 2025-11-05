@@ -72,6 +72,16 @@ class VMwareStealthChecker:
                     
                     for vmware_proc in self.VMWARE_PROCESSES:
                         if vmware_proc.lower() in proc_name:
+                            # Skip VMware Workstation processes on Host (vmware.exe, vmware-vmx.exe)
+                            # These are Host processes, not VM processes
+                            if proc_name in ['vmware.exe', 'vmware-vmx.exe', 'vmware-vmx-debug.exe']:
+                                # Check if running in VM or Host
+                                exe_path = proc.info['exe'].lower() if proc.info['exe'] else ''
+                                # If exe path contains "Program Files" or typical Host paths, skip
+                                if 'program files' in exe_path or 'program files (x86)' in exe_path:
+                                    # This is likely Host VMware Workstation - skip
+                                    continue
+                            
                             found.append({
                                 'type': 'process',
                                 'name': proc.info['name'],
@@ -101,12 +111,29 @@ class VMwareStealthChecker:
         for hkey, subkey_path in self.VMWARE_REGISTRY_KEYS:
             try:
                 key = winreg.OpenKey(hkey, subkey_path)
-                found.append({
-                    'type': 'registry',
-                    'path': f'{self._hkey_name(hkey)}\\{subkey_path}',
-                    'risk': 'HIGH',
-                    'message': f'VMware registry key tồn tại: {subkey_path}'
-                })
+                
+                # Check if service is running (only flag as HIGH RISK if service is running)
+                service_name = subkey_path.split('\\')[-1]  # Get service name from path
+                is_running = self._is_service_running(service_name)
+                
+                if is_running:
+                    found.append({
+                        'type': 'registry',
+                        'path': f'{self._hkey_name(hkey)}\\{subkey_path}',
+                        'service_name': service_name,
+                        'risk': 'HIGH',
+                        'message': f'VMware registry key tồn tại VÀ service đang chạy: {service_name}'
+                    })
+                else:
+                    # Registry key exists but service is disabled -> Warning only
+                    found.append({
+                        'type': 'registry',
+                        'path': f'{self._hkey_name(hkey)}\\{subkey_path}',
+                        'service_name': service_name,
+                        'risk': 'LOW',
+                        'message': f'VMware registry key tồn tại (service đã disable): {service_name}'
+                    })
+                
                 winreg.CloseKey(key)
             except FileNotFoundError:
                 pass
@@ -114,6 +141,18 @@ class VMwareStealthChecker:
                 pass
         
         return found
+    
+    def _is_service_running(self, service_name: str) -> bool:
+        """Check if a Windows service is running."""
+        try:
+            services = list(psutil.win_service_iter())
+            for service in services:
+                if service.name().lower() == service_name.lower():
+                    service_info = service.as_dict()
+                    return service_info.get('status') == 'running'
+        except Exception:
+            pass
+        return False
     
     def check_vmware_services(self) -> List[Dict]:
         """Check VMware services."""
@@ -284,12 +323,19 @@ class VMwareStealthChecker:
         signatures = self.check_vm_detection_signatures()
         self.warnings.extend(signatures)
         
+        # Separate HIGH RISK issues from LOW RISK warnings
+        high_risk_issues = [issue for issue in self.issues if issue.get('risk') == 'HIGH']
+        low_risk_warnings_list = [issue for issue in self.issues if issue.get('risk') == 'LOW']
+        
+        # Add LOW RISK registry warnings to warnings list
+        self.warnings.extend(low_risk_warnings_list)
+        
         # Summary
-        total_issues = len(self.issues)
+        total_issues = len(high_risk_issues)
         total_warnings = len(self.warnings)
         
         return {
-            'issues': self.issues,
+            'issues': high_risk_issues,  # Only HIGH RISK issues
             'warnings': self.warnings,
             'total_issues': total_issues,
             'total_warnings': total_warnings,
@@ -330,6 +376,9 @@ class VMwareStealthChecker:
                     print(f"     Name: {issue['name']}")
                 if 'pid' in issue:
                     print(f"     PID: {issue['pid']}")
+                if 'service_name' in issue:
+                    print(f"     Service: {issue['service_name']}")
+                    print(f"     Fix: Disable service '{issue['service_name']}' trong services.msc")
                 print()
         
         # Warnings
@@ -371,8 +420,18 @@ class VMwareStealthChecker:
                 print("   - services.msc → Tìm VMware services → Disable")
             
             if any('registry' in issue['type'] for issue in result['issues']):
-                print("3. Registry keys không thể xóa hoàn toàn")
-                print("   - Đây là normal, không thể tránh được")
+                print("3. Registry keys với services đang chạy:")
+                print("   - Disable service trong services.msc")
+                print("   - Hoặc chạy: sc config <service_name> start= disabled")
+                print("   - Registry key sẽ vẫn tồn tại nhưng service không chạy = SAFE")
+            
+            # Check for LOW RISK registry warnings
+            registry_warnings = [w for w in result['warnings'] if w.get('type') == 'registry']
+            if registry_warnings:
+                print()
+                print("ℹ️  Registry keys tồn tại nhưng services đã disable:")
+                print("   - Đây là OK và không thể tránh được")
+                print("   - Registry keys không quan trọng nếu services không chạy")
                 print("   - NGS sẽ không chỉ dựa vào registry keys")
             
             print()
