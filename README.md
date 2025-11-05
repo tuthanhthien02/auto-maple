@@ -8,7 +8,6 @@ Community-created resources, such as **command books** for each class and **rout
 
 <br>
 
-
 <h2 align="center">
   Minimap
 </h2>
@@ -25,13 +24,6 @@ Auto Maple uses <b>OpenCV template matching</b> to determine the bounds of the m
 </table>
 
 <br>
-
-
-
-
-
-
-
 
 <h2 align="center">
   Command Books
@@ -54,12 +46,6 @@ Designed with modularity in mind, Auto Maple can operate any character in the ga
 </table>
   
 <br>
-
-
-
-
-
-
 
 <h2 align="center">
   Routines
@@ -111,13 +97,6 @@ Below is a summary of the most commonly used routine components:
 
 <br>
 
-
-
-
-
-
-
-
 <h2 align="center">
   Runes
 </h2>
@@ -134,16 +113,7 @@ Auto Maple has the ability to automatically solve "runes", or in-game arrow key 
   </tr>
 </table>
 
-
 <br>
-
-
-
-
-
-
-
-
 
 <h2 align="center">
   Video Demonstration
@@ -160,8 +130,6 @@ Auto Maple has the ability to automatically solve "runes", or in-game arrow key 
 </p>
 
 <br>
-
-
 
 <h2 align="center">
   Setup
@@ -184,8 +152,16 @@ Auto Maple has the ability to automatically solve "runes", or in-game arrow key 
     Download the <a href="https://drive.google.com/drive/folders/1SPdTNF4KZczoWyWTgfyTBRvLvy7WSGpu?usp=sharing">TensorFlow model</a> and unzip the "models" folder into Auto Maple's "assets" directory.
   </li>
   <li>
-    Inside Auto Maple's main directory, open a command prompt and run:
-    <pre><code>python -m pip install -r requirements.txt</code></pre>
+    Install all required Python packages. You can do this in two ways:
+    <ul>
+      <li>
+        <b>Option 1 (Recommended):</b> Double-click <code>install_requirements.bat</code> or run it from command prompt. This script will automatically install all dependencies.
+      </li>
+      <li>
+        <b>Option 2:</b> Inside Auto Maple's main directory, open a command prompt and run:
+        <pre><code>python -m pip install -r requirements.txt</code></pre>
+      </li>
+    </ul>
   </li>
   <li>
     Lastly, create a desktop shortcut by running:
