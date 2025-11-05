@@ -164,20 +164,37 @@ class VMwareStealthChecker:
             for service in services:
                 try:
                     service_name = service.name().lower()
+                    service_info = service.as_dict()
+                    display_name = service_info.get('display_name', '').lower()
+                    status = service_info.get('status', '')
                     
+                    # Check by service name
                     for vmware_service in self.VMWARE_SERVICES:
                         if vmware_service.lower() in service_name:
-                            service_info = service.as_dict()
-                            if service_info.get('status') == 'running':
+                            if status == 'running':
                                 found.append({
                                     'type': 'service',
                                     'name': service.name(),
                                     'display_name': service_info.get('display_name', ''),
-                                    'status': service_info.get('status'),
+                                    'status': status,
                                     'risk': 'HIGH',
-                                    'message': f'VMware service đang chạy: {service.name()}'
+                                    'message': f'VMware service đang chạy: {service.name()} ({service_info.get("display_name", "")})'
                                 })
                             break
+                    
+                    # Also check by display name (catch VMware NAT Service, etc.)
+                    if 'vmware' in display_name and status == 'running':
+                        # Skip if already found
+                        already_found = any(s['name'] == service.name() for s in found)
+                        if not already_found:
+                            found.append({
+                                'type': 'service',
+                                'name': service.name(),
+                                'display_name': service_info.get('display_name', ''),
+                                'status': status,
+                                'risk': 'HIGH',
+                                'message': f'VMware service đang chạy: {service.name()} ({service_info.get("display_name", "")})'
+                            })
                 except Exception:
                     continue
         except Exception as e:

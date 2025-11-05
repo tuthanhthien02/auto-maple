@@ -59,18 +59,38 @@ echo Done.
 
 echo.
 echo [3/5] Checking if services were disabled...
-sc query "VMTools" | findstr "STOPPED" >nul
-if %errorLevel% equ 0 (
-    echo   [OK] VMTools service stopped
-) else (
-    echo   [WARNING] VMTools service may still be running
-)
+echo.
 
-sc query "vmci" | findstr "STOPPED" >nul
-if %errorLevel% equ 0 (
-    echo   [OK] VMCI service stopped
-) else (
-    echo   [WARNING] VMCI service may still be running
+REM Check all VMware services
+for %%S in (
+    "VMTools"
+    "vmci"
+    "VMUSBArbService"
+    "VMwareHostOpen"
+    "VMwareAuthorizationService"
+    "VMware NAT Service"
+    "VmwareAutostartService"
+) do (
+    echo Checking: %%S
+    sc query %%S 2>nul | findstr "STATE" >nul
+    if %errorLevel% equ 0 (
+        sc query %%S | findstr "STOPPED" >nul
+        if %errorLevel% equ 0 (
+            echo   [OK] %%S stopped
+        ) else (
+            sc query %%S | findstr "RUNNING" >nul
+            if %errorLevel% equ 0 (
+                echo   [WARNING] %%S still RUNNING - trying to stop again...
+                sc stop %%S >nul 2>&1
+                timeout /t 1 >nul
+            ) else (
+                echo   [INFO] %%S not found or in different state
+            )
+        )
+    ) else (
+        echo   [INFO] %%S not found
+    )
+    echo.
 )
 
 echo.
