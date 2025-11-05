@@ -7,4 +7,5 @@ Pillow
 pygame
 pywin32
 pyserial
+psutil
 tensorflow

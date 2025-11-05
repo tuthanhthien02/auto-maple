@@ -81,6 +81,32 @@ ANTI_DETECT_CONFIG = {
         'learning_adaptation': False,  # Adapt patterns based on usage
         'time_based_patterns': True,   # Different patterns at different times
         'day_night_cycle': False      # Different behavior during day/night
+    },
+    
+    # Routine Randomization
+    'routine_randomization': {
+        'enabled': True,
+        'point_selection': {
+            'enabled': True,
+            'skip_probability': 0.10,  # 10% chance to skip a point
+            'randomize_order': False,  # Randomize order (disabled by default - too risky)
+            'max_skip_per_loop': 2,   # Maximum points to skip per loop
+            'min_points_between_skips': 3,  # Minimum points between skips
+            'never_skip_labels': True,  # Never skip Label components
+            'never_skip_jumps': True,   # Never skip Jump components
+            'never_skip_transitions': True  # Never skip transition points (adjust=True)
+        },
+        'routine_pattern': {
+            'enabled': True,
+            'variant_switch_probability': 0.15,  # 15% chance to switch variant after loop
+            'min_loops_before_switch': 3,  # Minimum loops before switching variant
+            'variants': {
+                'normal': {'weight': 0.70, 'description': 'Normal routine execution'},
+                'reverse': {'weight': 0.15, 'description': 'Reverse floor order'},
+                'floor1_only': {'weight': 0.10, 'description': 'Floor 1 only'},
+                'floor2_only': {'weight': 0.05, 'description': 'Floor 2 only'}
+            }
+        }
     }
 }
 

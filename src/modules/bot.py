@@ -10,6 +10,7 @@ import traceback
 from os.path import splitext, basename
 from src.common import config, utils
 from src.common.anti_detect import initialize_anti_detect, cleanup_anti_detect, update_activity, get_human_delay
+from src.common.routine_randomization import initialize_routine_randomization, get_variant_start_index
 from src.common.process_stealth import enable_process_stealth, disable_process_stealth
 from src.common.screenshot_blocker import enable_screenshot_blocking, disable_screenshot_blocking, protect_maplestory_window
 from src.detection import detection
@@ -71,6 +72,9 @@ class Bot(Configurable):
         # Initialize anti-detect features
         initialize_anti_detect()
         
+        # Initialize routine randomization
+        initialize_routine_randomization()
+        
         # Enable process stealth (optional)
         try:
             enable_process_stealth()
@@ -106,6 +110,15 @@ class Bot(Configurable):
         config.listener.enabled = True
         last_fed = time.time()
         last_activity_update = time.time()
+        
+        # Set initial routine index based on variant (if enabled)
+        try:
+            variant_start = get_variant_start_index()
+            if variant_start > 0 and variant_start < len(config.routine):
+                config.routine.index = variant_start
+                log.info("Starting routine at variant index %d", variant_start)
+        except Exception as e:
+            log.warning("Failed to set variant start index: %s", e)
         
         while True:
             if config.enabled and len(config.routine) > 0:
