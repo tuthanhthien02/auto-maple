@@ -2,9 +2,14 @@
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo ========================================
 echo    AUTO MAPLE - INSTALL REQUIREMENTS
 echo ========================================
+echo.
+echo [~] Working directory: %CD%
 echo.
 
 REM Check if Python is installed
@@ -35,6 +40,15 @@ if errorlevel 1 (
 echo.
 
 REM Install main requirements
+if not exist "requirements.txt" (
+    echo [X] ERROR: requirements.txt not found in current directory
+    echo     Current directory: %CD%
+    echo     Please make sure you're running this script from the project root folder.
+    echo.
+    pause
+    exit /b 1
+)
+
 echo [~] Installing main requirements from requirements.txt...
 python -m pip install -r requirements.txt
 if errorlevel 1 (
