@@ -412,4 +412,28 @@ REM → Copy vào Desktop
 
 ---
 
+## 🔧 **VERIFY BUILD FILES**
+
+### **Trước Khi Build Trên VM:**
+
+**Chạy script verify:**
+
+```batch
+verify_build_files.bat
+```
+
+**Script sẽ check:**
+
+-   ✅ `ExplorerSettings.spec` - Required
+-   ✅ `main.py` - Required
+-   ✅ `build_stealth.bat` - Required
+-   ✅ `assets/` - Required
+-   ✅ `resources/` - Required
+-   ✅ `src/` - Required
+-   ✅ `assets\explorer-icon.ico` - Optional but recommended
+
+**Nếu thiếu files → Copy từ Host vào VM**
+
+---
+
 **REMEMBER:** VMware Shared Folders là phương pháp nhanh nhất và tiện nhất! ⭐

@@ -42,10 +42,41 @@ if exist dist (
 if exist __pycache__ rmdir /s /q __pycache__ 2>nul
 for /r %%i in (*.__pycache__) do rmdir /s /q "%%i" 2>nul
 
+REM Verify spec file exists
+if not exist "ExplorerSettings.spec" (
+    echo [X] ERROR: ExplorerSettings.spec not found!
+    echo.
+    echo Current directory: %CD%
+    echo.
+    echo Please ensure:
+    echo   1. You are running this script from the project root directory
+    echo   2. ExplorerSettings.spec exists in the current directory
+    echo   3. If you copied files to VM, make sure ExplorerSettings.spec was copied too
+    echo.
+    echo Expected location: %CD%\ExplorerSettings.spec
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Verify main.py exists
+if not exist "main.py" (
+    echo [X] ERROR: main.py not found!
+    echo.
+    echo Current directory: %CD%
+    echo.
+    echo Please ensure you are running this script from the project root directory.
+    echo.
+    pause
+    exit /b 1
+)
+
 REM Run PyInstaller với spec file (tất cả options đã có trong spec file)
 REM Note: Khi dùng .spec file, không thể dùng --name, --add-data, --strip, etc. trong command line
 REM Use INFO level - shows major steps (Analyzing, Collecting, Building, etc.)
 echo [~] Starting PyInstaller build...
+echo [INFO] Current directory: %CD%
+echo [INFO] Spec file: ExplorerSettings.spec
 echo [INFO] Estimated time: 5-20 minutes
 echo [INFO] You will see progress messages below:
 echo [INFO]   - "INFO: Analyzing..." = Analyzing dependencies
