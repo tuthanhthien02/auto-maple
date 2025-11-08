@@ -1,0 +1,44 @@
+# Routine: Tree Single Floor - Left to Right
+# Simple routine với 3 positions, di chuyển từ left sang right
+# Y coordinate: 0.233 (single floor)
+# Based on recorded positions: (0.223, 0.233), (0.366, 0.233), (0.604, 0.233)
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y ≈ 0.233)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.233) ===
+
+*,0.223,0.233,adjust=True,frequency=1
+Label,pos_0
+Comment,Position 0 (Left): Reflection, Wait, Double Jump, then move to pos 1
+face_right
+reflection
+wait_random,0.1,0.3
+double_jump
+wait_random,0.1,0.3
+
+*,0.366,0.233,adjust=True,frequency=1
+Label,pos_1
+Comment,Position 1 (Middle): Reflection, Wait, Double Jump, then move to pos 2
+reflection
+wait_random,0.1,0.3
+double_jump
+wait_random,0.1,0.3
+
+*,0.604,0.233,adjust=True,frequency=1
+Label,pos_2
+Comment,Position 2 (Right): Reflection, Wait, Double Jump, then loop back to start
+reflection
+wait_random,0.1,0.3
+double_jump
+wait_random,0.1,0.3
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Position 0 ===
+Jump,pos_0
+
+

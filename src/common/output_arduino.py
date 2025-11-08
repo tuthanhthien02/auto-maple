@@ -130,6 +130,15 @@ class ArduinoSerialOutput:
             except Exception as e:
                 log.warning(f"Failed to load remapping config: {e}")
         
+        # Phase 5: Device Stealth - Raw Input API Bypass
+        self.device_stealth = None
+        try:
+            from src.common.device_stealth import get_device_stealth
+            self.device_stealth = get_device_stealth(enabled=True)
+            log.info("Device Stealth initialized (Phase 5: Advanced Stealth)")
+        except Exception as e:
+            log.warning(f"Failed to initialize Device Stealth: {e}")
+        
         # Try connect on initialization
         self._connect()
         
@@ -203,7 +212,20 @@ class ArduinoSerialOutput:
                 
                 self.connected = True
                 self.com_port = port
-                log.info(f"✅ Successfully connected to Arduino on {port} (baudrate: {self.baudrate})")
+                
+                # Log successful connection with detailed info
+                device_stealth_status = "Enabled" if (self.device_stealth and getattr(self.device_stealth, 'enabled', False)) else "Disabled"
+                
+                log.info("=" * 60)
+                log.info("✅ ARDUINO CONNECTION SUCCESSFUL")
+                log.info(f"   Port: {port}")
+                log.info(f"   Baudrate: {self.baudrate}")
+                log.info(f"   Device Stealth: {device_stealth_status} (Phase 5: Advanced Stealth)")
+                log.info(f"   Key Remapping: {'Enabled' if self.remapping_enabled else 'Disabled'}")
+                if self.key_mapping:
+                    log.info(f"   Remapping Keys: {len(self.key_mapping)} mappings")
+                log.info("=" * 60)
+                
                 return True
                 
             except serial.SerialException as e:
@@ -301,9 +323,30 @@ class ArduinoSerialOutput:
                 arduino_key = self._map_key(key)
                 command = f"{action}:{arduino_key}\n"
             
+            # Phase 5: Device Fingerprinting Bypass - Add random timing variation
+            # Add small random delay (0.1-2ms) để tránh fingerprinting patterns
+            import random
+            import time
+            random_delay = random.uniform(0.0001, 0.002)  # 0.1-2ms
+            time.sleep(random_delay)
+            
             # Send command
             self.serial.write(command.encode('utf-8'))
             self.serial.flush()  # Ensure command is sent immediately
+            
+            # Phase 5: Device Stealth - Monitor device properties
+            if self.device_stealth:
+                try:
+                    devices = self.device_stealth.get_raw_input_devices()
+                    arduino_devices = [d for d in devices if d.get('is_arduino', False)]
+                    if arduino_devices:
+                        for device in arduino_devices:
+                            self.device_stealth.spoof_device_properties(
+                                device['handle'],
+                                spoofed_name="USB Keyboard"
+                            )
+                except Exception as e:
+                    log.debug(f"Device stealth monitoring error: {e}")
             
             log.debug(f"Sent command: {command.strip()}")
             return True

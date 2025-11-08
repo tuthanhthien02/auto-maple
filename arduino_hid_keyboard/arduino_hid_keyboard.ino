@@ -67,7 +67,20 @@ KeyMapping keyMap[] = {
   {"printscreen", 0}, {"scroll", 0}, {"pause", 0}, {"menu", 0}, {"numlock", 0}
 };
 
+// Phase 5: Device Fingerprinting Bypass - Random timing seed
+// Use analog noise để tạo random seed (không có randomSeed() trong setup)
+unsigned long randomSeedValue = 0;
+
 void setup() {
+  // Phase 5: Initialize random seed từ analog noise (device fingerprinting bypass)
+  // Read analog pin 0 (unconnected) để tạo random seed từ electrical noise
+  randomSeedValue = analogRead(0);
+  for (int i = 0; i < 10; i++) {
+    randomSeedValue = (randomSeedValue << 1) ^ analogRead(0);
+    delayMicroseconds(100);
+  }
+  randomSeed(randomSeedValue);
+  
   // Initialize serial communication (115200 để giảm độ trễ)
   Serial.begin(115200);
   
@@ -159,6 +172,11 @@ void processCommand(String command) {
     // Not found in map, skip
     return;
   }
+  
+  // Phase 5: Device Fingerprinting Bypass - Add random timing variation
+  // Add small random delay (1-5ms) để tránh fingerprinting patterns
+  unsigned long randomDelay = random(1000, 5000);  // 1-5ms in microseconds
+  delayMicroseconds(randomDelay);
   
   // Execute action với key repeat support
   if (action == "down") {
