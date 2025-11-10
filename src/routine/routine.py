@@ -377,7 +377,7 @@ class Routine:
         return 'normal'
 
     def _choose_floor_variant(self):
-        """Choose which floor-only variant to activate (100% floor1, 0% floor2 for testing)."""
+        """Choose which floor-only variant to activate (50% floor1, 50% floor2)."""
         options = []
         if self.floor1_indices:
             options.append('floor1_only')
@@ -387,19 +387,29 @@ class Routine:
         if not options:
             return None
 
-        # For testing: 100% floor1_only, 0% floor2_only
-        if 'floor1_only' in options:
-            choice = 'floor1_only'
+        # If only one option available, use it
+        if len(options) == 1:
+            choice = options[0]
             self.floor_variant_last = choice
             return choice
+
+        # 50% floor1_only, 50% floor2_only
+        roll = random.random()
+        if roll < 0.5:
+            # 50% chance for floor1_only
+            if 'floor1_only' in options:
+                choice = 'floor1_only'
+            else:
+                choice = 'floor2_only'
+        else:
+            # 50% chance for floor2_only
+            if 'floor2_only' in options:
+                choice = 'floor2_only'
+            else:
+                choice = 'floor1_only'
         
-        # Fallback: if only floor2 available, use it
-        if 'floor2_only' in options:
-            choice = 'floor2_only'
-            self.floor_variant_last = choice
-            return choice
-        
-        return None
+        self.floor_variant_last = choice
+        return choice
 
     def _switch_variant(self, forced_variant=None):
         """Switch to the next variant in the configured cycle or a forced variant."""

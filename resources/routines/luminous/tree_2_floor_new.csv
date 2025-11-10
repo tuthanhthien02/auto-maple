@@ -115,14 +115,6 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.478,0.19,adjust=False,frequency=1
-Label,f2_pos_3
-Comment,Floor 2 Pos 3: Reflection Mix Random then teleport LEFT to pos 4
-reflection_random
-wait_random,0.1,0.3
-teleport,left,1
-wait_random,0.2,0.5
-
 *,0.473,0.112,adjust=False,frequency=1
 Label,f2_pos_4
 Comment,Floor 2 Pos 4: Reflection Mix Random then teleport LEFT to pos 5
