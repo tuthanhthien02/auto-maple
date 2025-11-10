@@ -48,24 +48,45 @@ class Routine:
         # Point Selection Randomization
         self.skip_probability = 0.30  # 30% chance to skip (tuned for better balance)
         self.consecutive_skips = 0
-        self.max_consecutive_skips = 2  # Max 2 consecutive skips
-        self.skip_enabled = True  # Enable/disable skip feature - RE-ENABLED after reverse loop testing
+        self.max_consecutive_skips = random.randint(1, 3)  # Max 1-3 consecutive skips (hardcode random)
+        self.skip_enabled = False  # Enable/disable skip feature - DISABLED for floor-only testing
         self.is_skipping_context = False  # Track if we're in skip context (for teleport decision)
         # Routine Pattern Variation
         self.variant_enabled = True
         self.current_variant = 'normal'
         self.variant_switch_counter = 0
         self.variant_switch_interval = random.randint(3, 7)  # Switch every 3-7 loops
+        self.variant_cycle = []
+        self.variant_cycle_index = 0
+        self.floor_variant_active = False
+        self.floor_variant_chance = 1.0  # 100% chance to activate floor-only variant after completing a loop (for testing)
+        self.floor_variant_loop_range = (3, 5)  # Floor-only variants run for 3-5 loops, then return to normal
+        self.floor_variant_last = None
+        self.floor_direction = 'forward'  # Track direction in floor-only: 'forward' or 'reverse'
         self.floor1_indices = []  # Indices of Floor 1 points
         self.floor2_indices = []  # Indices of Floor 2 points
-        self.variant_weights = {
-            'normal': 0.5,       # 50% normal
-            'reverse': 0.5,      # 50% reverse
-            # 'floor1_only': 0.10, # 10% floor1 only - DISABLED
-            # 'floor2_only': 0.05  # 5% floor2 only - DISABLED
-        }
         self.loop_count = 0
         self.last_index = -1
+        
+        # Load randomization settings from GUI
+        self._load_randomization_settings()
+
+    def _load_randomization_settings(self):
+        """Load randomization settings from GUI settings file."""
+        try:
+            from src.gui.settings.routine_randomization import RoutineRandomizationSettings
+            settings = RoutineRandomizationSettings('routine_randomization')
+            
+            # Load Point Selection settings
+            self.skip_enabled = settings.get('Point Selection Enabled')
+            self.skip_probability = settings.get('Point Selection Skip Probability')
+            
+            # Load Routine Pattern settings
+            self.variant_enabled = settings.get('Routine Pattern Enabled')
+            self.floor_variant_chance = settings.get('Routine Pattern Floor Only Chance')
+        except Exception as e:
+            # Settings might not be available yet, use defaults
+            log.debug("Could not load randomization settings: %s", e)
 
     @dirty
     @update
@@ -268,30 +289,157 @@ class Routine:
         log.info("🏢 Floor Detection: Floor 1: %d points, Floor 2: %d points", 
                  len(self.floor1_indices), len(self.floor2_indices))
 
-    def _switch_variant(self):
-        """Switch to the opposite variant (normal <-> reverse)."""
-        # Switch between normal and reverse
-        if self.current_variant == 'normal':
-            self.current_variant = 'reverse'
-        elif self.current_variant == 'reverse':
-            self.current_variant = 'normal'
-        else:
-            # Fallback: if somehow in another variant, switch to normal
-            self.current_variant = 'normal'
-        
-        # Reset switch counter
-        self.variant_switch_interval = random.randint(3, 7)
+    def _pick_switch_interval(self, variant=None):
+        """Pick a switch interval based on variant type."""
+        target_variant = variant if variant else self.current_variant
+        if target_variant in ('floor1_only', 'floor2_only'):
+            low, high = self.floor_variant_loop_range
+            return random.randint(low, high)
+        return random.randint(3, 7)
+
+    def _build_variant_cycle(self):
+        """Build the base variant cycle (normal only, reverse disabled for testing)."""
+        base_cycle = ['normal']  # Disabled reverse for floor-only testing
+        combined_cycle = []
+        for variant in base_cycle:
+            if variant not in combined_cycle:
+                combined_cycle.append(variant)
+
+        if not combined_cycle:
+            combined_cycle = ['normal']
+
+        self.variant_cycle = combined_cycle
+        self.variant_cycle_index = 0
+        self.current_variant = self.variant_cycle[0]
+        self.variant_switch_interval = self._pick_switch_interval(self.current_variant)
         self.variant_switch_counter = 0
+        self.floor_variant_active = False
+
+        log.info("🔁 Routine Pattern Variation: Variant cycle set to %s", " -> ".join(self.variant_cycle))
+
+    def _get_next_variant_in_cycle(self):
+        """Advance to the next available variant in the cycle."""
+        if not self.variant_cycle:
+            self._build_variant_cycle()
+
+        for _ in range(len(self.variant_cycle)):
+            self.variant_cycle_index = (self.variant_cycle_index + 1) % len(self.variant_cycle)
+            candidate = self.variant_cycle[self.variant_cycle_index]
+            if candidate == 'floor1_only' and not self.floor1_indices:
+                continue
+            if candidate == 'floor2_only' and not self.floor2_indices:
+                continue
+            return candidate
+
+        # Fallback if no other variant is available
+        return 'normal'
+
+    def _choose_floor_variant(self):
+        """Choose which floor-only variant to activate (50% floor1, 50% floor2 if both available)."""
+        options = []
+        if self.floor1_indices:
+            options.append('floor1_only')
+        if self.floor2_indices:
+            options.append('floor2_only')
+
+        if not options:
+            return None
+
+        # If both floors available, 50/50 chance between them
+        if len(options) == 2:
+            choice = random.choice(['floor1_only', 'floor2_only'])
+            self.floor_variant_last = choice
+            return choice
         
+        # If only one floor available, use it
+        choice = options[0]
+        self.floor_variant_last = choice
+        return choice
+
+    def _switch_variant(self, forced_variant=None):
+        """Switch to the next variant in the configured cycle or a forced variant."""
+        if forced_variant:
+            self.current_variant = forced_variant
+            self.variant_switch_interval = self._pick_switch_interval(forced_variant)
+            self.variant_switch_counter = 0
+            self.floor_variant_active = forced_variant in ('floor1_only', 'floor2_only')
+            log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
+                     self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+            return
+
+        # If floor-only was active, return to normal variant
+        if self.floor_variant_active:
+            self.floor_variant_active = False
+            # Force switch to normal variant after floor-only completes
+            self.current_variant = 'normal'
+            # Reset to normal variant start index
+            self.index = 0
+            self.variant_switch_interval = random.randint(3, 7)  # Reset interval for normal variant
+            self.variant_switch_counter = 0
+            log.info("🔄 Routine Pattern Variation: Returned to normal variant from floor-only (switch every %d loops)", 
+                     self.variant_switch_interval)
+            return
+
+        next_variant = self._get_next_variant_in_cycle()
+        self.current_variant = next_variant
+
+        # Reset switch counter and determine next interval
+        self.variant_switch_interval = self._pick_switch_interval(self.current_variant)
+        self.variant_switch_counter = 0
+
         log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                  self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+
+    def _maybe_activate_floor_variant(self):
+        """Randomly activate a floor-only variant after completing a loop."""
+        if self.floor_variant_active or not self.variant_enabled:
+            return False
+
+        available = []
+        if self.floor1_indices:
+            available.append('floor1_only')
+        if self.floor2_indices:
+            available.append('floor2_only')
+
+        if not available:
+            return False
+
+        roll = random.random()
+        if roll >= self.floor_variant_chance:
+            log.debug("Routine Pattern Variation: Floor-only chance skipped (chance: %.2f, roll: %.3f)", 
+                      self.floor_variant_chance, roll)
+            return False
+
+        variant = self._choose_floor_variant()
+        if not variant:
+            return False
+
+        self._switch_variant(forced_variant=variant)
+        self.index = self._get_variant_start_index()
+        self.last_index = -1
+        self.floor_variant_active = True
+        
+        # Log floor indices for debugging
+        floor_indices = self.floor1_indices if variant == 'floor1_only' else self.floor2_indices
+        log.info("🛗 Routine Pattern Variation: Activated floor-only variant '%s' for %d loop(s) (chance: %.0f%%, roll: %.3f)", 
+                 variant, self.variant_switch_interval, self.floor_variant_chance * 100, roll)
+        log.info("🛗 Floor-only: Floor indices: %s (total: %d points), Starting at index %d, Direction: %s", 
+                 floor_indices, len(floor_indices), self.index, self.floor_direction)
+        return True
 
     def _should_switch_variant(self):
         """Check if we should switch variant."""
         if not self.variant_enabled:
             return False
         
-        # Check if we've completed enough loops
+        # If floor-only variant is active, check if we've reached the loop limit
+        if self.floor_variant_active and self.current_variant in ['floor1_only', 'floor2_only']:
+            if self.variant_switch_counter >= self.variant_switch_interval:
+                # Floor-only completed, return to normal
+                log.info("🛗 Floor-only: Completed %d loop(s), returning to normal variant", self.variant_switch_interval)
+                return True
+        
+        # Check if we've completed enough loops for normal variant switching
         # Note: variant_switch_counter is incremented in step() when loop completion is detected
         if self.variant_switch_counter >= self.variant_switch_interval:
             return True
@@ -308,8 +456,10 @@ class Routine:
         elif self.current_variant == 'reverse':
             return len(self.sequence) - 1
         elif self.current_variant == 'floor1_only':
+            self.floor_direction = 'forward'  # Reset to forward when starting floor1_only
             return self.floor1_indices[0] if self.floor1_indices else 0
         elif self.current_variant == 'floor2_only':
+            self.floor_direction = 'forward'  # Reset to forward when starting floor2_only
             return self.floor2_indices[0] if self.floor2_indices else 0
         return 0
 
@@ -326,14 +476,20 @@ class Routine:
             return (current_index - 1) % len(self.sequence)
         elif self.current_variant == 'floor1_only':
             # Floor 1 only: only visit Floor 1 points
-            return self._get_next_floor_index(current_index, self.floor1_indices)
+            next_idx = self._get_next_floor_index(current_index, self.floor1_indices)
+            log.debug("🛗 Floor1-only: Current index %d -> Next index %d (direction: %s)", 
+                     current_index, next_idx, self.floor_direction)
+            return next_idx
         elif self.current_variant == 'floor2_only':
             # Floor 2 only: only visit Floor 2 points
-            return self._get_next_floor_index(current_index, self.floor2_indices)
+            next_idx = self._get_next_floor_index(current_index, self.floor2_indices)
+            log.debug("🛗 Floor2-only: Current index %d -> Next index %d (direction: %s)", 
+                     current_index, next_idx, self.floor_direction)
+            return next_idx
         return (current_index + 1) % len(self.sequence)
 
     def _get_next_floor_index(self, current_index, floor_indices):
-        """Get next index within a specific floor."""
+        """Get next index within a specific floor (forward: pos_0->pos_last, reverse: pos_last->pos_0)."""
         if not floor_indices:
             # Fallback to normal stepping if no floor indices
             return (current_index + 1) % len(self.sequence)
@@ -341,11 +497,58 @@ class Routine:
         # Find current index in floor_indices
         try:
             current_floor_index = floor_indices.index(current_index)
-            # Move to next floor point
-            next_floor_index = (current_floor_index + 1) % len(floor_indices)
-            return floor_indices[next_floor_index]
+            first_floor_idx = floor_indices[0]
+            last_floor_idx = floor_indices[-1]
+            
+            if self.floor_direction == 'forward':
+                # Forward: move to next position
+                if current_index == last_floor_idx:
+                    # Reached last position, switch to reverse direction
+                    # Move to last - 1 immediately (start reverse)
+                    self.floor_direction = 'reverse'
+                    if current_floor_index > 0:
+                        next_floor_index = current_floor_index - 1
+                        log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction, moving to position %d", 
+                                last_floor_idx, floor_indices[next_floor_index])
+                        return floor_indices[next_floor_index]
+                    else:
+                        # Only one position, stay at last
+                        log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction", last_floor_idx)
+                        return last_floor_idx
+                else:
+                    # Move forward to next position
+                    next_floor_index = current_floor_index + 1
+                    if next_floor_index < len(floor_indices):
+                        next_idx = floor_indices[next_floor_index]
+                        log.debug("🛗 Floor-only FORWARD: Moving from position %d (index %d) -> position %d (index %d)", 
+                                 current_index, current_floor_index, next_idx, next_floor_index)
+                        return next_idx
+                    else:
+                        # Should not happen, but fallback
+                        return last_floor_idx
+            else:  # reverse
+                # Reverse: move to previous position
+                if current_index == first_floor_idx:
+                    # Reached first position, switch to forward direction
+                    # Stay at first position, next step will go forward (loop completed)
+                    self.floor_direction = 'forward'
+                    log.info("🛗 Floor-only: Reached first position %d, switching to FORWARD direction (loop will complete on next step)", first_floor_idx)
+                    return first_floor_idx
+                else:
+                    # Move reverse to previous position
+                    next_floor_index = current_floor_index - 1
+                    if next_floor_index >= 0:
+                        next_idx = floor_indices[next_floor_index]
+                        log.info("🛗 Floor-only REVERSE: Moving from position %d (index %d) -> position %d (index %d)", 
+                                current_index, current_floor_index, next_idx, next_floor_index)
+                        return next_idx
+                    else:
+                        # Should not happen, but fallback
+                        log.warning("🛗 Floor-only REVERSE: Unexpected state at position %d, falling back to first", current_index)
+                        return first_floor_idx
         except ValueError:
-            # Current index not in floor, start from first floor point
+            # Current index not in floor, start from first floor point in forward direction
+            self.floor_direction = 'forward'
             return floor_indices[0]
 
     @utils.run_if_enabled
@@ -368,7 +571,13 @@ class Routine:
             return
         
         # Step based on current variant
+        old_idx_before_step = self.index
         self.index = self._get_variant_next_index(self.index)
+        
+        # Log step for floor-only variants
+        if self.current_variant in ['floor1_only', 'floor2_only']:
+            log.info("🛗 Floor-only STEP: Variant '%s', Index %d -> %d, Direction: %s", 
+                    self.current_variant, old_idx_before_step, self.index, self.floor_direction)
         
         # Detect loop completion (after stepping)
         # A loop is completed when we've gone through ALL components in the routine according to the current variant
@@ -383,13 +592,19 @@ class Routine:
                 if old_index == 0 and self.index == len(self.sequence) - 1:
                     loop_completed = True
             elif self.current_variant in ['floor1_only', 'floor2_only']:
-                # Floor-only: loop when we return to first floor point (completed all floor points)
+                # Floor-only: loop completed when we finish forward (pos_0->pos_last) then reverse (pos_last->pos_0)
+                # A loop is complete when we return to first position after completing reverse direction
                 floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
                 if floor_indices:
                     first_floor_idx = floor_indices[0]
-                    last_floor_idx = floor_indices[-1]
-                    if old_index == last_floor_idx and self.index == first_floor_idx:
+                    # Loop completed when: we're at first position, direction is forward (just switched from reverse),
+                    # and we came from a position that's not first (completed reverse journey)
+                    if (self.index == first_floor_idx and 
+                        self.floor_direction == 'forward' and 
+                        old_index in floor_indices and 
+                        old_index != first_floor_idx):
                         loop_completed = True
+                        log.info("🛗 Floor-only: Loop completed! (forward: pos_0->pos_last, reverse: pos_last->pos_0)")
         
         # Only increment counters when a loop is actually completed
         if loop_completed:
@@ -400,6 +615,9 @@ class Routine:
                      self.loop_count, self.current_variant, 
                      self.variant_switch_counter, self.variant_switch_interval,
                      loops_remaining)
+
+            if not self.floor_variant_active:
+                self._maybe_activate_floor_variant()
         
         # Update last_index for next iteration
         self.last_index = old_index
@@ -442,6 +660,11 @@ class Routine:
         self.loop_count = 0
         self.last_index = -1
         self.variant_switch_counter = 0
+        self.variant_cycle = []
+        self.variant_cycle_index = 0
+        self.floor_variant_active = False
+        self.floor_variant_last = None
+        self.floor_direction = 'forward'
 
         config.gui.clear_routine_info()
 
@@ -493,16 +716,18 @@ class Routine:
         log.info("🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)", 
                 self.skip_probability * 100, self.max_consecutive_skips)
         
+        # Reload randomization settings when loading routine
+        self._load_randomization_settings()
+        
         # Initialize Routine Pattern Variation
         if self.variant_enabled:
             self.detect_floors()
-            # Always start with 'normal' variant when bot starts (reverted after reverse testing)
-            self.current_variant = 'normal'
-            self.variant_switch_counter = 0
-            self.variant_switch_interval = random.randint(3, 7)
+            self._build_variant_cycle()
             self.index = self._get_variant_start_index()
             log.info("🔄 Routine Pattern Variation: Initialized with variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                     self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+            log.info("🛗 Routine Pattern Variation: Floor-only activation chance %.0f%%, loop range %d-%d", 
+                     self.floor_variant_chance * 100, self.floor_variant_loop_range[0], self.floor_variant_loop_range[1])
 
     def compile(self, file):
         self.labels = {}

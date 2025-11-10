@@ -92,17 +92,23 @@ class Point(Component):
                 adjust = config.bot.command_book['adjust']      # TODO: adjust using step('up')?
                 adjust(*self.location).execute()
             
-            # Check if we're in reverse variant - skip teleport commands in routine
-            # because they're designed for normal direction and will conflict with reverse movement
-            is_reverse = getattr(config.routine, 'current_variant', 'normal') == 'reverse'
+            # Check if we're in reverse variant or floor-only variant with reverse direction
+            # Skip teleport commands in routine because they're designed for normal direction
+            # and will conflict with reverse movement
+            current_variant = getattr(config.routine, 'current_variant', 'normal')
+            is_reverse = current_variant == 'reverse'
+            is_floor_only = current_variant in ['floor1_only', 'floor2_only']
+            floor_direction = getattr(config.routine, 'floor_direction', 'forward')
+            is_floor_reverse = is_floor_only and floor_direction == 'reverse'
             
             for command in self.commands:
-                # Skip teleport commands in reverse variant (they're designed for normal direction)
-                if is_reverse and hasattr(command, 'direction'):
+                # Skip teleport commands in reverse variant or floor-only variant with reverse direction
+                # (they're designed for normal direction and will conflict with reverse movement)
+                if (is_reverse or is_floor_reverse) and hasattr(command, 'direction'):
                     # Check if it's a Teleport command
                     if command.__class__.__name__ == 'Teleport':
-                        log.debug("Point: Skipping teleport command '%s' in reverse variant (designed for normal direction)", 
-                                 command.direction)
+                        log.debug("Point: Skipping teleport command '%s' in %s variant (designed for normal direction)", 
+                                 command.direction, current_variant)
                         continue
                 command.execute()
         self._increment_counter()
@@ -328,18 +334,28 @@ class Move(Command):
         # Check if we should teleport (when skipping and distance is far)
         is_skipping = getattr(config.routine, 'is_skipping_context', False)
         
-        # Check if we're in reverse variant (for better movement in reverse)
-        is_reverse = getattr(config.routine, 'current_variant', 'normal') == 'reverse'
-        # Use teleport in reverse variant when distance is large (similar to skipping)
-        should_use_teleport = is_skipping or (is_reverse and distance > self.teleport_threshold)
+        # Check if we're in reverse variant or floor-only variant with reverse direction
+        current_variant = getattr(config.routine, 'current_variant', 'normal')
+        is_reverse = current_variant == 'reverse'
+        is_floor_only = current_variant in ['floor1_only', 'floor2_only']
+        floor_direction = getattr(config.routine, 'floor_direction', 'forward')
+        is_floor_reverse = is_floor_only and floor_direction == 'reverse'
+        
+        # Use teleport in reverse variant or floor-only variant with reverse direction when distance is large
+        should_use_teleport = is_skipping or (is_reverse and distance > self.teleport_threshold) or (is_floor_reverse and distance > self.teleport_threshold)
         
         # Log move decision (always log for observation)
-        action_log.info("📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Reverse: %s", 
-                       self.target[0], self.target[1], distance, self.teleport_threshold, is_skipping, is_reverse)
+        action_log.info("📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Reverse: %s, FloorReverse: %s", 
+                       self.target[0], self.target[1], distance, self.teleport_threshold, is_skipping, is_reverse, is_floor_reverse)
         
         if should_use_teleport and distance > self.teleport_threshold:
             # Always teleport when distance > threshold (100% chance for both normal and reverse)
-            reason = "reverse variant" if is_reverse else "skipping"
+            if is_floor_reverse:
+                reason = "floor-only reverse"
+            elif is_reverse:
+                reason = "reverse variant"
+            else:
+                reason = "skipping"
             action_log.info("🚀 Move: Attempting teleport (distance: %.3f > threshold: %.3f, reason: %s, chance: 100%%)", 
                            distance, self.teleport_threshold, reason)
             if self._teleport_to_target():
@@ -359,13 +375,18 @@ class Move(Command):
                 action_log.warning("⚠️ Move: Teleport failed, falling back to walk")
         elif should_use_teleport:
             # Should teleport but distance is close, walk normally
-            reason = "reverse variant" if is_reverse else "skipping"
+            if is_floor_reverse:
+                reason = "floor-only reverse"
+            elif is_reverse:
+                reason = "reverse variant"
+            else:
+                reason = "skipping"
             action_log.info("🚶 Move: %s but distance is close (%.3f <= %.3f), walking", 
                            reason, distance, self.teleport_threshold)
         else:
             # Not skipping and not reverse, walk normally
-            action_log.info("🚶 Move: Normal walk (distance: %.3f, skipping: %s, reverse: %s)", 
-                           distance, is_skipping, is_reverse)
+            action_log.info("🚶 Move: Normal walk (distance: %.3f, skipping: %s, reverse: %s, floorReverse: %s)", 
+                           distance, is_skipping, is_reverse, is_floor_reverse)
         
         # Normal walk logic (pathfinding + press key direction)
         counter = self.max_steps
