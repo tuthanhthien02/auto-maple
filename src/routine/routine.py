@@ -2,9 +2,13 @@
 
 from src.common import config, settings, utils
 import csv
+import random
 from os.path import splitext, basename
 from src.routine.components import Point, Label, Jump, Setting, Command, SYMBOLS
 from src.routine.layout import Layout
+from src.common.logger import get_logger
+
+log = get_logger(__name__)
 
 
 def update(func):
@@ -41,6 +45,27 @@ class Routine:
         self.index = 0
         self.sequence = []
         self.display = []       # Updated alongside sequence
+        # Point Selection Randomization
+        self.skip_probability = 0.30  # 30% chance to skip (tuned for better balance)
+        self.consecutive_skips = 0
+        self.max_consecutive_skips = 2  # Max 2 consecutive skips
+        self.skip_enabled = True  # Enable/disable skip feature - RE-ENABLED after reverse loop testing
+        self.is_skipping_context = False  # Track if we're in skip context (for teleport decision)
+        # Routine Pattern Variation
+        self.variant_enabled = True
+        self.current_variant = 'normal'
+        self.variant_switch_counter = 0
+        self.variant_switch_interval = random.randint(3, 7)  # Switch every 3-7 loops
+        self.floor1_indices = []  # Indices of Floor 1 points
+        self.floor2_indices = []  # Indices of Floor 2 points
+        self.variant_weights = {
+            'normal': 0.5,       # 50% normal
+            'reverse': 0.5,      # 50% reverse
+            # 'floor1_only': 0.10, # 10% floor1 only - DISABLED
+            # 'floor2_only': 0.05  # 5% floor2 only - DISABLED
+        }
+        self.loop_count = 0
+        self.last_index = -1
 
     @dirty
     @update
@@ -155,12 +180,233 @@ class Routine:
             print(f"\n[!] Found invalid arguments for '{target.__class__.__name__}':")
             print(f"{' ' * 4} -  {e}")
 
+    def should_skip_current_point(self):
+        """
+        Check if we should skip current point.
+        Only skip Point components, never skip Jump, Label, Setting.
+        Returns: True if should skip, False otherwise
+        """
+        if not self.skip_enabled:
+            log.debug("Point Selection Randomization: DISABLED - Skip check for index %d", self.index)
+            return False
+        
+        if len(self.sequence) == 0:
+            log.debug("Point Selection Randomization: Empty sequence - Skip check for index %d", self.index)
+            return False
+        
+        if self.index >= len(self.sequence):
+            log.debug("Point Selection Randomization: Index out of range (%d >= %d)", self.index, len(self.sequence))
+            return False
+        
+        element = self.sequence[self.index]
+        element_type = element.__class__.__name__
+        
+        # NEVER skip non-Point components (Jump, Label, Setting, Comment)
+        if not isinstance(element, Point):
+            log.info("🔄 Point Selection Randomization: Index %d - %s (NOT a Point - will execute)", 
+                    self.index, element_type)
+            return False
+        
+        # Get point info for logging
+        point_location = element.location if hasattr(element, 'location') else 'unknown'
+        
+        # Check consecutive skips - don't skip if we've skipped too many consecutive points
+        if self.consecutive_skips >= self.max_consecutive_skips:
+            log.info("✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (max consecutive skips reached: %d/%d)", 
+                    self.index, point_location, self.consecutive_skips, self.max_consecutive_skips)
+            self.consecutive_skips = 0  # Reset after max reached
+            return False
+        
+        # Random skip probability
+        random_value = random.random()
+        should_skip = random_value < self.skip_probability
+        
+        if should_skip:
+            self.consecutive_skips += 1
+            log.info("⏭️ Point Selection Randomization: Index %d - Point %s - SKIP (probability: %.1f%%, random: %.3f, consecutive: %d/%d)", 
+                    self.index, point_location, 
+                    self.skip_probability * 100, random_value,
+                    self.consecutive_skips, self.max_consecutive_skips)
+        else:
+            # Reset consecutive skips counter when we don't skip
+            self.consecutive_skips = 0
+            log.info("✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (probability: %.1f%%, random: %.3f)", 
+                    self.index, point_location, 
+                    self.skip_probability * 100, random_value)
+        
+        return should_skip
+
+    def detect_floors(self):
+        """Detect Floor 1 and Floor 2 points based on Y coordinate and labels."""
+        self.floor1_indices = []
+        self.floor2_indices = []
+        
+        for i, component in enumerate(self.sequence):
+            if isinstance(component, Point):
+                y = component.location[1]
+                point_added = False
+                
+                # Method 1: Label based (more robust - check previous component)
+                if i > 0:
+                    prev_component = self.sequence[i - 1]
+                    if isinstance(prev_component, Label):
+                        label_name = prev_component.label.lower()
+                        if label_name.startswith('f1_'):
+                            self.floor1_indices.append(i)
+                            point_added = True
+                        elif label_name.startswith('f2_'):
+                            self.floor2_indices.append(i)
+                            point_added = True
+                
+                # Method 2: Y coordinate based (fallback)
+                if not point_added:
+                    if y > 0.16:  # Floor 1 threshold
+                        self.floor1_indices.append(i)
+                    else:  # Floor 2 threshold
+                        self.floor2_indices.append(i)
+        
+        log.info("🏢 Floor Detection: Floor 1: %d points, Floor 2: %d points", 
+                 len(self.floor1_indices), len(self.floor2_indices))
+
+    def _switch_variant(self):
+        """Switch to the opposite variant (normal <-> reverse)."""
+        # Switch between normal and reverse
+        if self.current_variant == 'normal':
+            self.current_variant = 'reverse'
+        elif self.current_variant == 'reverse':
+            self.current_variant = 'normal'
+        else:
+            # Fallback: if somehow in another variant, switch to normal
+            self.current_variant = 'normal'
+        
+        # Reset switch counter
+        self.variant_switch_interval = random.randint(3, 7)
+        self.variant_switch_counter = 0
+        
+        log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
+                 self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+
+    def _should_switch_variant(self):
+        """Check if we should switch variant."""
+        if not self.variant_enabled:
+            return False
+        
+        # Check if we've completed enough loops
+        # Note: variant_switch_counter is incremented in step() when loop completion is detected
+        if self.variant_switch_counter >= self.variant_switch_interval:
+            return True
+        
+        return False
+
+    def _get_variant_start_index(self):
+        """Get start index based on current variant."""
+        if len(self.sequence) == 0:
+            return 0
+        
+        if self.current_variant == 'normal':
+            return 0
+        elif self.current_variant == 'reverse':
+            return len(self.sequence) - 1
+        elif self.current_variant == 'floor1_only':
+            return self.floor1_indices[0] if self.floor1_indices else 0
+        elif self.current_variant == 'floor2_only':
+            return self.floor2_indices[0] if self.floor2_indices else 0
+        return 0
+
+    def _get_variant_next_index(self, current_index):
+        """Get next index based on current variant."""
+        if len(self.sequence) == 0:
+            return 0
+        
+        if self.current_variant == 'normal':
+            # Normal: forward
+            return (current_index + 1) % len(self.sequence)
+        elif self.current_variant == 'reverse':
+            # Reverse: backward
+            return (current_index - 1) % len(self.sequence)
+        elif self.current_variant == 'floor1_only':
+            # Floor 1 only: only visit Floor 1 points
+            return self._get_next_floor_index(current_index, self.floor1_indices)
+        elif self.current_variant == 'floor2_only':
+            # Floor 2 only: only visit Floor 2 points
+            return self._get_next_floor_index(current_index, self.floor2_indices)
+        return (current_index + 1) % len(self.sequence)
+
+    def _get_next_floor_index(self, current_index, floor_indices):
+        """Get next index within a specific floor."""
+        if not floor_indices:
+            # Fallback to normal stepping if no floor indices
+            return (current_index + 1) % len(self.sequence)
+        
+        # Find current index in floor_indices
+        try:
+            current_floor_index = floor_indices.index(current_index)
+            # Move to next floor point
+            next_floor_index = (current_floor_index + 1) % len(floor_indices)
+            return floor_indices[next_floor_index]
+        except ValueError:
+            # Current index not in floor, start from first floor point
+            return floor_indices[0]
+
     @utils.run_if_enabled
     def step(self):
         """Increments config.seq_index and wraps back to 0 at the end of config.sequence."""
-        # Routine randomization - DISABLED
-        # Normal sequential stepping
-        self.index = (self.index + 1) % len(self.sequence) if len(self.sequence) > 0 else 0
+        if len(self.sequence) == 0:
+            return
+        
+        # Save current index before stepping
+        old_index = self.index
+        
+        # Check if we should switch variant (before stepping)
+        if self._should_switch_variant():
+            self._switch_variant()
+            # Reset to variant start index
+            self.index = self._get_variant_start_index()
+            self.last_index = -1  # Reset last_index after switching
+            log.info("🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')", 
+                     self.index, self.current_variant)
+            return
+        
+        # Step based on current variant
+        self.index = self._get_variant_next_index(self.index)
+        
+        # Detect loop completion (after stepping)
+        # A loop is completed when we've gone through ALL components in the routine according to the current variant
+        loop_completed = False
+        if self.last_index != -1:
+            if self.current_variant == 'normal':
+                # Normal: loop when index wraps from last to 0 (completed entire routine forward)
+                if old_index == len(self.sequence) - 1 and self.index == 0:
+                    loop_completed = True
+            elif self.current_variant == 'reverse':
+                # Reverse: loop when index wraps from 0 to last (completed entire routine backward)
+                if old_index == 0 and self.index == len(self.sequence) - 1:
+                    loop_completed = True
+            elif self.current_variant in ['floor1_only', 'floor2_only']:
+                # Floor-only: loop when we return to first floor point (completed all floor points)
+                floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
+                if floor_indices:
+                    first_floor_idx = floor_indices[0]
+                    last_floor_idx = floor_indices[-1]
+                    if old_index == last_floor_idx and self.index == first_floor_idx:
+                        loop_completed = True
+        
+        # Only increment counters when a loop is actually completed
+        if loop_completed:
+            self.loop_count += 1
+            self.variant_switch_counter += 1  # Increment counter for variant switching
+            loops_remaining = self.variant_switch_interval - self.variant_switch_counter
+            log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)", 
+                     self.loop_count, self.current_variant, 
+                     self.variant_switch_counter, self.variant_switch_interval,
+                     loops_remaining)
+        
+        # Update last_index for next iteration
+        self.last_index = old_index
+        
+        # Log variant step (debug level)
+        log.debug("Routine Pattern Variation: Variant '%s', Index: %d/%d", 
+                  self.current_variant, self.index, len(self.sequence) - 1)
 
     def save(self, file_path):
         """Encodes and saves the current Routine at location PATH."""
@@ -187,6 +433,15 @@ class Routine:
         self.path = ''
         config.layout = None
         settings.reset()
+        # Reset skip tracking
+        self.consecutive_skips = 0
+        self.is_skipping_context = False
+        # Reset Routine Pattern Variation
+        self.floor1_indices = []
+        self.floor2_indices = []
+        self.loop_count = 0
+        self.last_index = -1
+        self.variant_switch_counter = 0
 
         config.gui.clear_routine_info()
 
@@ -228,6 +483,26 @@ class Routine:
         config.gui.view.status.set_routine(basename(file))
         config.gui.edit.minimap.draw_default()
         print(f" ~  Finished loading routine '{basename(splitext(file)[0])}'.")
+        
+        # Log routine info for Point Selection Randomization
+        point_count = sum(1 for item in self.sequence if isinstance(item, Point))
+        jump_count = sum(1 for item in self.sequence if isinstance(item, Jump))
+        label_count = sum(1 for item in self.sequence if isinstance(item, Label))
+        log.info("📊 Routine Loaded: %d Points, %d Jumps, %d Labels, %d Total Components", 
+                point_count, jump_count, label_count, len(self.sequence))
+        log.info("🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)", 
+                self.skip_probability * 100, self.max_consecutive_skips)
+        
+        # Initialize Routine Pattern Variation
+        if self.variant_enabled:
+            self.detect_floors()
+            # Always start with 'normal' variant when bot starts (reverted after reverse testing)
+            self.current_variant = 'normal'
+            self.variant_switch_counter = 0
+            self.variant_switch_interval = random.randint(3, 7)
+            self.index = self._get_variant_start_index()
+            log.info("🔄 Routine Pattern Variation: Initialized with variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
+                    self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
 
     def compile(self, file):
         self.labels = {}

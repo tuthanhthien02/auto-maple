@@ -1,0 +1,167 @@
+# Routine: Tree 2-Floor Training Path (Optimized for Multiple Path Generation)
+# This routine is optimized to work with Approach 1: Multiple Path Generation
+# Key differences from tree_2_floor_new.csv:
+# 1. NO teleport commands between positions - allows Move command to use multiple paths
+# 2. Positions are spaced to allow path variation
+# 3. Uses reflection_random (not reflection_mix_random)
+# 4. Includes jump_teleport_up and jump_down transitions
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y ≈ 0.19)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.19) - MULTIPLE PATHS ENABLED ===
+Comment,Note: No teleport commands - Move command will use multiple path generation
+
+*,0.229,0.19,adjust=False,frequency=1
+Label,f1_pos_0
+Comment,Floor 1 Pos 0: Reflection Random - Move command will generate multiple paths to next position
+buff
+buff_secondary
+face_right
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.268,0.19,adjust=False,frequency=1
+Label,f1_pos_1
+Comment,Floor 1 Pos 1: Reflection Random - Multiple paths will vary movement pattern
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.327,0.19,adjust=False,frequency=1
+Label,f1_pos_2
+Comment,Floor 1 Pos 2: Reflection Random - Path variation creates human-like movement
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.385,0.19,adjust=False,frequency=1
+Label,f1_pos_3
+Comment,Floor 1 Pos 3: Reflection Random - Each move may use different path
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.444,0.19,adjust=False,frequency=1
+Label,f1_pos_4
+Comment,Floor 1 Pos 4: Reflection Random - 60% shortest, 30% second, 10% third path
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.527,0.19,adjust=False,frequency=1
+Label,f1_pos_5
+Comment,Floor 1 Pos 5: Reflection Random - Multiple paths reduce pattern detection
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.585,0.19,adjust=False,frequency=1
+Label,f1_pos_6
+Comment,Floor 1 Pos 6: Reflection Random - Path selection is weighted random
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.649,0.19,adjust=False,frequency=1
+Label,f1_pos_7
+Comment,Floor 1 Pos 7: Reflection Random - Movement patterns vary each loop
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.707,0.19,adjust=False,frequency=1
+Label,f1_pos_8
+Comment,Floor 1 Pos 8: Reflection Random then move to jump_teleport_up point
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement to transition point
+
+
+# ========================================
+# TRANSITION: FLOOR 1 → FLOOR 2
+# ========================================
+Comment,=== TRANSITION: Jump Teleport Up to Floor 2 at (0.668,0.132) ===
+*,0.668,0.132,adjust=True,frequency=1
+Label,jump_up
+Comment,Critical transition point: perform jump_teleport_up to reach Floor 2
+jump_teleport_up,1
+wait_random,0.8,1.5
+
+# ========================================
+# FLOOR 2: RIGHT → LEFT (y ≈ 0.112-0.146)
+# ========================================
+Comment,=== FLOOR 2 START: Move Right → Left (y ≈ 0.112-0.146) - MULTIPLE PATHS ENABLED ===
+Comment,Note: No teleport commands - Move command will use multiple path generation
+
+*,0.585,0.146,adjust=False,frequency=1
+Label,f2_pos_1
+Comment,Floor 2 Pos 1: Reflection Random - Multiple paths create variation
+face_left
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.522,0.146,adjust=False,frequency=1
+Label,f2_pos_2
+Comment,Floor 2 Pos 2: Reflection Random - Path selection: 60/30/10 weighted
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.478,0.19,adjust=False,frequency=1
+Label,f2_pos_3
+Comment,Floor 2 Pos 3: Reflection Random - Human-like movement patterns
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.473,0.112,adjust=False,frequency=1
+Label,f2_pos_4
+Comment,Floor 2 Pos 4: Reflection Random - Reduces pattern detection risk
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.415,0.112,adjust=False,frequency=1
+Label,f2_pos_5
+Comment,Floor 2 Pos 5: Reflection Random - Each path has different characteristics
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.356,0.112,adjust=False,frequency=1
+Label,f2_pos_6
+Comment,Floor 2 Pos 6: Reflection Random - Strategies: horizontal/vertical/weighted
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement with multiple paths
+
+*,0.322,0.132,adjust=False,frequency=1
+Label,f2_pos_7
+Comment,Floor 2 Pos 7: Reflection Random then move to jump_down point
+reflection_random
+wait_random,0.1,0.3
+# NO TELEPORT - Move command handles movement to transition point
+
+# ========================================
+# TRANSITION: FLOOR 2 → FLOOR 1
+# ========================================
+Comment,=== TRANSITION: Jump Down to Floor 1 at (0.244,0.132) ===
+*,0.244,0.132,adjust=True,frequency=1
+Label,jump_down
+Comment,Critical transition point: perform jump_down to return to Floor 1
+wait_random,0.25,0.40
+jump_down,1
+wait_random,1.0,1.8
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
+
+

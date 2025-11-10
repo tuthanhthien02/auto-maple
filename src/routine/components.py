@@ -2,6 +2,7 @@
 
 import math
 import time
+import random
 from src.common import config, settings, utils
 from src.common.vkeys import key_down, key_up, press, press_with_behavioral_pause
 from src.common.anti_detect import get_human_delay, update_activity
@@ -90,7 +91,19 @@ class Point(Component):
             if self.adjust:
                 adjust = config.bot.command_book['adjust']      # TODO: adjust using step('up')?
                 adjust(*self.location).execute()
+            
+            # Check if we're in reverse variant - skip teleport commands in routine
+            # because they're designed for normal direction and will conflict with reverse movement
+            is_reverse = getattr(config.routine, 'current_variant', 'normal') == 'reverse'
+            
             for command in self.commands:
+                # Skip teleport commands in reverse variant (they're designed for normal direction)
+                if is_reverse and hasattr(command, 'direction'):
+                    # Check if it's a Teleport command
+                    if command.__class__.__name__ == 'Teleport':
+                        log.debug("Point: Skipping teleport command '%s' in reverse variant (designed for normal direction)", 
+                                 command.direction)
+                        continue
                 command.execute()
         self._increment_counter()
 
@@ -241,6 +254,9 @@ class Move(Command):
         self.target = (float(x), float(y))
         self.max_steps = settings.validate_nonnegative_int(max_steps)
         self.prev_direction = ''
+        # Teleport configuration for skip context
+        self.teleport_threshold = 0.05  # Distance threshold for teleport (when skipping or reverse) - reduced for better skip teleport
+        self.teleport_probability = 1.0  # 100% chance to teleport if distance > threshold (normal and reverse)
 
     def _new_direction(self, new):
         try:
@@ -254,7 +270,104 @@ class Move(Command):
                 key_up(self.prev_direction)
             raise
 
+    def _teleport_to_target(self):
+        """Teleport to target using Luminous teleport command when distance is far."""
+        try:
+            # Get command book to access Teleport command
+            # CommandBook uses dict and __getitem__, not get() method
+            if 'teleport' not in config.bot.command_book:
+                action_log.warning("Move: Teleport command not found in command book, falling back to walk")
+                return False
+            
+            teleport_cmd_class = config.bot.command_book['teleport']
+            
+            # Calculate direction based on target position
+            d_x = self.target[0] - config.player_pos[0]
+            d_y = self.target[1] - config.player_pos[1]
+            
+            # Determine primary direction (horizontal or vertical)
+            if abs(d_x) > abs(d_y):
+                # Horizontal movement
+                direction = 'right' if d_x > 0 else 'left'
+            else:
+                # Vertical movement
+                direction = 'down' if d_y > 0 else 'up'
+            
+            # Calculate number of teleports needed (rough estimate)
+            distance = utils.distance(config.player_pos, self.target)
+            # Estimate: each teleport covers ~0.05-0.08 distance
+            teleport_distance = 0.06
+            num_teleports = max(1, int(distance / teleport_distance))
+            # Limit max teleports to avoid overshooting
+            num_teleports = min(num_teleports, 3)
+            
+            # Execute teleport command
+            action_log.info("🚀 Move: Teleporting %s %d times (distance: %.3f, threshold: %.3f)", 
+                           direction, num_teleports, distance, self.teleport_threshold)
+            teleport_cmd_instance = teleport_cmd_class(direction, num_teleports)
+            teleport_cmd_instance.execute()
+            
+            # Wait for teleport to complete
+            time.sleep(0.2)
+            
+            # Check if we're close enough to target
+            remaining_distance = utils.distance(config.player_pos, self.target)
+            if remaining_distance > settings.move_tolerance:
+                # Still need to adjust, but teleport got us closer
+                action_log.debug("Move: Teleport completed, remaining distance: %.3f", remaining_distance)
+            
+            return True
+        except Exception as e:
+            action_log.warning("Move: Error during teleport: %s, falling back to walk", e)
+            return False
+
     def main(self):
+        # Calculate distance to target
+        distance = utils.distance(config.player_pos, self.target)
+        
+        # Check if we should teleport (when skipping and distance is far)
+        is_skipping = getattr(config.routine, 'is_skipping_context', False)
+        
+        # Check if we're in reverse variant (for better movement in reverse)
+        is_reverse = getattr(config.routine, 'current_variant', 'normal') == 'reverse'
+        # Use teleport in reverse variant when distance is large (similar to skipping)
+        should_use_teleport = is_skipping or (is_reverse and distance > self.teleport_threshold)
+        
+        # Log move decision (always log for observation)
+        action_log.info("📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Reverse: %s", 
+                       self.target[0], self.target[1], distance, self.teleport_threshold, is_skipping, is_reverse)
+        
+        if should_use_teleport and distance > self.teleport_threshold:
+            # Always teleport when distance > threshold (100% chance for both normal and reverse)
+            reason = "reverse variant" if is_reverse else "skipping"
+            action_log.info("🚀 Move: Attempting teleport (distance: %.3f > threshold: %.3f, reason: %s, chance: 100%%)", 
+                           distance, self.teleport_threshold, reason)
+            if self._teleport_to_target():
+                # Teleport successful, check if we need to adjust
+                remaining_distance = utils.distance(config.player_pos, self.target)
+                if remaining_distance > settings.move_tolerance:
+                    # Still need to walk a bit to reach exact target
+                    action_log.info("🚶 Move: Adjusting position after teleport (remaining: %.3f)", 
+                                   remaining_distance)
+                    # Continue with walk logic for fine adjustment
+                else:
+                    # Close enough, no need to walk
+                    action_log.info("✅ Move: Teleport successful, reached target")
+                    return
+            else:
+                # Teleport failed, fall through to walk
+                action_log.warning("⚠️ Move: Teleport failed, falling back to walk")
+        elif should_use_teleport:
+            # Should teleport but distance is close, walk normally
+            reason = "reverse variant" if is_reverse else "skipping"
+            action_log.info("🚶 Move: %s but distance is close (%.3f <= %.3f), walking", 
+                           reason, distance, self.teleport_threshold)
+        else:
+            # Not skipping and not reverse, walk normally
+            action_log.info("🚶 Move: Normal walk (distance: %.3f, skipping: %s, reverse: %s)", 
+                           distance, is_skipping, is_reverse)
+        
+        # Normal walk logic (pathfinding + press key direction)
         counter = self.max_steps
         path = config.layout.shortest_path(config.player_pos, self.target)
         for i, point in enumerate(path):

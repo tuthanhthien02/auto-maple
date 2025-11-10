@@ -138,14 +138,42 @@ class Bot(Configurable):
                 config.gui.view.routine.select(config.routine.index)
                 config.gui.view.details.display_info(config.routine.index)
 
-                # Execute next Point in the routine
+                # Point Selection Randomization: Check if we should skip BEFORE executing
                 element = config.routine[config.routine.index]
-                # Disabled: rune solving turned off
-                # if self.rune_active and isinstance(element, Point) \
-                #         and element.location == self.rune_closest_pos:
-                #     self._solve_rune(model)
-                element.execute()
-                config.routine.step()
+                element_type = element.__class__.__name__
+                
+                # Log current routine state
+                log.debug("📍 Routine Execution: Index %d/%d - %s", 
+                         config.routine.index, len(config.routine.sequence) - 1, element_type)
+                
+                # Check if we should skip this point
+                should_skip = config.routine.should_skip_current_point()
+                
+                if should_skip:
+                    # Skip this point - log and move to next
+                    from src.routine.components import Point
+                    if isinstance(element, Point):
+                        log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d", 
+                                config.routine.index)
+                        # Set skip context for next point (so Move command can teleport if distance is far)
+                        config.routine.is_skipping_context = True
+                    # Step to next point (skip current)
+                    config.routine.step()
+                else:
+                    # Don't skip - execute normally
+                    from src.routine.components import Point
+                    if isinstance(element, Point):
+                        log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)", 
+                                config.routine.index, element.location[0], element.location[1])
+                    # Disabled: rune solving turned off
+                    # if self.rune_active and isinstance(element, Point) \
+                    #         and element.location == self.rune_closest_pos:
+                    #     self._solve_rune(model)
+                    element.execute()
+                    config.routine.step()
+                    # Reset skip context after executing (not skipping)
+                    config.routine.is_skipping_context = False
+                    # Note: consecutive_skips is already reset in should_skip_current_point() when we don't skip
                 # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
                 time.sleep(0.05)
             else:
