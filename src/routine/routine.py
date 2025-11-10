@@ -49,7 +49,7 @@ class Routine:
         self.skip_probability = 0.30  # 30% chance to skip (tuned for better balance)
         self.consecutive_skips = 0
         self.max_consecutive_skips = random.randint(1, 3)  # Max 1-3 consecutive skips (hardcode random)
-        self.skip_enabled = False  # Enable/disable skip feature - DISABLED for floor-only testing
+        self.skip_enabled = False  # Enable/disable skip feature - Can be enabled from GUI
         self.is_skipping_context = False  # Track if we're in skip context (for teleport decision)
         # Routine Pattern Variation
         self.variant_enabled = True
@@ -237,6 +237,9 @@ class Routine:
             log.info("✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (max consecutive skips reached: %d/%d)", 
                     self.index, point_location, self.consecutive_skips, self.max_consecutive_skips)
             self.consecutive_skips = 0  # Reset after max reached
+            # Regenerate max_consecutive_skips for next time (random 1-3)
+            self.max_consecutive_skips = random.randint(1, 3)
+            log.debug("🎲 Point Selection Randomization: New max consecutive skips set to %d", self.max_consecutive_skips)
             return False
         
         # Random skip probability
