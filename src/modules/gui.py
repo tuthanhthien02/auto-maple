@@ -13,7 +13,7 @@ class GUI:
     # CPU Optimization: Reduced from 30 FPS to 10 FPS (sufficient for GUI, human eye can't distinguish >15 FPS)
     DISPLAY_FRAME_RATE = 10
     RESOLUTIONS = {
-        'DEFAULT': '800x800',
+        'DEFAULT': '800x900',
         'Edit': '1400x800',
         'View': '1400x800'
     }

@@ -138,6 +138,17 @@ class Bot(Configurable):
                 config.gui.view.routine.select(config.routine.index)
                 config.gui.view.details.display_info(config.routine.index)
 
+                # Random Move Backward: Check if we should backward BEFORE any command execution
+                should_backward, backward_steps = config.routine.should_backward()
+                if should_backward:
+                    # Apply backward movement
+                    config.routine.apply_backward(backward_steps)
+                    # Get new element after backward
+                    element = config.routine[config.routine.index]
+                    element_type = element.__class__.__name__
+                    log.info("⏮️ Random Backward: Now at index %d, element type: %s", 
+                            config.routine.index, element_type)
+                
                 # Point Selection Randomization: Check if we should skip BEFORE executing
                 element = config.routine[config.routine.index]
                 element_type = element.__class__.__name__
@@ -173,6 +184,8 @@ class Bot(Configurable):
                     config.routine.step()
                     # Reset skip context after executing (not skipping)
                     config.routine.is_skipping_context = False
+                    # Reset backward context after executing
+                    config.routine.is_backwarding_context = False
                     # Note: consecutive_skips is already reset in should_skip_current_point() when we don't skip
                 # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
                 time.sleep(0.05)

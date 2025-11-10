@@ -352,8 +352,9 @@ class Move(Command):
         # Calculate distance to target
         distance = utils.distance(config.player_pos, self.target)
         
-        # Check if we should teleport (when skipping and distance is far)
+        # Check if we should teleport (when skipping, backwarding, or reverse and distance is far)
         is_skipping = getattr(config.routine, 'is_skipping_context', False)
+        is_backwarding = getattr(config.routine, 'is_backwarding_context', False)
         
         # Check if we're in reverse variant or floor-only variant with reverse direction
         current_variant = getattr(config.routine, 'current_variant', 'normal')
@@ -362,12 +363,12 @@ class Move(Command):
         floor_direction = getattr(config.routine, 'floor_direction', 'forward')
         is_floor_reverse = is_floor_only and floor_direction == 'reverse'
         
-        # Use teleport in reverse variant or floor-only variant with reverse direction when distance is large
-        should_use_teleport = is_skipping or (is_reverse and distance > self.teleport_threshold) or (is_floor_reverse and distance > self.teleport_threshold)
+        # Use teleport in reverse variant, floor-only variant with reverse direction, skipping, or backwarding when distance is large
+        should_use_teleport = is_skipping or is_backwarding or (is_reverse and distance > self.teleport_threshold) or (is_floor_reverse and distance > self.teleport_threshold)
         
         # Log move decision (always log for observation)
-        action_log.info("📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Reverse: %s, FloorReverse: %s", 
-                       self.target[0], self.target[1], distance, self.teleport_threshold, is_skipping, is_reverse, is_floor_reverse)
+        action_log.info("📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Backwarding: %s, Reverse: %s, FloorReverse: %s", 
+                       self.target[0], self.target[1], distance, self.teleport_threshold, is_skipping, is_backwarding, is_reverse, is_floor_reverse)
         
         if should_use_teleport and distance > self.teleport_threshold:
             # Always teleport when distance > threshold (100% chance for both normal and reverse)
@@ -375,6 +376,8 @@ class Move(Command):
                 reason = "floor-only reverse"
             elif is_reverse:
                 reason = "reverse variant"
+            elif is_backwarding:
+                reason = "backwarding"
             else:
                 reason = "skipping"
             action_log.info("🚀 Move: Attempting teleport (distance: %.3f > threshold: %.3f, reason: %s, chance: 100%%)", 

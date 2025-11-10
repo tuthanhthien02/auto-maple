@@ -5,6 +5,8 @@ from src.common.interfaces import Configurable
 # Constants for settings keys
 POINT_SELECTION_KEY = 'Point Selection Enabled'
 POINT_SELECTION_PROBABILITY_KEY = 'Point Selection Skip Probability'
+RANDOM_BACKWARD_KEY = 'Random Backward Enabled'
+RANDOM_BACKWARD_PROBABILITY_KEY = 'Random Backward Probability'
 ROUTINE_PATTERN_KEY = 'Routine Pattern Enabled'
 ROUTINE_PATTERN_FLOOR_CHANCE_KEY = 'Routine Pattern Floor Only Chance'
 
@@ -67,6 +69,59 @@ class RoutineRandomization(LabelFrame):
 
         self.point_probability_label = tk.Label(prob_row, text=f'{int(point_probability * 100)}%')
         self.point_probability_label.pack(side=tk.LEFT)
+
+        # Random Move Backward Panel
+        self.random_backward_frame = LabelFrame(self, 'Random Move Backward')
+        self.random_backward_frame.pack(side=tk.TOP, fill='x', expand=True, padx=5, pady=5)
+
+        # Load settings with validation
+        backward_enabled = self.settings.get(RANDOM_BACKWARD_KEY)
+        if not isinstance(backward_enabled, bool):
+            backward_enabled = False
+        
+        backward_probability = self.settings.get(RANDOM_BACKWARD_PROBABILITY_KEY)
+        # Validate and convert probability
+        try:
+            if isinstance(backward_probability, str) and backward_probability == '':
+                backward_probability = 0.10  # Default
+            else:
+                backward_probability = float(backward_probability)
+                if backward_probability < 0 or backward_probability > 1:
+                    backward_probability = 0.10  # Default
+        except (ValueError, TypeError):
+            backward_probability = 0.10  # Default
+
+        # Random Backward: Enable checkbox
+        self.backward_var = tk.BooleanVar(value=backward_enabled)
+        backward_check = tk.Checkbutton(
+            self.random_backward_frame,
+            variable=self.backward_var,
+            text='Enable Random Move Backward',
+            command=self._on_backward_change
+        )
+        backward_check.pack(side=tk.TOP, anchor='w', padx=5, pady=2)
+
+        # Random Backward: Backward Probability slider
+        backward_prob_row = Frame(self.random_backward_frame)
+        backward_prob_row.pack(side=tk.TOP, fill='x', expand=True, padx=5, pady=(0, 5))
+        
+        backward_prob_label = tk.Label(backward_prob_row, text='Backward Probability:')
+        backward_prob_label.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.backward_probability_var = tk.IntVar(value=int(backward_probability * 100))
+        backward_prob_slider = tk.Scale(
+            backward_prob_row,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.backward_probability_var,
+            command=self._on_backward_probability_change,
+            length=150
+        )
+        backward_prob_slider.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.backward_probability_label = tk.Label(backward_prob_row, text=f'{int(backward_probability * 100)}%')
+        self.backward_probability_label.pack(side=tk.LEFT)
 
         # Routine Pattern Variation Panel
         self.routine_pattern_frame = LabelFrame(self, 'Routine Pattern Variation')
@@ -157,6 +212,22 @@ class RoutineRandomization(LabelFrame):
         self.settings.save_config()
         self._sync_to_routine()
 
+    def _on_backward_change(self):
+        """Handle Random Backward enable/disable change."""
+        enabled = self.backward_var.get()
+        self.settings.set(RANDOM_BACKWARD_KEY, enabled)
+        self.settings.save_config()
+        self._sync_to_anti_detect()
+        self._sync_to_routine()
+
+    def _on_backward_probability_change(self, value):
+        """Handle Random Backward probability change."""
+        probability = int(value) / 100.0
+        self.backward_probability_label.config(text=f'{int(value)}%')
+        self.settings.set(RANDOM_BACKWARD_PROBABILITY_KEY, probability)
+        self.settings.save_config()
+        self._sync_to_routine()
+
     def _sync_to_anti_detect(self):
         """Sync settings to ANTI_DETECT_CONFIG."""
         from src.common.anti_detect_config import ANTI_DETECT_CONFIG
@@ -174,6 +245,10 @@ class RoutineRandomization(LabelFrame):
                 config.routine.skip_enabled = self.settings.get(POINT_SELECTION_KEY)
                 config.routine.skip_probability = self.settings.get(POINT_SELECTION_PROBABILITY_KEY)
                 
+                # Update Random Backward settings
+                config.routine.backward_enabled = self.settings.get(RANDOM_BACKWARD_KEY)
+                config.routine.backward_probability = self.settings.get(RANDOM_BACKWARD_PROBABILITY_KEY)
+                
                 # Update Routine Pattern settings
                 config.routine.variant_enabled = self.settings.get(ROUTINE_PATTERN_KEY)
                 config.routine.floor_variant_chance = self.settings.get(ROUTINE_PATTERN_FLOOR_CHANCE_KEY)
@@ -186,6 +261,8 @@ class RoutineRandomizationSettings(Configurable):
     DEFAULT_CONFIG = {
         POINT_SELECTION_KEY: False,  # DISABLED by default
         POINT_SELECTION_PROBABILITY_KEY: 0.30,  # 30% default
+        RANDOM_BACKWARD_KEY: False,  # DISABLED by default
+        RANDOM_BACKWARD_PROBABILITY_KEY: 0.10,  # 10% default
         ROUTINE_PATTERN_KEY: False,  # DISABLED by default
         ROUTINE_PATTERN_FLOOR_CHANCE_KEY: 0.10,  # 10% default
     }

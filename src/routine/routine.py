@@ -51,6 +51,14 @@ class Routine:
         self.max_consecutive_skips = random.randint(1, 3)  # Max 1-3 consecutive skips (hardcode random)
         self.skip_enabled = False  # Enable/disable skip feature - Can be enabled from GUI
         self.is_skipping_context = False  # Track if we're in skip context (for teleport decision)
+        # Random Move Backward
+        self.backward_enabled = False  # Enable/disable backward feature
+        self.backward_probability = 0.10  # 10% chance to backward (default)
+        self.backward_range = (2, 3)  # Backward 2-3 indices (hardcode)
+        self.backward_cooldown = 0  # Cooldown counter to prevent consecutive backward
+        self.backward_cooldown_min = 5  # Min cooldown (5 points)
+        self.backward_cooldown_max = 10  # Max cooldown (10 points)
+        self.is_backwarding_context = False  # Track if we're in backward context (for teleport decision)
         # Routine Pattern Variation
         self.variant_enabled = True
         self.current_variant = 'normal'
@@ -81,6 +89,10 @@ class Routine:
             # Load Point Selection settings
             self.skip_enabled = settings.get('Point Selection Enabled')
             self.skip_probability = settings.get('Point Selection Skip Probability')
+            
+            # Load Random Backward settings
+            self.backward_enabled = settings.get('Random Backward Enabled')
+            self.backward_probability = settings.get('Random Backward Probability')
             
             # Load Routine Pattern settings
             self.variant_enabled = settings.get('Routine Pattern Enabled')
@@ -260,6 +272,68 @@ class Routine:
                     self.skip_probability * 100, random_value)
         
         return should_skip
+
+    def should_backward(self):
+        """
+        Check if we should backward at current index.
+        Returns: (should_backward: bool, backward_steps: int)
+        """
+        # Check if enabled
+        if not self.backward_enabled:
+            return False, 0
+        
+        # Check cooldown
+        if self.backward_cooldown > 0:
+            self.backward_cooldown -= 1
+            log.debug("🎲 Random Backward: Cooldown active (%d points remaining)", self.backward_cooldown)
+            return False, 0
+        
+        # Check if we can backward (need at least backward_range[1] indices before current)
+        min_steps = self.backward_range[1]  # Max backward steps (3)
+        if len(self.sequence) == 0:
+            return False, 0
+        
+        if self.index < min_steps:
+            # Not enough indices to backward
+            log.debug("🎲 Random Backward: Not enough indices to backward (index: %d, required: %d)", 
+                     self.index, min_steps)
+            return False, 0
+        
+        # Random probability check
+        random_value = random.random()
+        if random_value < self.backward_probability:
+            # Backward event triggered
+            backward_steps = random.randint(self.backward_range[0], self.backward_range[1])
+            # Set cooldown
+            self.backward_cooldown = random.randint(self.backward_cooldown_min, self.backward_cooldown_max)
+            log.info("⏮️ Random Backward: Triggered at index %d, backwarding %d steps (cooldown: %d)", 
+                    self.index, backward_steps, self.backward_cooldown)
+            return True, backward_steps
+        else:
+            return False, 0
+
+    def apply_backward(self, backward_steps):
+        """
+        Apply backward movement to current index.
+        Args:
+            backward_steps: Number of steps to backward (2-3)
+        """
+        if len(self.sequence) == 0:
+            return
+        
+        old_index = self.index
+        # Backward: move index backward
+        self.index = (self.index - backward_steps) % len(self.sequence)
+        
+        log.info("⏮️ Random Backward: Index %d -> %d (backwarded %d steps)", 
+                old_index, self.index, backward_steps)
+        
+        # Set backward context for next point (so Move command can teleport if distance is far)
+        self.is_backwarding_context = True
+        # Reset skip context (backward is a new movement, not skip)
+        self.is_skipping_context = False
+        # Reset consecutive skips (backward is a new pattern, reset skip counter)
+        self.consecutive_skips = 0
 
     def detect_floors(self):
         """Detect Floor 1 and Floor 2 points based on Y coordinate and labels."""
@@ -765,6 +839,9 @@ class Routine:
         # Reset skip tracking
         self.consecutive_skips = 0
         self.is_skipping_context = False
+        # Reset Random Backward
+        self.backward_cooldown = 0
+        self.is_backwarding_context = False
         # Reset Routine Pattern Variation
         self.floor1_indices = []
         self.floor2_indices = []
@@ -826,6 +903,8 @@ class Routine:
                 point_count, jump_count, label_count, len(self.sequence))
         log.info("🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)", 
                 self.skip_probability * 100, self.max_consecutive_skips)
+        log.info("⏮️ Random Move Backward: Ready (%.1f%% backward probability, range %d-%d steps)", 
+                self.backward_probability * 100, self.backward_range[0], self.backward_range[1])
         
         # Reload randomization settings when loading routine
         self._load_randomization_settings()
