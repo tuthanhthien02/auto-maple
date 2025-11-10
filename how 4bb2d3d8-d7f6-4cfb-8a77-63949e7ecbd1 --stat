@@ -1,0 +1,50 @@
+[33m42f3396[m[33m ([m[1;36mHEAD -> [m[1;32marduino-luminous[m[33m)[m prepare path variation
+[33m60f03fa[m point selection random, reverse loop
+[33m7ec35ac[m[33m ([m[1;31morigin/arduino-luminous[m[33m)[m add stuff
+[33m1375171[m add .spec
+[33m091f746[m add new routine
+[33m6d45104[m new remap
+[33m8719891[m remove random
+[33m4da04dc[m fix
+[33mcc67a9f[m fix
+[33m2eaae72[m add
+[33m75f7e5a[m f
+[33ma9db940[m fix
+[33mb0167e3[m fix
+[33m3ead11a[m add check vmware
+[33m5f442eb[m build
+[33m9152b8f[m clean src
+[33m37f8e47[m opt 3
+[33m9d16fce[m optimize 2
+[33m00831a5[m optimize 1
+[33mdeeef42[m new command
+[33ma68013e[m add adruino
+[33m0ed348c[m[33m ([m[1;31morigin/luminous-custom[m[33m, [m[1;32mluminous-custom[m[33m)[m temp
+[33m82a43f8[m fix
+[33mec8d1c1[m fix
+[33m812e086[m fix
+[33mc6a46bb[m ok
+[33m764570f[m add mirror input
+[33m68b1ad9[m add com5
+[33m9abc10b[m  fix .bat
+[33m10bdfe7[m new method
+[33m562ad88[m fix
+[33mf30a9ca[m gix
+[33m3b36e46[m fix
+[33m6989fbf[m gix
+[33ma8812cb[m fix
+[33m2d3543c[m add keyboad
+[33m93fafc8[m reload keybinding
+[33m82d2e58[m add buff
+[33m0411b11[m new command
+[33maafa472[m edit command
+[33m99bea41[m add new routine
+[33ma37f1b0[m fix ahk
+[33mb13f24b[m add resources/
+[33m4395cd7[m change remap hotkey
+[33m2b932b2[m add logger
+[33m715fd64[m add complie script
+[33m2db00fa[m chore: Add *.spec to .gitignore
+[33mb24d269[m chore: Add dist/ and build/ to .gitignore
+[33ma09b305[m rename GUI
+[33mc84f60c[m turn off notifier

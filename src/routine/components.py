@@ -104,11 +104,12 @@ class Point(Component):
             for command in self.commands:
                 # Skip teleport commands in reverse variant or floor-only variant with reverse direction
                 # (they're designed for normal direction and will conflict with reverse movement)
+                # Move command will handle teleportation with reverse direction automatically
                 if (is_reverse or is_floor_reverse) and hasattr(command, 'direction'):
                     # Check if it's a Teleport command
                     if command.__class__.__name__ == 'Teleport':
-                        log.debug("Point: Skipping teleport command '%s' in %s variant (designed for normal direction)", 
-                                 command.direction, current_variant)
+                        log.info("Point: Skipping teleport command '%s' in %s variant (direction: %s, designed for normal direction)", 
+                                 command.direction, current_variant, floor_direction if is_floor_reverse else 'reverse')
                         continue
                 command.execute()
         self._increment_counter()
@@ -276,8 +277,12 @@ class Move(Command):
                 key_up(self.prev_direction)
             raise
 
-    def _teleport_to_target(self):
-        """Teleport to target using Luminous teleport command when distance is far."""
+    def _teleport_to_target(self, reverse_direction=False):
+        """Teleport to target using Luminous teleport command when distance is far.
+        
+        Args:
+            reverse_direction: If True, reverse the calculated direction (for reverse movement).
+        """
         try:
             # Get command book to access Teleport command
             # CommandBook uses dict and __getitem__, not get() method
@@ -299,6 +304,21 @@ class Move(Command):
                 # Vertical movement
                 direction = 'down' if d_y > 0 else 'up'
             
+            original_direction = direction  # Store original for logging
+            
+            # Reverse direction if needed (for reverse movement)
+            if reverse_direction:
+                if direction == 'right':
+                    direction = 'left'
+                elif direction == 'left':
+                    direction = 'right'
+                elif direction == 'up':
+                    direction = 'down'
+                elif direction == 'down':
+                    direction = 'up'
+                action_log.debug("Move: Reversed teleport direction from '%s' to '%s' (reverse_direction=True)", 
+                               original_direction, direction)
+            
             # Calculate number of teleports needed (rough estimate)
             distance = utils.distance(config.player_pos, self.target)
             # Estimate: each teleport covers ~0.05-0.08 distance
@@ -308,8 +328,9 @@ class Move(Command):
             num_teleports = min(num_teleports, 3)
             
             # Execute teleport command
-            action_log.info("🚀 Move: Teleporting %s %d times (distance: %.3f, threshold: %.3f)", 
-                           direction, num_teleports, distance, self.teleport_threshold)
+            direction_label = f"{direction} (reversed)" if reverse_direction and original_direction != direction else direction
+            action_log.info("🚀 Move: Teleporting %s %d times (distance: %.3f, threshold: %.3f, reverse_direction=%s)", 
+                           direction_label, num_teleports, distance, self.teleport_threshold, reverse_direction)
             teleport_cmd_instance = teleport_cmd_class(direction, num_teleports)
             teleport_cmd_instance.execute()
             
@@ -358,7 +379,21 @@ class Move(Command):
                 reason = "skipping"
             action_log.info("🚀 Move: Attempting teleport (distance: %.3f > threshold: %.3f, reason: %s, chance: 100%%)", 
                            distance, self.teleport_threshold, reason)
-            if self._teleport_to_target():
+            # For floor-only reverse movement: Direction is already calculated correctly based on actual position
+            # (e.g., moving from right to left = "left" direction). Do NOT reverse direction.
+            # For normal reverse variant: Always reverse direction.
+            reverse_teleport = False
+            if is_reverse:
+                # Normal reverse variant: always reverse direction
+                reverse_teleport = True
+            elif is_floor_reverse:
+                # Floor reverse: Direction is already correct (calculated from actual position movement)
+                # Do NOT reverse direction - the calculated direction (left/right) is already correct for reverse movement
+                reverse_teleport = False
+                action_log.debug("Move: Floor reverse - using calculated direction (no reversal needed, direction already correct)")
+            action_log.debug("Move: reverse_teleport=%s, is_reverse=%s, is_floor_reverse=%s, floor_direction=%s", 
+                           reverse_teleport, is_reverse, is_floor_reverse, floor_direction if is_floor_only else 'N/A')
+            if self._teleport_to_target(reverse_direction=reverse_teleport):
                 # Teleport successful, check if we need to adjust
                 remaining_distance = utils.distance(config.player_pos, self.target)
                 if remaining_distance > settings.move_tolerance:

@@ -67,6 +67,7 @@ class Routine:
         self.floor2_indices = []  # Indices of Floor 2 points
         self.loop_count = 0
         self.last_index = -1
+        self.last_floor_index = -1  # Track last index within the same floor (for reverse teleport detection)
         
         # Load randomization settings from GUI
         self._load_randomization_settings()
@@ -289,6 +290,47 @@ class Routine:
         log.info("🏢 Floor Detection: Floor 1: %d points, Floor 2: %d points", 
                  len(self.floor1_indices), len(self.floor2_indices))
 
+    def get_f1_last_index(self):
+        """Get index in self.sequence for f1_pos_last."""
+        if not self.floor1_indices:
+            return -1
+        return self.floor1_indices[-1]
+    
+    def get_f1_first_index(self):
+        """Get index in self.sequence for f1_pos_0."""
+        if not self.floor1_indices:
+            return -1
+        return self.floor1_indices[0]
+    
+    def get_f2_last_index(self):
+        """Get index in self.sequence for f2_pos_last."""
+        if not self.floor2_indices:
+            return -1
+        return self.floor2_indices[-1]
+    
+    def get_f2_first_index(self):
+        """Get index in self.sequence for f2_pos_0."""
+        if not self.floor2_indices:
+            return -1
+        return self.floor2_indices[0]
+    
+    def get_current_floor_position(self, current_index):
+        """Get current position index within floor (0-based) and floor type.
+        
+        Returns:
+            tuple: (floor_type, position_index, sequence_index) or (None, -1, -1) if not in any floor
+            floor_type: 'f1' or 'f2'
+            position_index: 0-based index within floor (0 = pos_0, last = pos_last)
+            sequence_index: index in self.sequence
+        """
+        if current_index in self.floor1_indices:
+            position_index = self.floor1_indices.index(current_index)
+            return ('f1', position_index, current_index)
+        elif current_index in self.floor2_indices:
+            position_index = self.floor2_indices.index(current_index)
+            return ('f2', position_index, current_index)
+        return (None, -1, -1)
+
     def _pick_switch_interval(self, variant=None):
         """Pick a switch interval based on variant type."""
         target_variant = variant if variant else self.current_variant
@@ -335,7 +377,7 @@ class Routine:
         return 'normal'
 
     def _choose_floor_variant(self):
-        """Choose which floor-only variant to activate (50% floor1, 50% floor2 if both available)."""
+        """Choose which floor-only variant to activate (100% floor1, 0% floor2 for testing)."""
         options = []
         if self.floor1_indices:
             options.append('floor1_only')
@@ -345,16 +387,19 @@ class Routine:
         if not options:
             return None
 
-        # If both floors available, 50/50 chance between them
-        if len(options) == 2:
-            choice = random.choice(['floor1_only', 'floor2_only'])
+        # For testing: 100% floor1_only, 0% floor2_only
+        if 'floor1_only' in options:
+            choice = 'floor1_only'
             self.floor_variant_last = choice
             return choice
         
-        # If only one floor available, use it
-        choice = options[0]
-        self.floor_variant_last = choice
-        return choice
+        # Fallback: if only floor2 available, use it
+        if 'floor2_only' in options:
+            choice = 'floor2_only'
+            self.floor_variant_last = choice
+            return choice
+        
+        return None
 
     def _switch_variant(self, forced_variant=None):
         """Switch to the next variant in the configured cycle or a forced variant."""
@@ -417,6 +462,7 @@ class Routine:
         self._switch_variant(forced_variant=variant)
         self.index = self._get_variant_start_index()
         self.last_index = -1
+        self.last_floor_index = -1  # Reset last_floor_index when activating floor variant
         self.floor_variant_active = True
         
         # Log floor indices for debugging
@@ -456,11 +502,16 @@ class Routine:
         elif self.current_variant == 'reverse':
             return len(self.sequence) - 1
         elif self.current_variant == 'floor1_only':
-            self.floor_direction = 'forward'  # Reset to forward when starting floor1_only
-            return self.floor1_indices[0] if self.floor1_indices else 0
+            # Floor1_only: Start from first position with forward direction (f1_pos_0 -> f1_pos_last)
+            # When reaching f1_pos_last, will switch to reverse direction (f1_pos_last -> f1_pos_0)
+            self.floor_direction = 'forward'  # Start in forward direction
+            f1_first = self.get_f1_first_index()  # Get f1_pos_0 index in self.sequence
+            return f1_first if f1_first >= 0 else 0
         elif self.current_variant == 'floor2_only':
-            self.floor_direction = 'forward'  # Reset to forward when starting floor2_only
-            return self.floor2_indices[0] if self.floor2_indices else 0
+            # Floor2_only: Start from last position and reverse direction (f2_pos_last -> f2_pos_1)
+            self.floor_direction = 'reverse'  # Start in reverse direction
+            f2_last = self.get_f2_last_index()  # Get f2_pos_last index in self.sequence
+            return f2_last if f2_last >= 0 else 0
         return 0
 
     def _get_variant_next_index(self, current_index):
@@ -494,11 +545,31 @@ class Routine:
             # Fallback to normal stepping if no floor indices
             return (current_index + 1) % len(self.sequence)
         
+        # Determine floor type (f1 or f2) to use correct helper methods
+        is_floor1 = floor_indices is self.floor1_indices
+        is_floor2 = floor_indices is self.floor2_indices
+        
+        # Get first and last indices using helper methods to ensure sync with self.sequence
+        if is_floor1:
+            first_floor_idx = self.get_f1_first_index()  # f1_pos_0 index in self.sequence
+            last_floor_idx = self.get_f1_last_index()    # f1_pos_last index in self.sequence
+        elif is_floor2:
+            first_floor_idx = self.get_f2_first_index()  # f2_pos_0 index in self.sequence
+            last_floor_idx = self.get_f2_last_index()    # f2_pos_last index in self.sequence
+        else:
+            # Fallback: use direct access if floor_indices is not one of the known arrays
+            first_floor_idx = floor_indices[0] if floor_indices else -1
+            last_floor_idx = floor_indices[-1] if floor_indices else -1
+        
+        # Validate indices
+        if first_floor_idx < 0 or last_floor_idx < 0:
+            log.warning("🛗 Floor-only: Invalid floor indices (first=%d, last=%d), falling back to normal step", 
+                       first_floor_idx, last_floor_idx)
+            return (current_index + 1) % len(self.sequence)
+        
         # Find current index in floor_indices
         try:
             current_floor_index = floor_indices.index(current_index)
-            first_floor_idx = floor_indices[0]
-            last_floor_idx = floor_indices[-1]
             
             if self.floor_direction == 'forward':
                 # Forward: move to next position
@@ -549,7 +620,13 @@ class Routine:
         except ValueError:
             # Current index not in floor, start from first floor point in forward direction
             self.floor_direction = 'forward'
-            return floor_indices[0]
+            # Use helper methods to get correct first index
+            if is_floor1:
+                return self.get_f1_first_index() if self.get_f1_first_index() >= 0 else 0
+            elif is_floor2:
+                return self.get_f2_first_index() if self.get_f2_first_index() >= 0 else 0
+            else:
+                return floor_indices[0] if floor_indices else 0
 
     @utils.run_if_enabled
     def step(self):
@@ -566,6 +643,7 @@ class Routine:
             # Reset to variant start index
             self.index = self._get_variant_start_index()
             self.last_index = -1  # Reset last_index after switching
+            self.last_floor_index = -1  # Reset last_floor_index after switching
             log.info("🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')", 
                      self.index, self.current_variant)
             return
@@ -596,10 +674,16 @@ class Routine:
                 # A loop is complete when we return to first position after completing reverse direction
                 floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
                 if floor_indices:
-                    first_floor_idx = floor_indices[0]
+                    # Use helper methods to get correct first index in self.sequence
+                    if self.current_variant == 'floor1_only':
+                        first_floor_idx = self.get_f1_first_index()
+                    else:  # floor2_only
+                        first_floor_idx = self.get_f2_first_index()
+                    
                     # Loop completed when: we're at first position, direction is forward (just switched from reverse),
                     # and we came from a position that's not first (completed reverse journey)
-                    if (self.index == first_floor_idx and 
+                    if (first_floor_idx >= 0 and 
+                        self.index == first_floor_idx and 
                         self.floor_direction == 'forward' and 
                         old_index in floor_indices and 
                         old_index != first_floor_idx):
@@ -621,6 +705,20 @@ class Routine:
         
         # Update last_index for next iteration
         self.last_index = old_index
+        
+        # Update last_floor_index for floor-only variants (track last index within same floor)
+        if self.current_variant in ['floor1_only', 'floor2_only']:
+            floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
+            if floor_indices:
+                # Only update if both old_index and current index are in the same floor
+                if old_index in floor_indices and self.index in floor_indices:
+                    self.last_floor_index = old_index
+                else:
+                    # Reset if switching between floors or entering/leaving floor
+                    self.last_floor_index = -1
+        else:
+            # Reset when not in floor-only variant
+            self.last_floor_index = -1
         
         # Log variant step (debug level)
         log.debug("Routine Pattern Variation: Variant '%s', Index: %d/%d", 

@@ -64,3 +64,7 @@ arduino_key_mapping = {
 
 # Enable/disable key remapping (can be toggled at runtime)
 arduino_remapping_enabled = False
+
+# Flag to track if we're in floor-only reverse movement
+# This is set by Routine when floor_direction == 'reverse' in floor-only variants
+is_floor_reverse_movement = False
