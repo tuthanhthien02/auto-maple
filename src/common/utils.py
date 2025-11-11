@@ -1,6 +1,8 @@
 """A collection of functions and classes used across multiple modules."""
 
 import math
+import os
+import sys
 import queue
 import cv2
 import threading
@@ -233,6 +235,14 @@ def rand_float(start, end):
 
     assert start < end, 'START must be less than END'
     return (end - start) * random() + start
+
+
+def get_asset_path(rel_path: str) -> str:
+    """
+    Resolve asset path both in dev (cwd) and in PyInstaller bundle.
+    """
+    base = getattr(sys, '_MEIPASS', os.path.abspath('.'))
+    return os.path.join(base, rel_path)
 
 
 ##########################

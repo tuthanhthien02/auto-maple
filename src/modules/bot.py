@@ -25,7 +25,7 @@ from src.common.logger import get_logger
 
 
 # The rune's buff icon
-RUNE_BUFF_TEMPLATE = cv2.imread('assets/rune_buff_template.jpg', 0)
+RUNE_BUFF_TEMPLATE = cv2.imread(utils.get_asset_path('assets/rune_buff_template.jpg'), 0)
 
 
 log = get_logger(__name__)

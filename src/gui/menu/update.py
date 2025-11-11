@@ -1,6 +1,6 @@
 import git
 import tkinter as tk
-from src.common import config
+from src.common import config, utils
 from src.gui.interfaces import MenuBarItem, LabelFrame, Frame
 from tkinter.messagebox import askyesno
 
@@ -27,7 +27,7 @@ class UpdatePrompt(tk.Toplevel):
 
         self.grab_set()
         self.title(f'Update {name}')
-        icon = tk.PhotoImage(file='assets/icon.png')
+        icon = tk.PhotoImage(file=utils.get_asset_path('assets/icon.png'))
         self.iconphoto(False, icon)
         self.geometry(UpdatePrompt.RESOLUTION)
         self.resizable(False, False)

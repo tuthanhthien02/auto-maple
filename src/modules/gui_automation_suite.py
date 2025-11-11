@@ -4,7 +4,7 @@ import time
 import threading
 import tkinter as tk
 from tkinter import ttk
-from src.common import config, settings
+from src.common import config, settings, utils
 from src.gui import Menu, View, Edit, Settings
 
 
@@ -20,7 +20,7 @@ class GUI:
 
         self.root = tk.Tk()
         self.root.title('Maple Automation Suite')
-        icon = tk.PhotoImage(file='assets/icon.png')
+        icon = tk.PhotoImage(file=utils.get_asset_path('assets/icon.png'))
         self.root.iconphoto(False, icon)
         self.root.geometry(GUI.RESOLUTIONS['DEFAULT'])
         self.root.resizable(False, False)

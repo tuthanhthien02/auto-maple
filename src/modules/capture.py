@@ -50,8 +50,8 @@ MMT_WIDTH = max(MM_TL_TEMPLATE.shape[1], MM_BR_TEMPLATE.shape[1])
 
 # The player's symbol on the minimap (support multiple templates and pick the first that matches)
 _player_template_paths = [
-    'assets/player_template.png',               # default 10x10
-    'assets/player_template_new.png'            # optional 20x20
+    get_asset_path('assets/player_template.png'),        # default 10x10
+    get_asset_path('assets/player_template_new.png')     # optional 20x20
 ]
 PLAYER_TEMPLATES = []
 for path in _player_template_paths:
