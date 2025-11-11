@@ -46,6 +46,10 @@ def _load_dotenv() -> None:
         return
 
 
+# Load .env BEFORE configuring any loggers/handlers so env can control logging
+_load_dotenv()
+
+
 def _ensure_log_directory(base: Path) -> Path:
     """Ensure the logs directory exists and return its path."""
 
@@ -60,7 +64,7 @@ def _ensure_log_directory(base: Path) -> Path:
 
 
 def _build_handlers(log_file: Path) -> List[logging.Handler]:
-    """Create the default file and console handlers."""
+    """Create the default file and optional console handlers (configurable)."""
 
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -75,10 +79,17 @@ def _build_handlers(log_file: Path) -> List[logging.Handler]:
     )
     file_handler.setFormatter(formatter)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    handlers: List[logging.Handler] = [file_handler]
 
-    return [file_handler, console_handler]
+    # Console handler: default ON in dev, OFF in frozen/production
+    default_console = "0" if getattr(sys, "frozen", False) else "1"
+    console_env = os.getenv("AUTO_MAPLE_CONSOLE", default_console).strip().lower()
+    if console_env in {"1", "true", "yes", "on"}:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        handlers.append(console_handler)
+
+    return handlers
 
 
 def _configure_root_logger() -> logging.Logger:
@@ -90,7 +101,10 @@ def _configure_root_logger() -> logging.Logger:
     if logger.handlers:
         return logger
 
-    logger.setLevel(logging.INFO)
+    # Allow level override via env AUTO_MAPLE_LOG_LEVEL (DEBUG/INFO/WARNING/ERROR/CRITICAL)
+    level_name = os.getenv("AUTO_MAPLE_LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logger.setLevel(level)
     for handler in _build_handlers(log_file):
         logger.addHandler(handler)
     logger.propagate = False
@@ -108,7 +122,8 @@ def _clone_handlers(source: logging.Logger, target: logging.Logger) -> None:
 
 
 _ACTION_LOGGER = logging.getLogger("auto_maple.action")
-_ACTION_LOGGER.setLevel(logging.INFO)
+# By default, action logger follows the root logger level
+_ACTION_LOGGER.setLevel(_ROOT_LOGGER.level)
 _ACTION_LOGGER.propagate = False
 _clone_handlers(_ROOT_LOGGER, _ACTION_LOGGER)
 
@@ -116,7 +131,8 @@ _clone_handlers(_ROOT_LOGGER, _ACTION_LOGGER)
 def set_action_logging(enabled: bool) -> None:
     """Enable or disable verbose per-action logging."""
 
-    level = logging.DEBUG if enabled else logging.INFO
+    # When enabled, force DEBUG; otherwise mirror root logger level
+    level = logging.DEBUG if enabled else _ROOT_LOGGER.level
     _ACTION_LOGGER.setLevel(level)
     state = "enabled" if enabled else "disabled"
     _ROOT_LOGGER.info("Action logging %s", state)
@@ -144,9 +160,6 @@ def get_action_logger() -> logging.Logger:
     """Return the logger dedicated to detailed action traces."""
 
     return _ACTION_LOGGER
-
-
-_load_dotenv()
 
 
 if os.getenv("AUTO_MAPLE_ACTION_LOG", "").lower() in {"1", "true", "yes", "on"}:

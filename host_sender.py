@@ -87,10 +87,7 @@ VK_TO_KEY = {
     0x68: 'np8', 0x69: 'np9',
     0x6A: 'np_mul', 0x6B: 'np_add', 0x6D: 'np_sub',
     0x6E: 'np_dec', 0x6F: 'np_div',
-    
-    # Numpad Enter (map to regular enter)
-    0x0A: 'enter',   # VK_CLEAR (numpad clear/enter)
-    
+
     # Special characters (punctuation)
     0xBA: 'semicolon', 0xBB: 'equals', 0xBC: 'comma',
     0xBD: 'minus', 0xBE: 'period', 0xBF: 'slash',
