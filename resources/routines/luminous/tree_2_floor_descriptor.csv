@@ -1,0 +1,123 @@
+# Routine: Tree 2-Floor Training Path (Descriptor-ready)
+# Mirrors tree_2_floor.csv but kept in sync with floor descriptor logic.
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y ≈ 0.090)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.090) ===
+
+*,0.107,0.090,adjust=False,frequency=1
+Label,f1_pos_0
+Comment,Floor 1 Pos 0: Reflection Mix Random then teleport RIGHT to pos 1
+buff
+buff_secondary
+face_right
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.139,0.090,adjust=False,frequency=1
+Label,f1_pos_1
+Comment,Floor 1 Pos 1: Reflection Mix Random then teleport RIGHT to pos 2
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.170,0.090,adjust=False,frequency=1
+Label,f1_pos_2
+Comment,Floor 1 Pos 2: Reflection Mix Random then teleport RIGHT to pos 3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.210,0.090,adjust=False,frequency=1
+Label,f1_pos_3
+Comment,Floor 1 Pos 3: Reflection Mix Random then teleport RIGHT to pos 4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.244,0.090,adjust=False,frequency=1
+Label,f1_pos_4
+Comment,Floor 1 Pos 4: Reflection Mix Random then teleport RIGHT to transition point
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# TRANSITION: FLOOR 1 → FLOOR 2
+# ========================================
+Comment,=== TRANSITION: Jump Teleport Up to Floor 2 at (0.263,0.090) ===
+*,0.263,0.090,adjust=True,frequency=1
+Label,jump_up
+Comment,Critical transition point: perform jump_teleport_up to reach Floor 2
+jump_teleport_up,1
+wait_random,0.8,1.5
+
+# ========================================
+# FLOOR 2: RIGHT → LEFT (y ≈ 0.038)
+# ========================================
+Comment,=== FLOOR 2 START: Move Right → Left (y ≈ 0.038) ===
+
+*,0.263,0.038,adjust=False,frequency=1
+Label,f2_pos_1
+Comment,Floor 2 Pos 1: Reflection Mix Random then teleport LEFT to pos 2
+face_left
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.224,0.038,adjust=False,frequency=1
+Label,f2_pos_2
+Comment,Floor 2 Pos 2: Reflection Mix Random then teleport LEFT to pos 3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.202,0.038,adjust=False,frequency=1
+Label,f2_pos_3
+Comment,Floor 2 Pos 3: Reflection Mix Random then teleport LEFT to pos 4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.168,0.038,adjust=False,frequency=1
+Label,f2_pos_4
+Comment,Floor 2 Pos 4: Reflection Mix Random then teleport LEFT to pos 5
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.137,0.038,adjust=False,frequency=1
+Label,f2_pos_5
+Comment,Floor 2 Pos 5: Reflection Mix Random then teleport LEFT to jump_down point
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# TRANSITION: FLOOR 2 → FLOOR 1
+# ========================================
+Comment,=== TRANSITION: Jump Down to Floor 1 at (0.111,0.038) ===
+*,0.111,0.038,adjust=True,frequency=1
+Label,jump_down
+Comment,Critical transition point: perform jump_down to return to Floor 1
+wait_random,0.25,0.40
+jump_down,1
+wait_random,1.0,1.8
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
+
+

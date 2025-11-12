@@ -8,8 +8,9 @@ import threading
 import time
 import os
 import json
-from typing import Optional
+from typing import List, Optional
 from src.common.logger import get_logger
+from src.common.serial_obfuscation import SerialObfuscator
 
 log = get_logger(__name__)
 
@@ -129,6 +130,8 @@ class SharedArduinoConnection:
         # Key remapping for game customization
         self.key_mapping = key_mapping or {}
         self.remapping_enabled = remapping_enabled
+        self.obfuscator = None
+        self.obfuscation_enabled = True
         
         # Statistics
         self.stats = {
@@ -149,6 +152,7 @@ class SharedArduinoConnection:
                     log.info(f"Loaded key remapping from config: {len(self.key_mapping)} mappings")
                 if hasattr(config, 'arduino_remapping_enabled'):
                     self.remapping_enabled = config.arduino_remapping_enabled
+                self.obfuscation_enabled = getattr(config, 'arduino_obfuscation_enabled', True)
             except Exception as e:
                 log.debug(f"Failed to load remapping from config: {e}")
         
@@ -198,6 +202,9 @@ class SharedArduinoConnection:
                     # Load remapping enabled status
                     if 'remapping_enabled' in config_data:
                         self.remapping_enabled = config_data.get('remapping_enabled', True)
+
+                    if 'obfuscation_enabled' in config_data:
+                        self.obfuscation_enabled = config_data.get('obfuscation_enabled', True)
         except Exception as e:
             log.debug(f"Failed to load vmware_receiver.config.json: {e}")
     
@@ -270,7 +277,10 @@ class SharedArduinoConnection:
                 log.info(f"   Key Remapping: {'Enabled' if self.remapping_enabled else 'Disabled'}")
                 if self.key_mapping:
                     log.info(f"   Remapping Keys: {len(self.key_mapping)} mappings")
+                log.info(f"   Serial Obfuscation: {'Enabled' if self.obfuscation_enabled else 'Disabled'}")
                 log.info("=" * 60)
+
+                self._initialize_obfuscator()
                 
                 return True
                 
@@ -318,6 +328,43 @@ class SharedArduinoConnection:
         arduino_key = VKEYS_TO_ARDUINO.get(key_lower, key_lower)
         
         return arduino_key
+
+    def _initialize_obfuscator(self):
+        """Prepare obfuscator instance."""
+        if self.obfuscator is None:
+            self.obfuscator = SerialObfuscator(enabled=self.obfuscation_enabled)
+        else:
+            self.obfuscator.enabled = self.obfuscation_enabled
+            self.obfuscator.reset()
+
+        if self.obfuscation_enabled:
+            log.debug("[SharedArduinoConnection] Serial obfuscation enabled")
+        else:
+            log.debug("[SharedArduinoConnection] Serial obfuscation disabled")
+
+    def _encode_for_serial(self, action: str, arduino_key: Optional[str]) -> List[bytes]:
+        """
+        Encode command vào frame (obfuscated hoặc ASCII).
+        """
+        command_key = arduino_key if arduino_key is not None else None
+
+        if not self.obfuscator:
+            self._initialize_obfuscator()
+
+        try:
+            return self.obfuscator.encode_command(action, command_key)
+        except Exception as exc:
+            log.error(f"[SharedArduinoConnection] Serial obfuscation error: {exc}")
+            # Fallback to ASCII
+            return [self._build_plain_command(action, command_key)]
+
+    @staticmethod
+    def _build_plain_command(action: str, arduino_key: Optional[str]) -> bytes:
+        if action == 'all_up':
+            return b"all_up\n"
+        if not arduino_key:
+            raise ValueError("arduino_key is required for %s" % action)
+        return f"{action}:{arduino_key}\n".encode("utf-8")
     
     def send_command(self, action: str, key: str = None) -> bool:
         """
@@ -350,22 +397,22 @@ class SharedArduinoConnection:
                 # If reconnect successful, continue to send command
             
             try:
-                # Handle special command
-                if action == 'all_up':
-                    command = "all_up\n"
-                else:
-                    # Map key name
+                # Map key name (except for all_up)
+                arduino_key = None
+                if action != 'all_up':
                     arduino_key = self._map_key(key)
-                    command = f"{action}:{arduino_key}\n"
-                
+
+                frames = self._encode_for_serial(action, arduino_key)
+
                 # Phase 5: Device Fingerprinting Bypass - Add random timing variation
                 import random
-                random_delay = random.uniform(0.0001, 0.002)  # 0.1-2ms
-                time.sleep(random_delay)
-                
-                # Send command
-                self.serial.write(command.encode('utf-8'))
-                self.serial.flush()  # Ensure command is sent immediately
+
+                for frame in frames:
+                    random_delay = random.uniform(0.0001, 0.002)  # 0.1-2ms
+                    time.sleep(random_delay)
+
+                    self.serial.write(frame)
+                    self.serial.flush()  # Ensure command is sent immediately
                 
                 # Phase 5: Device Stealth - Monitor device properties
                 if self.device_stealth:

@@ -10,10 +10,11 @@ import json
 import os
 import sys
 import time
+import random
 import ctypes
 import ctypes.wintypes
 import winsound
-from typing import Optional
+from typing import List, Optional
 from ctypes import wintypes
 
 # Windows API constants
@@ -36,6 +37,14 @@ try:
     sys.stderr.reconfigure(encoding='utf-8')
 except Exception:
     pass
+
+# Add src to sys.path for shared modules
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.join(ROOT_DIR, 'src')
+if SRC_DIR not in sys.path:
+    sys.path.append(SRC_DIR)
+
+from src.common.serial_obfuscation import SerialObfuscator  # noqa: E402
 
 
 class KBDLLHOOKSTRUCT(ctypes.Structure):
@@ -62,6 +71,8 @@ class VMwareReceiver:
         self.key_mapping = key_mapping or {}  # Key remapping dictionary: {'original': 'mapped'}
         self.remapping_enabled = True  # Toggle for key remapping
         self.enable_hotkey_hook = False  # Enable keyboard hook for End key hotkey (DISABLED by default to eliminate delay)
+        self.obfuscation_enabled = True
+        self.obfuscator: Optional[SerialObfuscator] = None
         
         self.server_socket = None
         self.running = False
@@ -89,6 +100,32 @@ class VMwareReceiver:
         
         # Initialize Windows API for keyboard hook
         self._init_windows_api()
+    
+    def _ensure_obfuscator(self, reset: bool = False):
+        if self.obfuscator is None:
+            self.obfuscator = SerialObfuscator(enabled=self.obfuscation_enabled)
+        else:
+            self.obfuscator.enabled = self.obfuscation_enabled
+            if reset and self.obfuscation_enabled:
+                self.obfuscator.reset()
+    
+    def _encode_frames(self, action: str, key: Optional[str]) -> List[bytes]:
+        self._ensure_obfuscator()
+        if not self.obfuscator or not self.obfuscation_enabled:
+            if action == 'all_up':
+                return [b"all_up\n"]
+            if not key:
+                raise ValueError("Key required for action %s" % action)
+            return [f"{action}:{key}\n".encode('utf-8')]
+        
+        try:
+            return self.obfuscator.encode_command(action, key)
+        except Exception as exc:
+            print(f"[ERROR] Obfuscation encode failed: {exc}")
+            # fallback to ASCII
+            if action == 'all_up':
+                return [b"all_up\n"]
+            return [f"{action}:{key}\n".encode('utf-8')]
     
     def _load_config(self):
         """Load config from JSON file"""
@@ -120,6 +157,10 @@ class VMwareReceiver:
                     if self.enable_logging:
                         hook_status = "ENABLED" if self.enable_hotkey_hook else "DISABLED (recommended: zero delay)"
                         print(f"[CONFIG] Hotkey hook: {hook_status}")
+
+                    self.obfuscation_enabled = config.get('obfuscation_enabled', self.obfuscation_enabled)
+                    if self.enable_logging:
+                        print(f"[CONFIG] Serial obfuscation: {'ENABLED' if self.obfuscation_enabled else 'DISABLED'}")
                     
                     if self.enable_logging:
                         print(f"[CONFIG] Loaded: com_port={self.com_port}, "
@@ -138,7 +179,8 @@ class VMwareReceiver:
                 'block_local_input': self.block_local_input,
                 'enable_logging': self.enable_logging,
                 'enable_hotkey_hook': self.enable_hotkey_hook,
-                'key_mapping': self.key_mapping if self.key_mapping else None
+                'key_mapping': self.key_mapping if self.key_mapping else None,
+                'obfuscation_enabled': self.obfuscation_enabled
             }
             with open(self.CONFIG_PATH, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
@@ -337,6 +379,7 @@ class VMwareReceiver:
             )
             time.sleep(0.5)
             print(f"[ARDUINO] ✓ Connected successfully to {self.com_port} (baudrate: {self.baudrate})")
+            self._ensure_obfuscator(reset=True)
             # Sync state: release all keys
             self.send_all_up()
             print(f"[ARDUINO] Initialized - all keys released")
@@ -362,20 +405,21 @@ class VMwareReceiver:
             return False
         
         try:
-            command = f"{action}:{key_name}\n"
-            bytes_written = self.serial.write(command.encode('utf-8'))
-            self.serial.flush()
-            
-            if bytes_written == 0:
+            frames = self._encode_frames(action, key_name)
+            total_written = 0
+            for frame in frames:
+                delay = random.uniform(0.0001, 0.002)
+                time.sleep(delay)
+                total_written += self.serial.write(frame)
+                self.serial.flush()
+            if total_written == 0:
                 if self.enable_logging:
                     print(f"[ERROR] Failed to write: {action}:{key_name}")
                 return False
-            
             self.stats['total_forwarded'] += 1
             if self.enable_logging:
-                print(f"[FORWARD] {action}:{key_name} ({bytes_written} bytes) → Arduino")
+                print(f"[FORWARD] {action}:{key_name} ({total_written} bytes) → Arduino")
             return True
-            
         except Exception as e:
             print(f"[ERROR] Send error: {e}")
             self.stats['total_errors'] += 1
@@ -385,10 +429,14 @@ class VMwareReceiver:
         """Gửi lệnh release tất cả keys đến Arduino"""
         try:
             if self.serial and self.serial.is_open:
-                self.serial.write(b"all_up\n")
-                self.serial.flush()
+                frames = self._encode_frames('all_up', None)
+                for frame in frames:
+                    delay = random.uniform(0.0001, 0.002)
+                    time.sleep(delay)
+                    self.serial.write(frame)
+                    self.serial.flush()
                 if self.enable_logging:
-                    print("[FORWARD] all_up")
+                    print(f"[FORWARD] all_up ({len(frames)} frame{'s' if len(frames) != 1 else ''})")
         except Exception as e:
             print(f"[ERROR] Send all_up error: {e}")
     

@@ -45,7 +45,7 @@
 
 ## ⚙️ Configuration
 
-Config trong `src/common/anti_detect_config.py`:
+Config mẫu trong `src/common/anti_detect_config.py` (bật thủ công):
 
 ```python
 'routine_randomization': {
@@ -63,15 +63,31 @@ Config trong `src/common/anti_detect_config.py`:
         'enabled': True,
         'variant_switch_probability': 0.15,  # 15% chance to switch
         'min_loops_before_switch': 3,
+        'floor_variant_chance': 0.10,
         'variants': {
             'normal': {'weight': 0.70},
             'reverse': {'weight': 0.15},
             'floor1_only': {'weight': 0.10},
             'floor2_only': {'weight': 0.05}
         }
+    },
+    'floor_descriptors': [
+        {'id': 'floor1', 'labels': ['f1_pos_0', 'f1_pos_1'], 'y_range': [0.16, 1.0], 'priority': 10},
+        {'id': 'floor2', 'labels': ['f2_pos_0', 'f2_pos_1'], 'y_range': [-1.0, 0.16], 'priority': 20}
+    ],
+    'command_sequence': {
+        'enabled': True,
+        'shuffle_probability': 0.30,
+        'skip_probability': 0.08,
+        'extra_wait_probability': 0.20,
+        'extra_wait_range': (0.05, 0.12),
+        'skip_blacklist': ['Teleport', 'Adjust'],
+        'shuffle_blacklist': ['Teleport', 'Adjust']
     }
 }
 ```
+
+> **Lưu ý:** Trong repo mặc định, `enabled` cho cả block tổng và từng phần đều `False`. Bạn chỉ cần bật những phần cần dùng (qua GUI hoặc chỉnh file) theo ví dụ trên.
 
 ---
 
@@ -133,6 +149,40 @@ Config trong `src/common/anti_detect_config.py`:
 # Tăng weight cho reverse (nhiều variation)
 'reverse': {'weight': 0.30}
 ```
+
+### Command Sequence Randomization
+
+```python
+'command_sequence': {
+    'enabled': True,
+    'shuffle_probability': 0.40,      # Tỷ lệ shuffle command (trừ blacklist)
+    'skip_probability': 0.10,         # Xác suất skip các command phụ
+    'extra_wait_probability': 0.25,   # Xác suất thêm delay nhỏ
+    'extra_wait_range': (0.05, 0.12), # Khoảng delay thêm (trước khi humanize)
+    'skip_blacklist': ['Teleport', 'Adjust'],    # Không skip các command critical
+    'shuffle_blacklist': ['Teleport', 'Adjust']  # Giữ order cố định
+}
+```
+
+### Floor Descriptors
+
+- Khai báo rõ mô tả cho từng tầng, hỗ trợ >2 floor.
+- Mỗi descriptor gồm:
+  - `id`: tên tầng (`floor1`, `floor2`, `upper`, …)
+  - `labels`: danh sách label (không phân biệt hoa thường) để match nhanh.
+  - `y_range`: (optional) min/max tọa độ Y.
+  - `priority`: ưu tiên khi nhiều descriptor match (số nhỏ ưu tiên cao).
+- Ví dụ thêm tầng phụ:
+
+```python
+'floor_descriptors': [
+    {'id': 'floor1', 'labels': ['f1_pos_0'], 'y_range': [0.20, 1.0], 'priority': 5},
+    {'id': 'floor2', 'labels': ['f2_pos_0'], 'y_range': [0.0, 0.19], 'priority': 10},
+    {'id': 'lower_cave', 'labels': [], 'y_range': [-1.0, -0.1], 'priority': 20}
+]
+```
+
+> Nếu bạn không khai báo, bot tự tạo descriptor mặc định dựa theo prefix `f1_`/`f2_` và ngưỡng Y, nhằm giữ tương thích với routine cũ.
 
 ### Disable Features
 

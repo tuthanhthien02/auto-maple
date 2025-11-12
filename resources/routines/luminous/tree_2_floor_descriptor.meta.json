@@ -1,0 +1,28 @@
+{
+    "floor_descriptors": [
+        {
+            "id": "floor1",
+            "labels": [
+                "f1_pos_0",
+                "f1_pos_1",
+                "f1_pos_2",
+                "f1_pos_3",
+                "f1_pos_4"
+            ],
+            "y_range": [0.08, 1.0],
+            "priority": 10
+        },
+        {
+            "id": "floor2",
+            "labels": [
+                "f2_pos_1",
+                "f2_pos_2",
+                "f2_pos_3",
+                "f2_pos_4",
+                "f2_pos_5"
+            ],
+            "y_range": [-1.0, 0.06],
+            "priority": 20
+        }
+    ]
+}

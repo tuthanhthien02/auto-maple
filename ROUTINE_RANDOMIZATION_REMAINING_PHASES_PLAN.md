@@ -6,6 +6,7 @@ Hiện tại đã implement:
 - ✅ **Phase 2: Routine Pattern Variation** (normal/reverse switching)
 - ✅ **Phase 2.5: Floor-Only Variants** (floor1_only, floor2_only với forward/reverse)
 - ✅ **Phase 2.6: GUI Settings** (config enable/disable và probabilities)
+- ✅ **Diagnostic & Smoke Tests**: `tools/randomization_diagnostics.py`, `tests/test_randomization_smoke.py`
 
 Các phase còn lại cần implement:
 

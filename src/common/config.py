@@ -1,5 +1,7 @@
 """A collection of variables shared across multiple modules."""
 
+from src.common.bot_config import BotConfig
+
 
 #########################
 #       Constants       #
@@ -44,6 +46,9 @@ listener = None
 # Shares the gui to all modules
 gui = None
 
+# Centralised bot configuration
+bot_config = BotConfig()
+
 #################################
 #    Arduino Output Config      #
 #################################
@@ -64,6 +69,9 @@ arduino_key_mapping = {
 
 # Enable/disable key remapping (can be toggled at runtime)
 arduino_remapping_enabled = False
+
+# Enable/disable serial obfuscation (binary framing & XOR keystream)
+arduino_obfuscation_enabled = True
 
 # Flag to track if we're in floor-only reverse movement
 # This is set by Routine when floor_direction == 'reverse' in floor-only variants

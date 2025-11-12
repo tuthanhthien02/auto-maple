@@ -2,11 +2,15 @@
 
 from src.common import config, settings, utils
 import csv
+import json
 import random
+from collections import namedtuple
+from pathlib import Path
 from os.path import splitext, basename
 from src.routine.components import Point, Label, Jump, Setting, Command, SYMBOLS
 from src.routine.layout import Layout
 from src.common.logger import get_logger
+from src.common.anti_detect_config import get_feature_value, is_feature_enabled
 
 log = get_logger(__name__)
 
@@ -38,6 +42,8 @@ def dirty(func):
 class Routine:
     """Describes a routine file in Auto Maple's custom 'machine code'."""
 
+    _floor_descriptor_type = namedtuple('FloorDescriptor', 'floor_id labels y_range priority')
+
     def __init__(self):
         self.dirty = False
         self.path = ''
@@ -46,7 +52,7 @@ class Routine:
         self.sequence = []
         self.display = []       # Updated alongside sequence
         # Point Selection Randomization
-        self.skip_probability = 0.30  # 30% chance to skip (tuned for better balance)
+        self.skip_probability = 0.10  # Default 10% chance to skip (matches config/docs)
         self.consecutive_skips = 0
         self.max_consecutive_skips = random.randint(1, 3)  # Max 1-3 consecutive skips (hardcode random)
         self.skip_enabled = False  # Enable/disable skip feature - Can be enabled from GUI
@@ -60,22 +66,54 @@ class Routine:
         self.backward_cooldown_max = 10  # Max cooldown (10 points)
         self.is_backwarding_context = False  # Track if we're in backward context (for teleport decision)
         # Routine Pattern Variation
-        self.variant_enabled = True
+        self.variant_enabled = False
         self.current_variant = 'normal'
         self.variant_switch_counter = 0
         self.variant_switch_interval = random.randint(3, 7)  # Switch every 3-7 loops
         self.variant_cycle = []
         self.variant_cycle_index = 0
         self.floor_variant_active = False
-        self.floor_variant_chance = 1.0  # 100% chance to activate floor-only variant after completing a loop (for testing)
+        self.floor_variant_chance = 0.10  # 10% chance to activate floor-only variant after completing a loop
         self.floor_variant_loop_range = (3, 5)  # Floor-only variants run for 3-5 loops, then return to normal
         self.floor_variant_last = None
         self.floor_direction = 'forward'  # Track direction in floor-only: 'forward' or 'reverse'
         self.floor1_indices = []  # Indices of Floor 1 points
         self.floor2_indices = []  # Indices of Floor 2 points
+        self.floor_indices_map = {}
+        self.floor_descriptors = []
         self.loop_count = 0
         self.last_index = -1
         self.last_floor_index = -1  # Track last index within the same floor (for reverse teleport detection)
+        self.variant_weights = {}
+        self.floor_variant_weights = {}
+        self._variant_label_warnings = set()
+        self.command_randomization = {
+            'enabled': False,
+            'shuffle_probability': 0.25,
+            'skip_probability': 0.05,
+            'extra_wait_probability': 0.15,
+            'extra_wait_range': (0.05, 0.12),
+            'skip_blacklist': {'Teleport', 'Adjust'},
+            'shuffle_blacklist': {'Teleport', 'Adjust'}
+        }
+        self.position_offset_config = {
+            'enabled': False,
+            'range': 0.0,
+            'axes': {'x': True, 'y': False}
+        }
+        self.micro_gesture_config = {
+            'enabled': False,
+            'mirror_chance': 0.0,
+            'duration_range': (0.02, 0.05)
+        }
+        self.observability_config = {
+            'log_every_loops': 0
+        }
+        self.observability_metrics = {
+            'offsets': 0,
+            'micro_pauses': 0,
+            'micro_gestures': 0
+        }
         
         # Load randomization settings from GUI
         self._load_randomization_settings()
@@ -100,6 +138,311 @@ class Routine:
         except Exception as e:
             # Settings might not be available yet, use defaults
             log.debug("Could not load randomization settings: %s", e)
+            self._apply_config_fallbacks()
+        finally:
+            self._load_variant_weights_from_config()
+
+    def _apply_config_fallbacks(self):
+        """Fallback to anti_detect_config values when GUI settings unavailable."""
+        self._load_point_selection_defaults()
+        self._load_pattern_defaults()
+        self._load_command_sequence_defaults()
+        self._load_movement_defaults()
+        raw_floor_descriptors = get_feature_value('routine_randomization.floor_descriptors', None)
+        self._load_floor_descriptor_config(raw_floor_descriptors)
+
+    def _load_point_selection_defaults(self):
+        self.skip_enabled = is_feature_enabled('routine_randomization.point_selection.enabled')
+        self.skip_probability = get_feature_value(
+            'routine_randomization.point_selection.skip_probability',
+            self.skip_probability
+        )
+
+    def _load_pattern_defaults(self):
+        self.variant_enabled = is_feature_enabled('routine_randomization.routine_pattern.enabled')
+        self.floor_variant_chance = get_feature_value(
+            'routine_randomization.routine_pattern.floor_variant_chance',
+            self.floor_variant_chance
+        )
+
+    def _load_command_sequence_defaults(self):
+        seq_cfg = get_feature_value('routine_randomization.command_sequence', {}) or {}
+        base_cfg = self.command_randomization
+        base_cfg['enabled'] = seq_cfg.get('enabled', base_cfg['enabled'])
+        base_cfg['shuffle_probability'] = seq_cfg.get('shuffle_probability', base_cfg['shuffle_probability'])
+        base_cfg['skip_probability'] = seq_cfg.get('skip_probability', base_cfg['skip_probability'])
+        base_cfg['extra_wait_probability'] = seq_cfg.get('extra_wait_probability', base_cfg['extra_wait_probability'])
+        base_cfg['extra_wait_range'] = tuple(seq_cfg.get('extra_wait_range', base_cfg['extra_wait_range']))
+        base_cfg['skip_blacklist'] = set(seq_cfg.get('skip_blacklist', list(base_cfg['skip_blacklist'])))
+        base_cfg['shuffle_blacklist'] = set(seq_cfg.get('shuffle_blacklist', list(base_cfg['shuffle_blacklist'])))
+
+    def _load_movement_defaults(self):
+        movement_cfg = get_feature_value('routine_randomization.movement', {}) or {}
+        self._load_position_offset_defaults(movement_cfg.get('position_offset', {}))
+        self._load_micro_gesture_defaults(movement_cfg.get('micro_gesture', {}))
+        self._load_observability_defaults(movement_cfg.get('observability', {}))
+
+    def _load_position_offset_defaults(self, position_cfg):
+        axes_cfg = position_cfg.get('axes', {})
+        self.position_offset_config['enabled'] = position_cfg.get('enabled', self.position_offset_config['enabled'])
+        try:
+            rng = float(position_cfg.get('range', self.position_offset_config['range']))
+            self.position_offset_config['range'] = max(0.0, rng)
+        except (TypeError, ValueError):
+            pass
+        self.position_offset_config['axes']['x'] = axes_cfg.get('x', self.position_offset_config['axes']['x'])
+        self.position_offset_config['axes']['y'] = axes_cfg.get('y', self.position_offset_config['axes']['y'])
+
+    def _load_micro_gesture_defaults(self, micro_cfg):
+        self.micro_gesture_config['enabled'] = micro_cfg.get('enabled', self.micro_gesture_config['enabled'])
+        try:
+            mirror = float(micro_cfg.get('mirror_chance', self.micro_gesture_config['mirror_chance']))
+            self.micro_gesture_config['mirror_chance'] = max(0.0, mirror)
+        except (TypeError, ValueError):
+            pass
+        duration_range = micro_cfg.get('duration_range', self.micro_gesture_config['duration_range'])
+        if isinstance(duration_range, (list, tuple)) and len(duration_range) == 2:
+            try:
+                low = max(0.0, float(duration_range[0]))
+                high = max(0.0, float(duration_range[1]))
+                if high < low:
+                    low, high = high, low
+                self.micro_gesture_config['duration_range'] = (low, high)
+            except (TypeError, ValueError):
+                pass
+
+    def _load_observability_defaults(self, observability_cfg):
+        try:
+            loops = int(observability_cfg.get('log_every_loops', self.observability_config['log_every_loops']))
+            self.observability_config['log_every_loops'] = max(0, loops)
+        except (TypeError, ValueError):
+            pass
+
+    def _load_variant_weights_from_config(self):
+        """Load variant weights from anti_detect_config (used for normal/reverse/floor variants)."""
+        variants_cfg = get_feature_value('routine_randomization.routine_pattern.variants', {}) or {}
+
+        if not isinstance(variants_cfg, dict):
+            variants_cfg = {}
+
+        self.variant_weights = variants_cfg
+        self.floor_variant_weights = {
+            name: max(0.0, data.get('weight', 0.0))
+            for name, data in variants_cfg.items()
+            if name in ('floor1_only', 'floor2_only')
+        }
+
+    def _load_floor_descriptor_config(self, raw_descriptors):
+        descriptors = self._parse_floor_descriptors(raw_descriptors)
+
+        if not descriptors:
+            fallback = self._generate_default_floor_descriptors()
+            descriptors = self._parse_floor_descriptors(fallback)
+            log.debug("Floor descriptors: using autogenerated defaults (label prefix, y-range heuristics)")
+
+        if not descriptors:
+            log.warning("Floor descriptors: No valid descriptors available; floor-based variants may be disabled")
+
+        self.floor_descriptors = descriptors
+        self.floor_indices_map = {descriptor.floor_id: [] for descriptor in descriptors}
+
+    def _generate_default_floor_descriptors(self):
+        """Generate basic two-floor descriptors for backward compatibility."""
+        return [
+            {
+                'id': 'floor1',
+                'labels': ['f1_pos_0', 'f1_pos_1', 'f1_pos_last'],
+                'y_range': [0.16, 1.0],
+                'priority': 10
+            },
+            {
+                'id': 'floor2',
+                'labels': ['f2_pos_0', 'f2_pos_1', 'f2_pos_last'],
+                'y_range': [-1.0, 0.16],
+                'priority': 20
+            }
+        ]
+
+    def _parse_floor_descriptors(self, raw_descriptors):
+        """Parse descriptor config into FloorDescriptor objects."""
+        if not raw_descriptors:
+            return []
+
+        descriptors = []
+        for entry in raw_descriptors:
+            descriptor = self._parse_single_floor_descriptor(entry)
+            if descriptor:
+                descriptors.append(descriptor)
+
+        descriptors.sort(key=lambda d: d.priority)
+        return descriptors
+
+    def _parse_single_floor_descriptor(self, entry):
+        if not isinstance(entry, dict):
+            log.warning("Floor descriptor ignored (not a dict): %s", entry)
+            return None
+
+        floor_id = entry.get('id')
+        if not floor_id:
+            log.warning("Floor descriptor ignored: missing 'id'")
+            return None
+
+        label_set = self._parse_descriptor_labels(entry, floor_id)
+        if label_set is None:
+            return None
+
+        normalized_range = self._parse_descriptor_range(entry, floor_id)
+        if normalized_range is False:
+            return None
+
+        priority = self._parse_descriptor_priority(entry)
+        return self._floor_descriptor_type(
+            floor_id=floor_id,
+            labels=label_set,
+            y_range=normalized_range,
+            priority=priority
+        )
+
+    @staticmethod
+    def _parse_descriptor_labels(entry, floor_id):
+        labels = entry.get('labels') or []
+        if not isinstance(labels, (list, tuple, set)):
+            log.warning("Floor descriptor '%s' ignored: 'labels' must be a list/tuple", floor_id)
+            return None
+        return {str(label).strip().lower() for label in labels if str(label).strip()}
+
+    @staticmethod
+    def _parse_descriptor_range(entry, floor_id):
+        y_range = entry.get('y_range')
+        if y_range is None:
+            return None
+        if not isinstance(y_range, (list, tuple)) or len(y_range) != 2:
+            log.warning("Floor descriptor '%s' ignored: 'y_range' must be length-2 list", floor_id)
+            return False
+        try:
+            y_min, y_max = float(y_range[0]), float(y_range[1])
+        except (TypeError, ValueError):
+            log.warning("Floor descriptor '%s' ignored: 'y_range' values must be numbers", floor_id)
+            return False
+        return (min(y_min, y_max), max(y_min, y_max))
+
+    @staticmethod
+    def _parse_descriptor_priority(entry):
+        priority = entry.get('priority', 100)
+        try:
+            return int(priority)
+        except (TypeError, ValueError):
+            return 100
+
+    def _match_floor_descriptor(self, point, prev_label):
+        if not self.floor_descriptors:
+            return None
+
+        normalized_label = prev_label.lower() if prev_label else None
+        y_value = point.location[1]
+
+        for descriptor in self.floor_descriptors:
+            label_match = True
+            if descriptor.labels:
+                label_match = normalized_label in descriptor.labels
+
+            y_match = True
+            if descriptor.y_range is not None:
+                y_min, y_max = descriptor.y_range
+                y_match = y_min <= y_value <= y_max
+
+            if label_match and y_match:
+                return descriptor.floor_id
+
+        return None
+
+    def get_position_with_offset(self, location):
+        cfg = self.position_offset_config
+        if not cfg.get('enabled') or cfg.get('range', 0.0) <= 0:
+            return location
+
+        offset_range = cfg.get('range', 0.0)
+        axes = cfg.get('axes', {})
+
+        offset_x = random.uniform(-offset_range, offset_range) if axes.get('x', True) else 0.0
+        offset_y = random.uniform(-offset_range, offset_range) if axes.get('y', False) else 0.0
+
+        new_x = max(0.0, min(1.0, location[0] + offset_x))
+        new_y = max(0.0, min(1.0, location[1] + offset_y))
+
+        self.observability_metrics['offsets'] += 1
+        return (new_x, new_y)
+
+    def _log_observability_snapshot(self):
+        interval = self.observability_config.get('log_every_loops', 0)
+        if not interval:
+            return
+        if self.loop_count % interval != 0:
+            return
+        metrics = self.observability_metrics.copy()
+        log.info(
+            "Observability (movement): offsets=%d, micro_pauses=%d, micro_gestures=%d (last %d loops)",
+            metrics.get('offsets', 0),
+            metrics.get('micro_pauses', 0),
+            metrics.get('micro_gestures', 0),
+            interval
+        )
+        for key in self.observability_metrics:
+            self.observability_metrics[key] = 0
+
+    def _load_floor_metadata(self, routine_path):
+        """Load floor descriptor metadata located next to routine file."""
+        try:
+            routine_path = Path(routine_path)
+            candidates = [
+                routine_path.with_suffix('.meta.json'),
+                routine_path.with_suffix('.floor.json')
+            ]
+            for meta_path in candidates:
+                if meta_path.exists():
+                    with meta_path.open('r', encoding='utf-8') as handle:
+                        meta_data = json.load(handle)
+                    descriptors = meta_data.get('floor_descriptors')
+                    if descriptors:
+                        self._load_floor_descriptor_config(descriptors)
+                        log.info("Floor descriptors: loaded from metadata file '%s'", meta_path.name)
+                    return
+        except Exception as exc:
+            log.warning("Floor descriptors: failed to load metadata for '%s': %s", routine_path, exc)
+
+    def _has_required_labels(self, variant_name):
+        """Check if required labels exist for a variant and log warning once if missing."""
+        required_map = {
+            'reverse': {'start_label': 'f2_pos_1', 'end_label': 'f1_pos_0'},
+            'floor1_only': {'start_label': 'f1_pos_0', 'transition_label': 'jump_up'},
+            'floor2_only': {'start_label': 'f2_pos_1', 'transition_label': 'jump_down'}
+        }
+
+        if variant_name not in required_map:
+            return True
+
+        required_labels = required_map[variant_name]
+        missing = [name for name in required_labels.values() if name not in self.labels]
+
+        if missing:
+            warning_key = (variant_name, tuple(sorted(missing)))
+            if warning_key not in self._variant_label_warnings:
+                log.warning(
+                    "Routine Pattern Variation: Variant '%s' bị vô hiệu vì thiếu label: %s",
+                    variant_name,
+                    ", ".join(missing)
+                )
+                self._variant_label_warnings.add(warning_key)
+            return False
+
+        return True
+
+    def _reset_movement_context(self, reset_skip_counter=False):
+        """Reset skip/backward context flags (optionally reset counters)."""
+        self.is_skipping_context = False
+        self.is_backwarding_context = False
+        if reset_skip_counter:
+            self.consecutive_skips = 0
 
     @dirty
     @update
@@ -336,36 +679,32 @@ class Routine:
         self.consecutive_skips = 0
 
     def detect_floors(self):
-        """Detect Floor 1 and Floor 2 points based on Y coordinate and labels."""
-        self.floor1_indices = []
-        self.floor2_indices = []
-        
+        """Detect floor points based on configured descriptors."""
+        self.floor_indices_map = {descriptor.floor_id: [] for descriptor in self.floor_descriptors}
+        self.floor1_indices = self.floor_indices_map.get('floor1', [])
+        self.floor2_indices = self.floor_indices_map.get('floor2', [])
+
         for i, component in enumerate(self.sequence):
-            if isinstance(component, Point):
-                y = component.location[1]
-                point_added = False
-                
-                # Method 1: Label based (more robust - check previous component)
-                if i > 0:
-                    prev_component = self.sequence[i - 1]
-                    if isinstance(prev_component, Label):
-                        label_name = prev_component.label.lower()
-                        if label_name.startswith('f1_'):
-                            self.floor1_indices.append(i)
-                            point_added = True
-                        elif label_name.startswith('f2_'):
-                            self.floor2_indices.append(i)
-                            point_added = True
-                
-                # Method 2: Y coordinate based (fallback)
-                if not point_added:
-                    if y > 0.16:  # Floor 1 threshold
-                        self.floor1_indices.append(i)
-                    else:  # Floor 2 threshold
-                        self.floor2_indices.append(i)
-        
-        log.info("🏢 Floor Detection: Floor 1: %d points, Floor 2: %d points", 
-                 len(self.floor1_indices), len(self.floor2_indices))
+            if not isinstance(component, Point):
+                continue
+
+            prev_label = None
+            if i > 0 and isinstance(self.sequence[i - 1], Label):
+                prev_label = self.sequence[i - 1].label
+
+            floor_id = self._match_floor_descriptor(component, prev_label)
+            if floor_id:
+                self.floor_indices_map.setdefault(floor_id, []).append(i)
+
+        # Update legacy floor caches for backwards compatibility
+        self.floor1_indices = self.floor_indices_map.get('floor1', [])
+        self.floor2_indices = self.floor_indices_map.get('floor2', [])
+
+        summary = ", ".join(
+            f"{floor_id}: {len(indices)} point(s)"
+            for floor_id, indices in self.floor_indices_map.items()
+        ) or "no floor assignments"
+        log.info("🏢 Floor Detection: %s", summary)
 
     def get_f1_last_index(self):
         """Get index in self.sequence for f1_pos_last."""
@@ -396,16 +735,19 @@ class Routine:
         
         Returns:
             tuple: (floor_type, position_index, sequence_index) or (None, -1, -1) if not in any floor
-            floor_type: 'f1' or 'f2'
+            floor_type: legacy 'f1'/'f2' for first two floors, otherwise descriptor id
             position_index: 0-based index within floor (0 = pos_0, last = pos_last)
             sequence_index: index in self.sequence
         """
-        if current_index in self.floor1_indices:
-            position_index = self.floor1_indices.index(current_index)
-            return ('f1', position_index, current_index)
-        elif current_index in self.floor2_indices:
-            position_index = self.floor2_indices.index(current_index)
-            return ('f2', position_index, current_index)
+        for floor_id, indices in self.floor_indices_map.items():
+            if current_index in indices:
+                position_index = indices.index(current_index)
+                legacy_id = floor_id
+                if floor_id == 'floor1':
+                    legacy_id = 'f1'
+                elif floor_id == 'floor2':
+                    legacy_id = 'f2'
+                return (legacy_id, position_index, current_index)
         return (None, -1, -1)
 
     def _pick_switch_interval(self, variant=None):
@@ -417,11 +759,14 @@ class Routine:
         return random.randint(3, 7)
 
     def _build_variant_cycle(self):
-        """Build the base variant cycle (normal only, reverse disabled for testing)."""
-        base_cycle = ['normal']  # Disabled reverse for floor-only testing
+        """Build the base variant cycle using configured weights."""
+        preferred_order = ['normal', 'reverse']
         combined_cycle = []
-        for variant in base_cycle:
-            if variant not in combined_cycle:
+
+        for variant in preferred_order:
+            weight = 1.0 if variant == 'normal' and not self.variant_weights else \
+                self.variant_weights.get(variant, {}).get('weight', 0.0)
+            if weight > 0 and self._has_required_labels(variant):
                 combined_cycle.append(variant)
 
         if not combined_cycle:
@@ -456,34 +801,34 @@ class Routine:
     def _choose_floor_variant(self):
         """Choose which floor-only variant to activate (50% floor1, 50% floor2)."""
         options = []
-        if self.floor1_indices:
+        if self.floor1_indices and self._has_required_labels('floor1_only'):
             options.append('floor1_only')
-        if self.floor2_indices:
+        if self.floor2_indices and self._has_required_labels('floor2_only'):
             options.append('floor2_only')
 
         if not options:
             return None
 
-        # If only one option available, use it
         if len(options) == 1:
             choice = options[0]
             self.floor_variant_last = choice
             return choice
 
-        # 50% floor1_only, 50% floor2_only
-        roll = random.random()
-        if roll < 0.5:
-            # 50% chance for floor1_only
-            if 'floor1_only' in options:
-                choice = 'floor1_only'
-            else:
-                choice = 'floor2_only'
-        else:
-            # 50% chance for floor2_only
-            if 'floor2_only' in options:
-                choice = 'floor2_only'
-            else:
-                choice = 'floor1_only'
+        weights = []
+        total_weight = 0.0
+        for option in options:
+            weight = self.floor_variant_weights.get(option, 0.0)
+            weights.append(weight)
+            total_weight += weight
+
+        if total_weight <= 0:
+            # Fallback to even distribution
+            choice = random.choice(options)
+            self.floor_variant_last = choice
+            return choice
+
+        normalized = [w / total_weight for w in weights]
+        choice = random.choices(options, weights=normalized)[0]
         
         self.floor_variant_last = choice
         return choice
@@ -495,6 +840,7 @@ class Routine:
             self.variant_switch_interval = self._pick_switch_interval(forced_variant)
             self.variant_switch_counter = 0
             self.floor_variant_active = forced_variant in ('floor1_only', 'floor2_only')
+            self._reset_movement_context(reset_skip_counter=True)
             log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                      self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
             return
@@ -508,6 +854,7 @@ class Routine:
             self.index = 0
             self.variant_switch_interval = random.randint(3, 7)  # Reset interval for normal variant
             self.variant_switch_counter = 0
+            self._reset_movement_context(reset_skip_counter=True)
             log.info("🔄 Routine Pattern Variation: Returned to normal variant from floor-only (switch every %d loops)", 
                      self.variant_switch_interval)
             return
@@ -518,6 +865,7 @@ class Routine:
         # Reset switch counter and determine next interval
         self.variant_switch_interval = self._pick_switch_interval(self.current_variant)
         self.variant_switch_counter = 0
+        self._reset_movement_context(reset_skip_counter=True)
 
         log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                  self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
@@ -528,9 +876,9 @@ class Routine:
             return False
 
         available = []
-        if self.floor1_indices:
+        if self.floor1_indices and self._has_required_labels('floor1_only'):
             available.append('floor1_only')
-        if self.floor2_indices:
+        if self.floor2_indices and self._has_required_labels('floor2_only'):
             available.append('floor2_only')
 
         if not available:
@@ -551,6 +899,7 @@ class Routine:
         self.last_index = -1
         self.last_floor_index = -1  # Reset last_floor_index when activating floor variant
         self.floor_variant_active = True
+        self._reset_movement_context(reset_skip_counter=True)
         
         # Log floor indices for debugging
         floor_indices = self.floor1_indices if variant == 'floor1_only' else self.floor2_indices
@@ -632,184 +981,164 @@ class Routine:
             # Fallback to normal stepping if no floor indices
             return (current_index + 1) % len(self.sequence)
         
-        # Determine floor type (f1 or f2) to use correct helper methods
         is_floor1 = floor_indices is self.floor1_indices
         is_floor2 = floor_indices is self.floor2_indices
-        
-        # Get first and last indices using helper methods to ensure sync with self.sequence
-        if is_floor1:
-            first_floor_idx = self.get_f1_first_index()  # f1_pos_0 index in self.sequence
-            last_floor_idx = self.get_f1_last_index()    # f1_pos_last index in self.sequence
-        elif is_floor2:
-            first_floor_idx = self.get_f2_first_index()  # f2_pos_0 index in self.sequence
-            last_floor_idx = self.get_f2_last_index()    # f2_pos_last index in self.sequence
-        else:
-            # Fallback: use direct access if floor_indices is not one of the known arrays
-            first_floor_idx = floor_indices[0] if floor_indices else -1
-            last_floor_idx = floor_indices[-1] if floor_indices else -1
-        
-        # Validate indices
+
+        first_floor_idx, last_floor_idx = self._get_floor_bounds(floor_indices, is_floor1, is_floor2)
         if first_floor_idx < 0 or last_floor_idx < 0:
             log.warning("🛗 Floor-only: Invalid floor indices (first=%d, last=%d), falling back to normal step", 
                        first_floor_idx, last_floor_idx)
             return (current_index + 1) % len(self.sequence)
-        
-        # Find current index in floor_indices
+
         try:
             current_floor_index = floor_indices.index(current_index)
-            
-            if self.floor_direction == 'forward':
-                # Forward: move to next position
-                if current_index == last_floor_idx:
-                    # Reached last position, switch to reverse direction
-                    # Move to last - 1 immediately (start reverse)
-                    self.floor_direction = 'reverse'
-                    if current_floor_index > 0:
-                        next_floor_index = current_floor_index - 1
-                        log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction, moving to position %d", 
-                                last_floor_idx, floor_indices[next_floor_index])
-                        return floor_indices[next_floor_index]
-                    else:
-                        # Only one position, stay at last
-                        log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction", last_floor_idx)
-                        return last_floor_idx
-                else:
-                    # Move forward to next position
-                    next_floor_index = current_floor_index + 1
-                    if next_floor_index < len(floor_indices):
-                        next_idx = floor_indices[next_floor_index]
-                        log.debug("🛗 Floor-only FORWARD: Moving from position %d (index %d) -> position %d (index %d)", 
-                                 current_index, current_floor_index, next_idx, next_floor_index)
-                        return next_idx
-                    else:
-                        # Should not happen, but fallback
-                        return last_floor_idx
-            else:  # reverse
-                # Reverse: move to previous position
-                if current_index == first_floor_idx:
-                    # Reached first position, switch to forward direction
-                    # Stay at first position, next step will go forward (loop completed)
-                    self.floor_direction = 'forward'
-                    log.info("🛗 Floor-only: Reached first position %d, switching to FORWARD direction (loop will complete on next step)", first_floor_idx)
-                    return first_floor_idx
-                else:
-                    # Move reverse to previous position
-                    next_floor_index = current_floor_index - 1
-                    if next_floor_index >= 0:
-                        next_idx = floor_indices[next_floor_index]
-                        log.info("🛗 Floor-only REVERSE: Moving from position %d (index %d) -> position %d (index %d)", 
-                                current_index, current_floor_index, next_idx, next_floor_index)
-                        return next_idx
-                    else:
-                        # Should not happen, but fallback
-                        log.warning("🛗 Floor-only REVERSE: Unexpected state at position %d, falling back to first", current_index)
-                        return first_floor_idx
         except ValueError:
-            # Current index not in floor, start from first floor point in forward direction
             self.floor_direction = 'forward'
-            # Use helper methods to get correct first index
-            if is_floor1:
-                return self.get_f1_first_index() if self.get_f1_first_index() >= 0 else 0
-            elif is_floor2:
-                return self.get_f2_first_index() if self.get_f2_first_index() >= 0 else 0
-            else:
-                return floor_indices[0] if floor_indices else 0
+            return self._fallback_floor_start(is_floor1, is_floor2, floor_indices)
+
+        if self.floor_direction == 'forward':
+            return self._next_floor_forward(current_index, current_floor_index, floor_indices, last_floor_idx)
+        return self._next_floor_reverse(current_index, current_floor_index, floor_indices, first_floor_idx)
+
+    def _get_floor_bounds(self, floor_indices, is_floor1, is_floor2):
+        if is_floor1:
+            return self.get_f1_first_index(), self.get_f1_last_index()
+        if is_floor2:
+            return self.get_f2_first_index(), self.get_f2_last_index()
+        first = floor_indices[0] if floor_indices else -1
+        last = floor_indices[-1] if floor_indices else -1
+        return first, last
+
+    def _fallback_floor_start(self, is_floor1, is_floor2, floor_indices):
+        if is_floor1:
+            return self.get_f1_first_index() if self.get_f1_first_index() >= 0 else 0
+        if is_floor2:
+            return self.get_f2_first_index() if self.get_f2_first_index() >= 0 else 0
+        return floor_indices[0] if floor_indices else 0
+
+    def _next_floor_forward(self, current_index, current_floor_index, floor_indices, last_floor_idx):
+        if current_index == last_floor_idx:
+            self.floor_direction = 'reverse'
+            if current_floor_index > 0:
+                next_floor_index = current_floor_index - 1
+                next_idx = floor_indices[next_floor_index]
+                log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction, moving to position %d",
+                         last_floor_idx, next_idx)
+                return next_idx
+            log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction", last_floor_idx)
+            return last_floor_idx
+
+        next_floor_index = current_floor_index + 1
+        if next_floor_index < len(floor_indices):
+            next_idx = floor_indices[next_floor_index]
+            log.debug("🛗 Floor-only FORWARD: Moving from position %d (index %d) -> position %d (index %d)",
+                      current_index, current_floor_index, next_idx, next_floor_index)
+            return next_idx
+        return last_floor_idx
+
+    def _next_floor_reverse(self, current_index, current_floor_index, floor_indices, first_floor_idx):
+        if current_index == first_floor_idx:
+            self.floor_direction = 'forward'
+            log.info("🛗 Floor-only: Reached first position %d, switching to FORWARD direction (loop will complete on next step)",
+                     first_floor_idx)
+            return first_floor_idx
+
+        next_floor_index = current_floor_index - 1
+        if next_floor_index >= 0:
+            next_idx = floor_indices[next_floor_index]
+            log.info("🛗 Floor-only REVERSE: Moving from position %d (index %d) -> position %d (index %d)",
+                     current_index, current_floor_index, next_idx, next_floor_index)
+            return next_idx
+
+        log.warning("🛗 Floor-only REVERSE: Unexpected state at position %d, falling back to first", current_index)
+        return first_floor_idx
 
     @utils.run_if_enabled
     def step(self):
         """Increments config.seq_index and wraps back to 0 at the end of config.sequence."""
-        if len(self.sequence) == 0:
+        if not self.sequence:
             return
-        
-        # Save current index before stepping
+
         old_index = self.index
-        
-        # Check if we should switch variant (before stepping)
-        if self._should_switch_variant():
-            self._switch_variant()
-            # Reset to variant start index
-            self.index = self._get_variant_start_index()
-            self.last_index = -1  # Reset last_index after switching
-            self.last_floor_index = -1  # Reset last_floor_index after switching
-            log.info("🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')", 
-                     self.index, self.current_variant)
+        if self._handle_variant_switch_if_needed():
             return
-        
-        # Step based on current variant
+
         old_idx_before_step = self.index
         self.index = self._get_variant_next_index(self.index)
-        
-        # Log step for floor-only variants
-        if self.current_variant in ['floor1_only', 'floor2_only']:
-            log.info("🛗 Floor-only STEP: Variant '%s', Index %d -> %d, Direction: %s", 
-                    self.current_variant, old_idx_before_step, self.index, self.floor_direction)
-        
-        # Detect loop completion (after stepping)
-        # A loop is completed when we've gone through ALL components in the routine according to the current variant
-        loop_completed = False
-        if self.last_index != -1:
-            if self.current_variant == 'normal':
-                # Normal: loop when index wraps from last to 0 (completed entire routine forward)
-                if old_index == len(self.sequence) - 1 and self.index == 0:
-                    loop_completed = True
-            elif self.current_variant == 'reverse':
-                # Reverse: loop when index wraps from 0 to last (completed entire routine backward)
-                if old_index == 0 and self.index == len(self.sequence) - 1:
-                    loop_completed = True
-            elif self.current_variant in ['floor1_only', 'floor2_only']:
-                # Floor-only: loop completed when we finish forward (pos_0->pos_last) then reverse (pos_last->pos_0)
-                # A loop is complete when we return to first position after completing reverse direction
-                floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
-                if floor_indices:
-                    # Use helper methods to get correct first index in self.sequence
-                    if self.current_variant == 'floor1_only':
-                        first_floor_idx = self.get_f1_first_index()
-                    else:  # floor2_only
-                        first_floor_idx = self.get_f2_first_index()
-                    
-                    # Loop completed when: we're at first position, direction is forward (just switched from reverse),
-                    # and we came from a position that's not first (completed reverse journey)
-                    if (first_floor_idx >= 0 and 
-                        self.index == first_floor_idx and 
-                        self.floor_direction == 'forward' and 
-                        old_index in floor_indices and 
-                        old_index != first_floor_idx):
-                        loop_completed = True
-                        log.info("🛗 Floor-only: Loop completed! (forward: pos_0->pos_last, reverse: pos_last->pos_0)")
-        
-        # Only increment counters when a loop is actually completed
-        if loop_completed:
-            self.loop_count += 1
-            self.variant_switch_counter += 1  # Increment counter for variant switching
-            loops_remaining = self.variant_switch_interval - self.variant_switch_counter
-            log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)", 
-                     self.loop_count, self.current_variant, 
-                     self.variant_switch_counter, self.variant_switch_interval,
-                     loops_remaining)
+        self._log_floor_step(old_idx_before_step)
+        loop_completed = self._detect_loop_completion(old_index)
 
-            if not self.floor_variant_active:
-                self._maybe_activate_floor_variant()
-        
-        # Update last_index for next iteration
+        if loop_completed:
+            self._on_loop_completed()
+
+        self._update_last_indices(old_index)
+        log.debug("Routine Pattern Variation: Variant '%s', Index: %d/%d",
+                  self.current_variant, self.index, len(self.sequence) - 1)
+
+    def _handle_variant_switch_if_needed(self):
+        if not self._should_switch_variant():
+            return False
+        self._switch_variant()
+        self.index = self._get_variant_start_index()
+        self.last_index = -1
+        self.last_floor_index = -1
+        log.info("🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')",
+                 self.index, self.current_variant)
+        return True
+
+    def _log_floor_step(self, old_idx_before_step):
+        if self.current_variant in ['floor1_only', 'floor2_only']:
+            log.info("🛗 Floor-only STEP: Variant '%s', Index %d -> %d, Direction: %s",
+                     self.current_variant, old_idx_before_step, self.index, self.floor_direction)
+
+    def _detect_loop_completion(self, old_index):
+        if self.last_index == -1:
+            return False
+        if self.current_variant == 'normal':
+            return old_index == len(self.sequence) - 1 and self.index == 0
+        if self.current_variant == 'reverse':
+            return old_index == 0 and self.index == len(self.sequence) - 1
+        if self.current_variant in ['floor1_only', 'floor2_only']:
+            return self._floor_variant_loop_completed(old_index)
+        return False
+
+    def _floor_variant_loop_completed(self, old_index):
+        floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
+        if not floor_indices:
+            return False
+        first_floor_idx = self.get_f1_first_index() if self.current_variant == 'floor1_only' else self.get_f2_first_index()
+        if first_floor_idx < 0:
+            return False
+        completed = (
+            self.index == first_floor_idx and
+            self.floor_direction == 'forward' and
+            old_index in floor_indices and
+            old_index != first_floor_idx
+        )
+        if completed:
+            log.info("🛗 Floor-only: Loop completed! (forward: pos_0->pos_last, reverse: pos_last->pos_0)")
+        return completed
+
+    def _on_loop_completed(self):
+        self.loop_count += 1
+        self.variant_switch_counter += 1
+        loops_remaining = self.variant_switch_interval - self.variant_switch_counter
+        log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
+                 self.loop_count, self.current_variant,
+                 self.variant_switch_counter, self.variant_switch_interval,
+                 loops_remaining)
+        self._log_observability_snapshot()
+        if not self.floor_variant_active:
+            self._maybe_activate_floor_variant()
+
+    def _update_last_indices(self, old_index):
         self.last_index = old_index
-        
-        # Update last_floor_index for floor-only variants (track last index within same floor)
         if self.current_variant in ['floor1_only', 'floor2_only']:
             floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
-            if floor_indices:
-                # Only update if both old_index and current index are in the same floor
-                if old_index in floor_indices and self.index in floor_indices:
-                    self.last_floor_index = old_index
-                else:
-                    # Reset if switching between floors or entering/leaving floor
-                    self.last_floor_index = -1
-        else:
-            # Reset when not in floor-only variant
-            self.last_floor_index = -1
-        
-        # Log variant step (debug level)
-        log.debug("Routine Pattern Variation: Variant '%s', Index: %d/%d", 
-                  self.current_variant, self.index, len(self.sequence) - 1)
+            if floor_indices and old_index in floor_indices and self.index in floor_indices:
+                self.last_floor_index = old_index
+                return
+        self.last_floor_index = -1
 
     def save(self, file_path):
         """Encodes and saves the current Routine at location PATH."""
@@ -853,6 +1182,11 @@ class Routine:
         self.floor_variant_active = False
         self.floor_variant_last = None
         self.floor_direction = 'forward'
+        self.observability_metrics = {
+            'offsets': 0,
+            'micro_pauses': 0,
+            'micro_gestures': 0
+        }
 
         config.gui.clear_routine_info()
 
@@ -908,6 +1242,7 @@ class Routine:
         
         # Reload randomization settings when loading routine
         self._load_randomization_settings()
+        self._load_floor_metadata(file)
         
         # Initialize Routine Pattern Variation
         if self.variant_enabled:

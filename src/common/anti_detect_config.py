@@ -100,11 +100,37 @@ ANTI_DETECT_CONFIG = {
             'enabled': False,  # DISABLED
             'variant_switch_probability': 0.15,
             'min_loops_before_switch': 3,
+            'floor_variant_chance': 0.10,
             'variants': {
                 'normal': {'weight': 0.70, 'description': 'Normal routine execution'},
                 'reverse': {'weight': 0.15, 'description': 'Reverse floor order'},
                 'floor1_only': {'weight': 0.10, 'description': 'Floor 1 only'},
                 'floor2_only': {'weight': 0.05, 'description': 'Floor 2 only'}
+            }
+        },
+        'floor_descriptors': [],
+        'command_sequence': {
+            'enabled': False,  # DISABLED
+            'shuffle_probability': 0.25,
+            'skip_probability': 0.05,
+            'extra_wait_probability': 0.15,
+            'extra_wait_range': (0.05, 0.12),
+            'skip_blacklist': ['Teleport', 'Adjust'],
+            'shuffle_blacklist': ['Teleport', 'Adjust']
+        },
+        'movement': {
+            'position_offset': {
+                'enabled': False,
+                'range': 0.003,
+                'axes': {'x': True, 'y': False}
+            },
+            'micro_gesture': {
+                'enabled': False,
+                'mirror_chance': 0.08,
+                'duration_range': (0.03, 0.08)
+            },
+            'observability': {
+                'log_every_loops': 10
             }
         }
     }
@@ -191,6 +217,21 @@ def is_feature_enabled(feature_path):
     
     return config if isinstance(config, bool) else False
 
+def _get_override_from_bot_config(feature_path):
+    try:
+        from src.common import config as global_config
+        bot_cfg = getattr(global_config, 'bot_config', None)
+        if bot_cfg:
+            value = bot_cfg.get(feature_path, _SENTINEL)
+            if value is not _SENTINEL:
+                return value
+    except Exception:
+        pass
+    return _SENTINEL
+
+_SENTINEL = object()
+
+
 def get_feature_value(feature_path, default=None):
     """Get a specific feature value.
     
@@ -201,6 +242,10 @@ def get_feature_value(feature_path, default=None):
     Returns:
         The feature value or default
     """
+    override = _get_override_from_bot_config(feature_path)
+    if override is not _SENTINEL:
+        return override
+
     config = ANTI_DETECT_CONFIG
     keys = feature_path.split('.')
     
@@ -211,3 +256,20 @@ def get_feature_value(feature_path, default=None):
             return default
     
     return config
+
+
+def is_feature_enabled(feature_path):
+    """Check if a specific feature is enabled."""
+    override = _get_override_from_bot_config(feature_path)
+    if override is not _SENTINEL:
+        return bool(override)
+
+    config = ANTI_DETECT_CONFIG
+    keys = feature_path.split('.')
+    for key in keys:
+        if isinstance(config, dict) and key in config:
+            config = config[key]
+        else:
+            return False
+
+    return config if isinstance(config, bool) else False

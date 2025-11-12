@@ -235,6 +235,8 @@ class RoutineRandomization(LabelFrame):
             self.settings.get(POINT_SELECTION_KEY)
         ANTI_DETECT_CONFIG['routine_randomization']['routine_pattern']['enabled'] = \
             self.settings.get(ROUTINE_PATTERN_KEY)
+        ANTI_DETECT_CONFIG['routine_randomization']['routine_pattern']['floor_variant_chance'] = \
+            self.settings.get(ROUTINE_PATTERN_FLOOR_CHANCE_KEY)
 
     def _sync_to_routine(self):
         """Sync settings to config.routine object."""
@@ -260,7 +262,7 @@ class RoutineRandomization(LabelFrame):
 class RoutineRandomizationSettings(Configurable):
     DEFAULT_CONFIG = {
         POINT_SELECTION_KEY: False,  # DISABLED by default
-        POINT_SELECTION_PROBABILITY_KEY: 0.30,  # 30% default
+        POINT_SELECTION_PROBABILITY_KEY: 0.10,  # 10% default
         RANDOM_BACKWARD_KEY: False,  # DISABLED by default
         RANDOM_BACKWARD_PROBABILITY_KEY: 0.10,  # 10% default
         ROUTINE_PATTERN_KEY: False,  # DISABLED by default

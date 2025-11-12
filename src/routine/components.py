@@ -3,12 +3,14 @@
 import math
 import time
 import random
+from collections import namedtuple
 from src.common import config, settings, utils
 from src.common.vkeys import key_down, key_up, press, press_with_behavioral_pause
 from src.common.anti_detect import get_human_delay, update_activity
 from src.common.logger import get_logger, get_action_logger
 log = get_logger(__name__)
 action_log = get_action_logger()
+CommandDecision = namedtuple('CommandDecision', 'command skip_reason wait_duration')
 
 
 #################################
@@ -85,12 +87,15 @@ class Point(Component):
         if self.counter == 0:
             # Update activity for anti-detect
             update_activity()
-            
+
+            target_location = config.routine.get_position_with_offset(self.location) \
+                if hasattr(config, 'routine') and config.routine else self.location
+
             move = config.bot.command_book['move']
-            move(*self.location).execute()
+            move(*target_location).execute()
             if self.adjust:
                 adjust = config.bot.command_book['adjust']      # TODO: adjust using step('up')?
-                adjust(*self.location).execute()
+                adjust(*target_location).execute()
             
             # Check if we're in reverse variant or floor-only variant with reverse direction
             # Skip teleport commands in routine because they're designed for normal direction
@@ -101,17 +106,21 @@ class Point(Component):
             floor_direction = getattr(config.routine, 'floor_direction', 'forward')
             is_floor_reverse = is_floor_only and floor_direction == 'reverse'
             
-            for command in self.commands:
-                # Skip teleport commands in reverse variant or floor-only variant with reverse direction
-                # (they're designed for normal direction and will conflict with reverse movement)
-                # Move command will handle teleportation with reverse direction automatically
-                if (is_reverse or is_floor_reverse) and hasattr(command, 'direction'):
-                    # Check if it's a Teleport command
-                    if command.__class__.__name__ == 'Teleport':
-                        log.info("Point: Skipping teleport command '%s' in %s variant (direction: %s, designed for normal direction)", 
-                                 command.direction, current_variant, floor_direction if is_floor_reverse else 'reverse')
-                        continue
-                command.execute()
+            for decision in self._iter_commands(is_reverse, is_floor_reverse):
+                if decision.skip_reason:
+                    log.info("Point: Skipping command '%s' (%s)",
+                             decision.command.__class__.__name__, decision.skip_reason)
+                    continue
+
+                if decision.wait_duration:
+                    human_delay = get_human_delay(decision.wait_duration, 'thinking')
+                    action_log.debug("Point: Extra wait before '%s' (%.3fs humanized to %.3fs)",
+                                     decision.command.__class__.__name__,
+                                     decision.wait_duration,
+                                     human_delay)
+                    time.sleep(human_delay)
+
+                decision.command.execute()
         self._increment_counter()
 
     @utils.run_if_enabled
@@ -119,6 +128,63 @@ class Point(Component):
         """Increments this Point's counter, wrapping back to 0 at the upper bound."""
 
         self.counter = (self.counter + 1) % self.frequency
+
+    def _iter_commands(self, is_reverse_variant, is_floor_reverse):
+        """Yield commands with randomization metadata applied."""
+        commands = list(self.commands)
+        rand_cfg = getattr(config.routine, 'command_randomization', None) or {}
+        enabled = rand_cfg.get('enabled', False)
+
+        if enabled:
+            commands = self._shuffle_commands(commands, rand_cfg)
+
+        skip_blacklist = set(rand_cfg.get('skip_blacklist', []))
+        extra_wait_probability = rand_cfg.get('extra_wait_probability', 0.0)
+        skip_probability = rand_cfg.get('skip_probability', 0.0)
+        wait_range = rand_cfg.get('extra_wait_range', (0.05, 0.12))
+
+        for command in commands:
+            skip_reason = None
+            wait_duration = None
+            name = command.__class__.__name__
+
+            if (is_reverse_variant or is_floor_reverse) and getattr(command, 'direction', None):
+                if name.lower().startswith('teleport'):
+                    skip_reason = "teleport disabled in reverse movement"
+
+            if enabled and skip_reason is None:
+                if name not in skip_blacklist and random.random() < skip_probability:
+                    skip_reason = "probabilistic skip"
+                elif random.random() < extra_wait_probability:
+                    low, high = wait_range
+                    wait_duration = random.uniform(low, high)
+
+            yield CommandDecision(command, skip_reason, wait_duration)
+
+    def _shuffle_commands(self, commands, settings):
+        """Shuffle commands while respecting blacklist and probability."""
+        commands = list(commands)
+        if len(commands) < 2:
+            return commands
+
+        shuffle_probability = settings.get('shuffle_probability', 0.0)
+        if random.random() >= shuffle_probability:
+            return commands
+
+        blacklist = set(settings.get('shuffle_blacklist', []))
+        randomizable_indices = [
+            idx for idx, cmd in enumerate(commands)
+            if cmd.__class__.__name__ not in blacklist
+        ]
+
+        if len(randomizable_indices) < 2:
+            return commands
+
+        subset = [commands[idx] for idx in randomizable_indices]
+        random.shuffle(subset)
+        for idx, command in zip(randomizable_indices, subset):
+            commands[idx] = command
+        return commands
 
     def info(self):
         curr = super().info()
@@ -426,54 +492,118 @@ class Move(Command):
             action_log.info("🚶 Move: Normal walk (distance: %.3f, skipping: %s, reverse: %s, floorReverse: %s)", 
                            distance, is_skipping, is_reverse, is_floor_reverse)
         
-        # Normal walk logic (pathfinding + press key direction)
+        # Normal walk logic with human-like movement characteristics
         counter = self.max_steps
         path = config.layout.shortest_path(config.player_pos, self.target)
-        for i, point in enumerate(path):
-            toggle = True
+        total_distance = max(distance, settings.move_tolerance * 2)
+
+        for i, waypoint in enumerate(path):
+            is_last_waypoint = (i == len(path) - 1)
+            target_stage = self._apply_waypoint_jitter(waypoint, allow_jitter=not is_last_waypoint)
             self.prev_direction = ''
-            local_error = utils.distance(config.player_pos, point)
+
+            local_error = utils.distance(config.player_pos, target_stage)
             global_error = utils.distance(config.player_pos, self.target)
+
             while config.enabled and counter > 0 and \
                     local_error > settings.move_tolerance and \
                     global_error > settings.move_tolerance:
-                if toggle:
-                    d_x = point[0] - config.player_pos[0]
-                    if abs(d_x) > settings.move_tolerance / math.sqrt(2):
-                        if d_x < 0:
-                            key = 'left'
-                        else:
-                            key = 'right'
-                        self._new_direction(key)
-                        step(key, point)
-                        if settings.record_layout:
-                            config.layout.add(*config.player_pos)
-                        counter -= 1
-                        if i < len(path) - 1:
-                            # Use human-like delay instead of fixed delay
-                            delay = get_human_delay(0.15, 'normal')
-                            time.sleep(delay)
+
+                d_x = target_stage[0] - config.player_pos[0]
+                d_y = target_stage[1] - config.player_pos[1]
+
+                if abs(d_x) >= abs(d_y):
+                    key = 'right' if d_x > 0 else 'left'
+                    base_delay = 0.12
                 else:
-                    d_y = point[1] - config.player_pos[1]
-                    if abs(d_y) > settings.move_tolerance / math.sqrt(2):
-                        if d_y < 0:
-                            key = 'up'
-                        else:
-                            key = 'down'
-                        self._new_direction(key)
-                        step(key, point)
-                        if settings.record_layout:
-                            config.layout.add(*config.player_pos)
-                        counter -= 1
-                        if i < len(path) - 1:
-                            # Use human-like delay instead of fixed delay
-                            delay = get_human_delay(0.05, 'fast')
-                            time.sleep(delay)
-                local_error = utils.distance(config.player_pos, point)
+                    key = 'down' if d_y > 0 else 'up'
+                    base_delay = 0.06
+
+                self._new_direction(key)
+                self._maybe_apply_micro_gesture(key)
+                step(key, target_stage)
+
+                if settings.record_layout:
+                    config.layout.add(*config.player_pos)
+
+                counter -= 1
+                progress = 1.0 - min(1.0, utils.distance(config.player_pos, self.target) / total_distance)
+                move_delay = self._compute_axis_delay(base_delay, progress)
+                time.sleep(move_delay)
+
+                if random.random() < 0.12:
+                    self._maybe_apply_micro_pause(progress)
+
+                local_error = utils.distance(config.player_pos, target_stage)
                 global_error = utils.distance(config.player_pos, self.target)
-                toggle = not toggle
+
             if self.prev_direction:
                 key_up(self.prev_direction)
+                self.prev_direction = ''
+
+            if not config.enabled or utils.distance(config.player_pos, self.target) <= settings.move_tolerance:
+                break
+
+    def _apply_waypoint_jitter(self, waypoint, allow_jitter=True):
+        """Apply subtle jitter to the waypoint to avoid rigid straight lines."""
+        if not allow_jitter:
+            return waypoint
+
+        jitter_range = 0.006
+        jitter_x = random.uniform(-jitter_range, jitter_range)
+        jitter_y = random.uniform(-jitter_range, jitter_range)
+        return (waypoint[0] + jitter_x, waypoint[1] + jitter_y)
+
+    def _compute_axis_delay(self, base_delay, progress):
+        """Compute axis-specific delay with easing-based acceleration/deceleration."""
+        progress = max(0.0, min(progress, 1.0))
+        eased = 0.5 - 0.5 * math.cos(progress * math.pi)  # Smoothstep-like easing
+        multiplier = 0.7 + 0.5 * eased
+        return get_human_delay(base_delay * multiplier, 'normal')
+
+    def _maybe_apply_micro_pause(self, progress):
+        """Occasionally apply a micro pause to simulate human adjustments."""
+        progress = max(0.0, min(progress, 1.0))
+        if random.random() >= 0.2:
+            return
+        pause_duration = 0.025 + 0.045 * progress
+        time.sleep(get_human_delay(pause_duration, 'thinking'))
+        if hasattr(config, 'routine') and hasattr(config.routine, 'observability_metrics'):
+            config.routine.observability_metrics['micro_pauses'] += 1
+
+    def _maybe_apply_micro_gesture(self, current_direction):
+        """Inject a short counter-movement to mimic human adjustment."""
+        routine = getattr(config, 'routine', None)
+        if not routine:
+            return
+        cfg = getattr(routine, 'micro_gesture_config', {})
+        if not cfg.get('enabled'):
+            return
+        chance = cfg.get('mirror_chance', 0.0)
+        if random.random() >= chance:
+            return
+        opposite = self._opposite_direction(current_direction)
+        if not opposite:
+            return
+        duration_low, duration_high = cfg.get('duration_range', (0.02, 0.05))
+        duration = random.uniform(min(duration_low, duration_high), max(duration_low, duration_high))
+        action_log.debug("Move: Micro gesture %s for %.3fs", opposite, duration)
+        try:
+            key_down(opposite)
+            time.sleep(duration)
+        finally:
+            key_up(opposite)
+        routine.observability_metrics['micro_gestures'] += 1
+
+    @staticmethod
+    def _opposite_direction(direction):
+        mapping = {
+            'left': 'right',
+            'right': 'left',
+            'up': 'down',
+            'down': 'up'
+        }
+        return mapping.get(direction)
 
 
 class Adjust(Command):
