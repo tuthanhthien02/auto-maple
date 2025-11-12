@@ -4,6 +4,19 @@ setlocal ENABLEDELAYEDEXPANSION
 REM Change to script directory
 cd /d "%~dp0"
 
+REM Load .env if present (supports lines like KEY=VALUE, ignores blank lines and # comments)
+if exist ".env" (
+    echo [~] Loading .env variables...
+    for /f "usebackq delims=" %%L in (".env") do (
+        set "line=%%L"
+        if not "!line!"=="" if not "!line:~0,1!"=="#" (
+            for /f "tokens=1,* delims==" %%A in ("!line!") do (
+                if not "%%A"=="" set "%%A=%%B"
+            )
+        )
+    )
+)
+
 echo [~] Building ExplorerSettings (PyInstaller stealth)...
 
 REM Ensure pip and pyinstaller
@@ -86,7 +99,13 @@ echo [INFO]   - "INFO: Successfully" = Build complete!
 echo.
 echo [~] Build started at %TIME%
 echo ========================================
-pyinstaller --noconfirm --clean --log-level=INFO ExplorerSettings.spec
+if "%AUTO_MAPLE_LIGHT_BUILD%"=="1" (
+  echo [INFO] LIGHT BUILD MODE ENABLED (AUTO_MAPLE_LIGHT_BUILD=1)
+  echo [INFO] Using ExplorerSettings_light.spec (TensorFlow excluded)
+  pyinstaller --noconfirm --clean --log-level=INFO ExplorerSettings_light.spec
+) else (
+  pyinstaller --noconfirm --clean --log-level=INFO ExplorerSettings.spec
+)
 echo ========================================
 echo [~] Build finished at %TIME%
 

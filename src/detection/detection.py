@@ -1,9 +1,45 @@
 """A module for classifying directional arrows using TensorFlow."""
 
+import os
 import cv2
-import tensorflow as tf
 import numpy as np
 from src.common import utils
+
+# Safe import TensorFlow:
+# - Avoid hard-crash on environments where TF cannot import (e.g., missing AVX on some VMs)
+# - Allow "light build" without TensorFlow by setting AUTO_MAPLE_LIGHT_BUILD=1 (BUILD TIME ONLY)
+# - Note: AUTO_MAPLE_LIGHT_BUILD only affects PyInstaller build analysis, not runtime execution
+import sys
+tf = None
+_TF_IMPORT_ERROR = None
+
+# Check if we're in a frozen executable (runtime) or source code (build/runtime)
+# - sys.frozen exists when running built executable
+# - When building with PyInstaller, sys.frozen doesn't exist yet
+# - AUTO_MAPLE_LIGHT_BUILD=1 is only checked during PyInstaller analysis (when sys.frozen doesn't exist)
+# - At runtime (frozen or source), always try to import TensorFlow if available
+
+_is_frozen_executable = hasattr(sys, 'frozen')
+_is_light_build = os.environ.get('AUTO_MAPLE_LIGHT_BUILD', '0') == '1'
+
+if _is_frozen_executable:
+    # Running built executable: Always try to import TensorFlow (if it was included in build)
+    try:
+        import tensorflow as tf  # type: ignore
+    except Exception as e:
+        _TF_IMPORT_ERROR = e
+        tf = None
+elif _is_light_build:
+    # Building with AUTO_MAPLE_LIGHT_BUILD=1: Skip TensorFlow import to avoid PyInstaller errors
+    # This only affects PyInstaller's analysis phase, not runtime
+    _TF_IMPORT_ERROR = ImportError("AUTO_MAPLE_LIGHT_BUILD=1 set - TensorFlow disabled for build")
+else:
+    # Running source code or building without light build: Try to import TensorFlow
+    try:
+        import tensorflow as tf  # type: ignore
+    except Exception as e:
+        _TF_IMPORT_ERROR = e
+        tf = None
 
 
 #########################
@@ -14,7 +50,8 @@ def load_model():
     Loads the saved model's weights into an Tensorflow model.
     :return:    The Tensorflow model object.
     """
-
+    if tf is None:
+        raise RuntimeError(f"TensorFlow is not available: {_TF_IMPORT_ERROR}")
     model_dir = f'assets/models/rune_model_rnn_filtered_cannied/saved_model'
     return tf.saved_model.load(model_dir)
 
@@ -58,6 +95,8 @@ def run_inference_for_single_image(model, image):
     """
 
     image = np.asarray(image)
+    if tf is None:
+        raise RuntimeError(f"TensorFlow is not available: {_TF_IMPORT_ERROR}")
 
     input_tensor = tf.convert_to_tensor(image)
     input_tensor = input_tensor[tf.newaxis,...]
