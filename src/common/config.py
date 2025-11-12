@@ -48,7 +48,7 @@ gui = None
 #    Arduino Output Config      #
 #################################
 # Enable/disable Arduino Serial output (instead of SendInput)
-use_arduino = False
+use_arduino = True
 
 # Arduino Serial port (None = auto-detect)
 arduino_com_port = None
