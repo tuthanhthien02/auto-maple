@@ -4,6 +4,7 @@ import tkinter as tk
 from src.gui.interfaces import KeyBindings
 from src.gui.settings.pets import Pets
 from src.gui.settings.routine_randomization import RoutineRandomization
+from src.gui.settings.vmware_receiver import VMwareReceiver
 from src.gui.interfaces import Tab, Frame
 from src.common import config
 
@@ -25,6 +26,8 @@ class Settings(Tab):
         self.pets.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
         self.routine_randomization = RoutineRandomization(self.column1)
         self.routine_randomization.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
+        self.vmware_receiver = VMwareReceiver(self.column1)
+        self.vmware_receiver.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
 
         self.column2 = Frame(self)
         self.column2.grid(row=0, column=2, sticky=tk.N, padx=10, pady=10)

@@ -68,3 +68,19 @@ arduino_remapping_enabled = False
 # Flag to track if we're in floor-only reverse movement
 # This is set by Routine when floor_direction == 'reverse' in floor-only variants
 is_floor_reverse_movement = False
+
+#################################
+#  VMware Receiver Integration  #
+#################################
+# Enable/disable VMware Receiver TCP server (integrated into GUI)
+# When enabled, TCP server runs in background to receive commands from Host
+enable_vmware_receiver = False  # Set to True to enable TCP server
+
+# VMware Receiver TCP server port
+vmware_receiver_port = 12345
+
+# Enable/disable keyboard hook for End key hotkey (disabled by default for zero delay)
+vmware_receiver_hotkey_hook = False
+
+# VMware Receiver instance (set by main.py)
+vmware_receiver = None

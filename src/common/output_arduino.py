@@ -1,86 +1,15 @@
 """
 Arduino Serial Output Module - Direct Serial communication với Arduino Pro Micro
 Hỗ trợ bot output qua Arduino USB HID keyboard thay vì SendInput
+
+NOTE: Sử dụng SharedArduinoConnection để tránh "Access is denied" khi chạy cùng với VMware receiver
 """
 import serial
-import serial.tools.list_ports
 import time
 from typing import Optional
 from src.common.logger import get_logger
 
 log = get_logger(__name__)
-
-# Key mapping: vkeys key names → Arduino key names
-# Reference: arduino_hid_keyboard_tcp.ino keyMap[]
-VKEYS_TO_ARDUINO = {
-    # Letters (same)
-    'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f',
-    'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j', 'k': 'k', 'l': 'l',
-    'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r',
-    's': 's', 't': 't', 'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x',
-    'y': 'y', 'z': 'z',
-    
-    # Numbers (same)
-    '0': '0', '1': '1', '2': '2', '3': '3', '4': '4',
-    '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
-    
-    # Control keys - map to Arduino key names (Arduino uses 'shift', 'ctrl', 'alt' not 'lshift', 'lctrl', 'lalt')
-    'shift': 'shift',       # Arduino keyMap uses 'shift' not 'lshift'
-    'ctrl': 'ctrl',         # Arduino keyMap uses 'ctrl' not 'lctrl'
-    'alt': 'alt',           # Arduino keyMap uses 'alt' not 'lalt'
-    'space': 'space',
-    'enter': 'enter',
-    'backspace': 'backspace',
-    'esc': 'esc',
-    'tab': 'tab',
-    'caps lock': 'caps',
-    'caps': 'caps',
-    
-    # Navigation keys
-    'page up': 'pgup',
-    'page down': 'pgdn',
-    'pgup': 'pgup',
-    'pgdn': 'pgdn',
-    'end': 'end',
-    'home': 'home',
-    'insert': 'insert',
-    'delete': 'delete',
-    
-    # Arrow keys (same)
-    'left': 'left',
-    'right': 'right',
-    'up': 'up',
-    'down': 'down',
-    
-    # Function keys (same)
-    'f1': 'f1', 'f2': 'f2', 'f3': 'f3', 'f4': 'f4',
-    'f5': 'f5', 'f6': 'f6', 'f7': 'f7', 'f8': 'f8',
-    'f9': 'f9', 'f10': 'f10', 'f11': 'f11', 'f12': 'f12',
-    
-    # Special keys
-    'num lock': 'numlock',
-    'numlock': 'numlock',
-    'scroll lock': 'scroll',
-    'scroll': 'scroll',
-    'pause': 'pause',
-    'menu': 'menu',
-    'printscreen': 'printscreen',
-    'print screen': 'printscreen',
-    
-    # Special characters (from vkeys.py)
-    ';': 'semicolon',
-    '=': 'equals',
-    ',': 'comma',
-    '-': 'minus',
-    '.': 'period',
-    '/': 'slash',
-    '`': 'grave',
-    '[': 'lbracket',
-    '\\': 'backslash',
-    ']': 'rbracket',
-    "'": 'quote',
-    '"': 'quote',
-}
 
 
 class ArduinoSerialOutput:
@@ -98,184 +27,52 @@ class ArduinoSerialOutput:
         """
         Initialize Arduino Serial Output
         
+        NOTE: Sử dụng SharedArduinoConnection để tránh conflict với VMware receiver
+        
         Args:
             com_port: COM port của Arduino (None = auto-detect)
             baudrate: Serial baudrate (default: 115200)
             key_mapping: Key remapping dictionary (e.g., {'a': 'rbracket', 'w': 'lbracket'})
             remapping_enabled: Enable/disable key remapping (default: True)
         """
-        self.serial: Optional[serial.Serial] = None
-        self.com_port = com_port
-        self.baudrate = baudrate
-        self.connected = False
+        # Use shared connection instead of creating new serial connection
+        from src.common.shared_arduino_connection import SharedArduinoConnection
         
-        # Key remapping for game customization
-        self.key_mapping = key_mapping or {}  # Key remapping: {'original': 'mapped'}
-        self.remapping_enabled = remapping_enabled  # Toggle for key remapping
+        self.shared_connection = SharedArduinoConnection.get_instance(
+            com_port=com_port,
+            baudrate=baudrate,
+            key_mapping=key_mapping,
+            remapping_enabled=remapping_enabled
+        )
         
-        # Statistics
+        # Store for backward compatibility
+        self.com_port = self.shared_connection.com_port
+        self.baudrate = self.shared_connection.baudrate
+        self.key_mapping = self.shared_connection.key_mapping
+        self.remapping_enabled = self.shared_connection.remapping_enabled
+        
+        # Statistics (sync from shared connection stats)
         self.stats = {
-            'total_remapped': 0  # Count of remapped keys
+            'total_remapped': self.shared_connection.stats.get('total_remapped', 0)
         }
         
-        # Load remapping from config if not provided
-        if not self.key_mapping:
-            try:
-                from src.common import config
-                if hasattr(config, 'arduino_key_mapping') and config.arduino_key_mapping:
-                    self.key_mapping = {k.lower(): v.lower() for k, v in config.arduino_key_mapping.items()}
-                    log.info(f"Loaded key remapping from config: {len(self.key_mapping)} mappings")
-                if hasattr(config, 'arduino_remapping_enabled'):
-                    self.remapping_enabled = config.arduino_remapping_enabled
-            except Exception as e:
-                log.warning(f"Failed to load remapping config: {e}")
+        # Backward compatibility: expose serial property
+        self.serial = self.shared_connection.get_serial()
+        self.connected = self.shared_connection.is_connected()
         
-        # Phase 5: Device Stealth - Raw Input API Bypass
-        self.device_stealth = None
-        try:
-            from src.common.device_stealth import get_device_stealth
-            self.device_stealth = get_device_stealth(enabled=True)
-            log.info("Device Stealth initialized (Phase 5: Advanced Stealth)")
-        except Exception as e:
-            log.warning(f"Failed to initialize Device Stealth: {e}")
-        
-        # Try connect on initialization
-        self._connect()
-        
-        # Log remapping status
-        if self.key_mapping:
-            log.info(f"Key remapping: {len(self.key_mapping)} mappings, Status: {'ENABLED' if self.remapping_enabled else 'DISABLED'}")
-            for orig, mapped in self.key_mapping.items():
-                log.debug(f"  {orig} → {mapped}")
+        log.info("[ArduinoSerialOutput] ✅ Initialized using SharedArduinoConnection")
+        log.info(f"[ArduinoSerialOutput] Connection status: {'CONNECTED' if self.connected else 'DISCONNECTED'}")
+        if self.connected:
+            log.info(f"[ArduinoSerialOutput] COM Port: {self.com_port}, Baudrate: {self.baudrate}")
     
-    def _find_arduino_ports(self) -> list:
-        """
-        Tìm tất cả COM ports có thể là Arduino
-        
-        Returns:
-            List of COM port names
-        """
-        ports = []
-        try:
-            for port in serial.tools.list_ports.comports():
-                ports.append(port.device)
-                # Log port info for debugging
-                log.debug(f"Found COM port: {port.device} - {port.description}")
-        except Exception as e:
-            log.warning(f"Failed to list COM ports: {e}")
-        
-        return ports
-    
-    def _connect(self) -> bool:
-        """
-        Kết nối đến Arduino qua Serial
-        
-        Returns:
-            True nếu kết nối thành công, False nếu thất bại
-        """
-        if self.serial and self.serial.is_open:
-            # Already connected
-            return True
-        
-        # Determine ports to try
-        if self.com_port:
-            # Use specified port
-            ports_to_try = [self.com_port]
-            log.info(f"Attempting to connect to specified COM port: {self.com_port}")
-        else:
-            # Auto-detect: try all available ports
-            ports_to_try = self._find_arduino_ports()
-            log.info(f"Auto-detecting Arduino COM port from {len(ports_to_try)} available ports")
-        
-        if not ports_to_try:
-            log.error("No COM ports found")
-            self.connected = False
-            return False
-        
-        # Try each port
-        for port in ports_to_try:
-            try:
-                log.debug(f"Trying to connect to {port}...")
-                self.serial = serial.Serial(
-                    port,
-                    self.baudrate,
-                    timeout=0.1,
-                    write_timeout=0.1,
-                    inter_byte_timeout=0.01
-                )
-                
-                # Wait for Arduino to initialize
-                time.sleep(0.5)
-                
-                # Flush any existing data
-                self.serial.flush()
-                
-                self.connected = True
-                self.com_port = port
-                
-                # Log successful connection with detailed info
-                device_stealth_status = "Enabled" if (self.device_stealth and getattr(self.device_stealth, 'enabled', False)) else "Disabled"
-                
-                log.info("=" * 60)
-                log.info("✅ ARDUINO CONNECTION SUCCESSFUL")
-                log.info(f"   Port: {port}")
-                log.info(f"   Baudrate: {self.baudrate}")
-                log.info(f"   Device Stealth: {device_stealth_status} (Phase 5: Advanced Stealth)")
-                log.info(f"   Key Remapping: {'Enabled' if self.remapping_enabled else 'Disabled'}")
-                if self.key_mapping:
-                    log.info(f"   Remapping Keys: {len(self.key_mapping)} mappings")
-                log.info("=" * 60)
-                
-                return True
-                
-            except serial.SerialException as e:
-                log.debug(f"Failed to connect to {port}: {e}")
-                continue
-            except Exception as e:
-                log.warning(f"Unexpected error connecting to {port}: {e}")
-                continue
-        
-        # Failed to connect to all ports
-        log.error(f"❌ Failed to connect to Arduino on any of {len(ports_to_try)} ports")
-        self.connected = False
-        return False
-    
-    def _map_key(self, key: str) -> str:
-        """
-        Map vkeys key name sang Arduino key name
-        
-        Args:
-            key: vkeys key name (lowercase)
-        
-        Returns:
-            Arduino key name, hoặc original key nếu không có mapping
-        """
-        key_lower = key.lower()
-        
-        # Step 1: Apply key remapping (game customization) if enabled
-        if self.remapping_enabled and self.key_mapping:
-            original_key = key_lower
-            if key_lower in self.key_mapping:
-                key_lower = self.key_mapping[key_lower]
-                self.stats['total_remapped'] += 1
-                log.debug(f"Key remapping: '{original_key}' → '{key_lower}'")
-        
-        # Step 2: Map vkeys key name to Arduino key name (system mapping)
-        arduino_key = VKEYS_TO_ARDUINO.get(key_lower, key_lower)
-        
-        # Log mapping for debugging
-        if arduino_key != key_lower:
-            log.debug(f"Key mapping: '{key_lower}' → '{arduino_key}'")
-        
-        return arduino_key
+    # Removed _find_arduino_ports, _connect, _map_key - now handled by SharedArduinoConnection
     
     def toggle_remapping(self):
         """
         Toggle key remapping on/off
         """
-        self.remapping_enabled = not self.remapping_enabled
-        status = "ENABLED" if self.remapping_enabled else "DISABLED"
-        log.info(f"Key remapping: {status}")
+        self.shared_connection.toggle_remapping()
+        self.remapping_enabled = self.shared_connection.remapping_enabled
     
     def set_remapping(self, enabled: bool):
         """
@@ -284,13 +81,13 @@ class ArduinoSerialOutput:
         Args:
             enabled: True to enable remapping, False to disable
         """
-        self.remapping_enabled = enabled
-        status = "ENABLED" if self.remapping_enabled else "DISABLED"
-        log.info(f"Key remapping: {status}")
+        self.shared_connection.set_remapping(enabled)
+        self.remapping_enabled = self.shared_connection.remapping_enabled
     
     def send_command(self, action: str, key: str = None) -> bool:
         """
         Gửi command đến Arduino: 'down:a\n' hoặc 'up:a\n'
+        Sử dụng SharedArduinoConnection (thread-safe)
         
         Args:
             action: 'down', 'up', hoặc 'all_up'
@@ -299,67 +96,24 @@ class ArduinoSerialOutput:
         Returns:
             True nếu gửi thành công, False nếu thất bại
         """
-        # Validate input
-        if action not in ['down', 'up', 'all_up']:
-            log.warning(f"Invalid action: {action}")
+        # Update connected status from shared connection
+        old_connected = self.connected
+        self.connected = self.shared_connection.is_connected()
+        self.serial = self.shared_connection.get_serial()
+        
+        # Log connection status change
+        if old_connected != self.connected:
+            log.info(f"[ArduinoSerialOutput] Connection status changed: {'CONNECTED' if self.connected else 'DISCONNECTED'}")
+        
+        if not self.connected:
+            log.debug(f"[ArduinoSerialOutput] Not connected, cannot send command: {action}:{key if key else 'all_up'}")
             return False
         
-        if action != 'all_up' and (not key or not key.strip()):
-            log.warning(f"Key required for action '{action}'")
-            return False
-        
-        if not self.connected or not self.serial or not self.serial.is_open:
-            # Try reconnect
-            if not self._connect():
-                return False
-            # If reconnect successful, continue to send command
-        
-        try:
-            # Handle special command
-            if action == 'all_up':
-                command = "all_up\n"
-            else:
-                # Map key name
-                arduino_key = self._map_key(key)
-                command = f"{action}:{arduino_key}\n"
-            
-            # Phase 5: Device Fingerprinting Bypass - Add random timing variation
-            # Add small random delay (0.1-2ms) để tránh fingerprinting patterns
-            import random
-            import time
-            random_delay = random.uniform(0.0001, 0.002)  # 0.1-2ms
-            time.sleep(random_delay)
-            
-            # Send command
-            self.serial.write(command.encode('utf-8'))
-            self.serial.flush()  # Ensure command is sent immediately
-            
-            # Phase 5: Device Stealth - Monitor device properties
-            if self.device_stealth:
-                try:
-                    devices = self.device_stealth.get_raw_input_devices()
-                    arduino_devices = [d for d in devices if d.get('is_arduino', False)]
-                    if arduino_devices:
-                        for device in arduino_devices:
-                            self.device_stealth.spoof_device_properties(
-                                device['handle'],
-                                spoofed_name="USB Keyboard"
-                            )
-                except Exception as e:
-                    log.debug(f"Device stealth monitoring error: {e}")
-            
-            log.debug(f"Sent command: {command.strip()}")
-            return True
-            
-        except serial.SerialException as e:
-            log.error(f"Serial error sending command: {e}")
-            self.connected = False
-            # Try reconnect
-            self._connect()
-            return False
-        except Exception as e:
-            log.error(f"Unexpected error sending command: {e}")
-            return False
+        # Forward to shared connection
+        result = self.shared_connection.send_command(action, key)
+        if not result:
+            log.debug(f"[ArduinoSerialOutput] Failed to send command: {action}:{key if key else 'all_up'}")
+        return result
     
     def press(self, key: str, n: int = 1, down_time: float = 0.05, up_time: float = 0.1):
         """
@@ -376,6 +130,11 @@ class ArduinoSerialOutput:
         
         # Check if bot is enabled (same as vkeys.press())
         if not config.enabled:
+            return
+        
+        # Update connected status
+        self.connected = self.shared_connection.is_connected()
+        if not self.connected:
             return
         
         key = key.lower()
@@ -421,6 +180,11 @@ class ArduinoSerialOutput:
         Args:
             key: Key name
         """
+        # Update connected status
+        self.connected = self.shared_connection.is_connected()
+        if not self.connected:
+            return
+        
         key = key.lower()
         self.send_command('down', key)
     
@@ -431,6 +195,11 @@ class ArduinoSerialOutput:
         Args:
             key: Key name
         """
+        # Update connected status
+        self.connected = self.shared_connection.is_connected()
+        if not self.connected:
+            return
+        
         key = key.lower()
         self.send_command('up', key)
     
@@ -591,34 +360,21 @@ class ArduinoSerialOutput:
         """
         Release all keys (emergency cleanup)
         """
-        if self.connected and self.serial and self.serial.is_open:
-            try:
-                self.serial.write(b"all_up\n")
-                self.serial.flush()
-                log.debug("Sent command: all_up")
-            except Exception as e:
-                log.error(f"Failed to send all_up command: {e}")
+        self.shared_connection.send_all_up()
     
     def disconnect(self):
         """
         Disconnect from Arduino
+        NOTE: Shared connection will remain open if other components are using it
         """
-        if self.serial and self.serial.is_open:
-            try:
-                # Release all keys before disconnecting
-                self.release_all()
-                time.sleep(0.1)
-                
-                # Close serial connection
-                self.serial.close()
-                log.info("Disconnected from Arduino")
-            except Exception as e:
-                log.error(f"Error disconnecting from Arduino: {e}")
-            finally:
-                self.connected = False
-                self.serial = None
+        # Don't disconnect shared connection - other components might be using it
+        # Just update local state
+        self.connected = False
+        self.serial = None
+        log.debug("ArduinoSerialOutput disconnected (shared connection remains active)")
     
     def __del__(self):
         """Cleanup on deletion"""
+        # Don't disconnect shared connection - just clear local references
         self.disconnect()
 

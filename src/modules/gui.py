@@ -90,8 +90,32 @@ class GUI:
         layout_thread = threading.Thread(target=self._save_layout)
         layout_thread.daemon = True
         layout_thread.start()
+        
+        # Refresh VMware Receiver status periodically
+        vmware_status_thread = threading.Thread(target=self._refresh_vmware_status)
+        vmware_status_thread.daemon = True
+        vmware_status_thread.start()
 
         self.root.mainloop()
+    
+    def _refresh_vmware_status(self):
+        """Periodically refresh VMware Receiver status in GUI"""
+        import time
+        while True:
+            try:
+                # Refresh status every 2 seconds
+                time.sleep(2.0)
+                if hasattr(config, 'gui') and config.gui:
+                    if hasattr(config.gui, 'settings') and config.gui.settings:
+                        if hasattr(config.gui.settings, 'vmware_receiver') and config.gui.settings.vmware_receiver:
+                            try:
+                                config.gui.settings.vmware_receiver.refresh_status()
+                            except Exception as e:
+                                # Ignore errors during refresh (widget might be destroyed)
+                                pass
+            except Exception as e:
+                # Silently ignore errors to avoid spamming logs
+                pass
 
     def _display_minimap(self):
         delay = 1 / GUI.DISPLAY_FRAME_RATE
