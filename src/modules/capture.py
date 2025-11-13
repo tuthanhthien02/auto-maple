@@ -17,10 +17,8 @@ user32 = ctypes.windll.user32
 
 MM_TL_TEMPLATE = cv2.imread("assets/minimap_tl_template.png", 0)
 MM_BR_TEMPLATE = cv2.imread("assets/minimap_br_template.png", 0)
-PLAYER_TEMPLATES = [
-    ("player_template_new.png", cv2.imread("assets/player_template_new.png", 0)),
-    ("player_template.png", cv2.imread("assets/player_template.png", 0)),
-]
+PLAYER_TEMPLATE = cv2.imread("assets/player_template_new.png", 0)
+PLAYER_THRESHOLD = 0.55
 
 MINIMAP_TOP_BORDER = 3
 MINIMAP_BOTTOM_BORDER = 3
@@ -383,20 +381,13 @@ class Capture:
                                     minimap_bgr, cv2.COLOR_BGR2GRAY
                                 )
 
-                                player = []
-                                for name, tpl in PLAYER_TEMPLATES:
-                                    thr = 0.6
-                                    if name.endswith("player_template_new.png"):
-                                        thr = 0.55
-                                    player = utils.multi_match(
-                                        minimap_gray,
-                                        tpl,
-                                        threshold=thr,
-                                        is_gray=True,
-                                        max_results=1,
-                                    )
-                                    if player:
-                                        break
+                                player = utils.multi_match(
+                                    minimap_gray,
+                                    PLAYER_TEMPLATE,
+                                    threshold=PLAYER_THRESHOLD,
+                                    is_gray=True,
+                                    max_results=1,
+                                )
 
                                 if player:
                                     new_pos = utils.convert_to_relative(
