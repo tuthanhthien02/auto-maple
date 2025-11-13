@@ -8,9 +8,13 @@ import cv2
 import pygame
 import threading
 import numpy as np
-import keyboard as kb
 from src.routine.components import Point
 from src.common.logger import get_logger
+
+try:
+    import keyboard as kb  # noqa: WPS433
+except ImportError:  # pragma: no cover
+    kb = None  # type: ignore
 
 log = get_logger(__name__)
 
@@ -203,15 +207,24 @@ class Notifier:
         """
 
         config.enabled = False
-        config.listener.enabled = False
+        listener = getattr(config, "listener", None)
+        if listener is not None:
+            listener.enabled = False
         self.mixer.load(get_asset_path(os.path.join(self.ALERTS_DIR, f"{name}.mp3")))
         self.mixer.set_volume(volume)
         self.mixer.play(-1)
-        while not kb.is_pressed(config.listener.config["Start/stop"]):
-            time.sleep(0.1)
+        if config.enable_keyboard_listener and kb is not None and listener is not None:
+            while not kb.is_pressed(listener.config["Start/stop"]):
+                time.sleep(0.1)
+        else:
+            log.warning(
+                "Keyboard listener disabled; stopping alert automatically (no hotkey)."
+            )
+            time.sleep(2)
         self.mixer.stop()
         time.sleep(2)
-        config.listener.enabled = True
+        if listener is not None:
+            listener.enabled = True
 
     def _ping(self, name, volume=0.5):
         """A quick notification for non-dangerous events."""

@@ -218,38 +218,47 @@ class Status(LabelFrame):
         try:
             # Check if Arduino is enabled in config
             use_arduino = getattr(config, "use_arduino", False)
+            status = None
 
             if not use_arduino:
-                self.input_method_var.set("SendInput")
-                return
+                status = "SendInput"
+            else:
+                # Try to get Arduino connection status
+                try:
+                    from src.common.vkeys import _get_arduino_output
 
-            # Try to get Arduino connection status
-            try:
-                from src.common.vkeys import _get_arduino_output
+                    arduino = _get_arduino_output()
 
-                arduino = _get_arduino_output()
+                    if arduino and hasattr(arduino, "connected") and arduino.connected:
+                        # Get COM port if available
+                        try:
+                            from src.common.shared_arduino_connection import (
+                                SharedArduinoConnection,
+                            )
 
-                if arduino and hasattr(arduino, "connected") and arduino.connected:
-                    # Get COM port if available
-                    try:
-                        from src.common.shared_arduino_connection import (
-                            SharedArduinoConnection,
-                        )
+                            shared_conn = SharedArduinoConnection()
+                            com_port = getattr(shared_conn, "com_port", None)
+                            if com_port:
+                                status = f"Arduino ({com_port})"
+                            else:
+                                status = "Arduino (Connected)"
+                        except Exception:
+                            status = "Arduino (Connected)"
+                    else:
+                        # Arduino enabled but not connected - fallback to SendInput
+                        status = "SendInput (Arduino failed)"
+                except Exception:
+                    # If we can't check Arduino status, assume SendInput
+                    status = "SendInput"
 
-                        shared_conn = SharedArduinoConnection()
-                        com_port = getattr(shared_conn, "com_port", None)
-                        if com_port:
-                            self.input_method_var.set(f"Arduino ({com_port})")
-                        else:
-                            self.input_method_var.set("Arduino (Connected)")
-                    except Exception:
-                        self.input_method_var.set("Arduino (Connected)")
-                else:
-                    # Arduino enabled but not connected - fallback to SendInput
-                    self.input_method_var.set("SendInput (Arduino failed)")
-            except Exception:
-                # If we can't check Arduino status, assume SendInput
-                self.input_method_var.set("SendInput")
+            if not config.enable_keyboard_listener:
+                hook_note = "Keyboard hook off"
+                status = f"{status} | {hook_note}" if status else hook_note
+
+            if not status:
+                status = "Unknown"
+
+            self.input_method_var.set(status)
         except Exception:
             # Silently handle errors to avoid spamming
             pass

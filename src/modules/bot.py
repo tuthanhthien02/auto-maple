@@ -102,7 +102,8 @@ class Bot(Configurable):
         log.info("Detection algorithm disabled (rune solving off)")
 
         self.ready = True
-        config.listener.enabled = True
+        if getattr(config, "listener", None) is not None:
+            config.listener.enabled = True
         last_activity_update = time.time()
 
         # Variant switching - DISABLED

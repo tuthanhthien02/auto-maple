@@ -68,7 +68,8 @@ class Bot(Configurable):
         print("\n[~] Initialized detection algorithm")
 
         self.ready = True
-        config.listener.enabled = True
+        if getattr(config, "listener", None) is not None:
+            config.listener.enabled = True
         last_fed = time.time()
         while True:
             if config.enabled and len(config.routine) > 0:

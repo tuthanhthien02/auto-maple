@@ -3,11 +3,15 @@
 import time
 import threading
 import winsound
-import keyboard as kb
+from datetime import datetime
 from src.common.interfaces import Configurable
 from src.common import config, utils
-from datetime import datetime
 from src.common.logger import get_logger
+
+try:
+    import keyboard as kb  # noqa: WPS433
+except ImportError:  # pragma: no cover
+    kb = None  # type: ignore
 
 log = get_logger(__name__)
 
@@ -31,12 +35,20 @@ class Listener(Configurable):
         self.block_time = 0
         self.thread = threading.Thread(target=self._main)
         self.thread.daemon = True
+        self.hook_enabled = config.enable_keyboard_listener and kb is not None
 
     def start(self):
         """
         Starts listening to user inputs.
         :return:    None
         """
+
+        if not self.hook_enabled:
+            self.ready = True
+            log.info(
+                "Keyboard listener disabled via config; use GUI or VMware Receiver controls."
+            )
+            return
 
         log.info("Started keyboard listener")
         self.thread.start()
@@ -47,6 +59,9 @@ class Listener(Configurable):
         :return:    None
         """
 
+        if not self.hook_enabled:
+            return
+
         self.ready = True
         consecutive_errors = 0
         max_consecutive_errors = 10
@@ -54,6 +69,9 @@ class Listener(Configurable):
         while True:
             try:
                 if self.enabled:
+                    if kb is None:
+                        time.sleep(0.05)
+                        continue
                     if kb.is_pressed(self.config["Start/stop"]):
                         Listener.toggle_enabled()
                     elif kb.is_pressed(self.config["Reload routine"]):
@@ -93,6 +111,9 @@ class Listener(Configurable):
 
     def restricted_pressed(self, action):
         """Returns whether the key bound to ACTION is pressed only if the bot is disabled."""
+
+        if not self.hook_enabled or kb is None:
+            return False
 
         if kb.is_pressed(self.config[action]):
             if not config.enabled:

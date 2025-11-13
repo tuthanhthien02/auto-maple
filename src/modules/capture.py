@@ -92,9 +92,23 @@ class Capture:
         return True
 
     def recalibrate_minimap(self):
-        """Request minimap recalibration without restarting the module."""
+        """Request minimap recalibration without restarting the module.
+
+        Returns:
+            bool: True if the recalibration request was accepted, False otherwise.
+        """
+        if not self.ready:
+            log.warning("⚠️  Cannot recalibrate minimap: capture module not ready yet")
+            return False
+
+        # If we're already calibrating, just acknowledge the request.
+        if not self.calibrated:
+            log.info("📍 Recalibration already in progress")
+            return True
+
         self._recalibrate_requested = True
         log.info("📍 Minimap recalibration requested")
+        return True
 
     def _main(self):
         """

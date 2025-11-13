@@ -43,6 +43,9 @@ capture = None
 # Shares the keyboard listener
 listener = None
 
+# Enable/disable global keyboard listener (uses low-level hook)
+enable_keyboard_listener = True
+
 # Shares the gui to all modules
 gui = None
 

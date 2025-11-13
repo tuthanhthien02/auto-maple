@@ -69,14 +69,19 @@ while not notifier.ready:
 log.info("✅ Notifier module ready")
 
 listener.start()
-elapsed = 0
-while not listener.ready:
-    time.sleep(0.1)
-    elapsed += 0.1
-    if elapsed >= timeout:
-        log.error("❌ Listener module failed to initialize within %d seconds", timeout)
-        raise TimeoutError("Listener module initialization timeout")
-log.info("✅ Listener module ready")
+if config.enable_keyboard_listener:
+    elapsed = 0
+    while not listener.ready:
+        time.sleep(0.1)
+        elapsed += 0.1
+        if elapsed >= timeout:
+            log.error(
+                "❌ Listener module failed to initialize within %d seconds", timeout
+            )
+            raise TimeoutError("Listener module initialization timeout")
+    log.info("✅ Listener module ready")
+else:
+    log.info("🔕 Keyboard listener disabled by configuration")
 
 log.info("")
 log.info("=" * 80)
