@@ -119,9 +119,12 @@ class Capture:
         mss.windows.CAPTUREBLT = 0
         consecutive_calibration_errors = 0
         max_calibration_errors = 20
+        calibration_attempts = 0
+        max_calibration_attempts = 60  # 60 attempts * 0.5s = 30 seconds before giving up
         
         while True:
             try:
+                calibration_attempts += 1
                 # Calibrate screen capture (try MapleStory N first, then MapleStory)
                 handle = None
                 for title in ['MapleStory N', 'MapleStory']:
@@ -132,8 +135,17 @@ class Capture:
                         break
                 
                 if not handle:
-                    if DEBUG:
-                        log.debug("MapleStory window not found, retrying...")
+                    if calibration_attempts % 10 == 0:  # Log every 5 seconds (10 attempts * 0.5s)
+                        log.warning("⚠️  MapleStory window not found (attempt %d/%d). Please open MapleStory game.", 
+                                   calibration_attempts, max_calibration_attempts)
+                    elif calibration_attempts == 1:
+                        log.info("🔍 Searching for MapleStory window...")
+                    if calibration_attempts >= max_calibration_attempts:
+                        log.error("❌ Failed to find MapleStory window after %d attempts", max_calibration_attempts)
+                        log.error("   Please ensure MapleStory is running and try again")
+                        # Set ready anyway to allow bot to continue (capture will retry in background)
+                        self.ready = True
+                        break
                     time.sleep(0.5)
                     continue
                 

@@ -29,20 +29,49 @@ listener = Listener()
 
 log.info("📦 Initializing modules...")
 bot.start()
+timeout = 30  # 30 seconds timeout
+elapsed = 0
 while not bot.ready:
-    time.sleep(0.01)
+    time.sleep(0.1)
+    elapsed += 0.1
+    if elapsed >= timeout:
+        log.error("❌ Bot module failed to initialize within %d seconds", timeout)
+        raise TimeoutError("Bot module initialization timeout")
+log.info("✅ Bot module ready")
 
 capture.start()
+elapsed = 0
 while not capture.ready:
-    time.sleep(0.01)
+    time.sleep(0.1)
+    elapsed += 0.1
+    if elapsed >= timeout:
+        log.warning("⚠️  Capture module not ready after %d seconds (MapleStory window may not be found)", timeout)
+        log.warning("   Continuing anyway - capture will retry in background...")
+        break
+if capture.ready:
+    log.info("✅ Capture module ready")
+else:
+    log.warning("⚠️  Capture module not ready - will retry in background")
 
 notifier.start()
+elapsed = 0
 while not notifier.ready:
-    time.sleep(0.01)
+    time.sleep(0.1)
+    elapsed += 0.1
+    if elapsed >= timeout:
+        log.error("❌ Notifier module failed to initialize within %d seconds", timeout)
+        raise TimeoutError("Notifier module initialization timeout")
+log.info("✅ Notifier module ready")
 
 listener.start()
+elapsed = 0
 while not listener.ready:
-    time.sleep(0.01)
+    time.sleep(0.1)
+    elapsed += 0.1
+    if elapsed >= timeout:
+        log.error("❌ Listener module failed to initialize within %d seconds", timeout)
+        raise TimeoutError("Listener module initialization timeout")
+log.info("✅ Listener module ready")
 
 log.info("")
 log.info("=" * 80)
