@@ -1315,10 +1315,10 @@ class Routine:
 
         # Compile and Link
         try:
-            self.compile(file)
-            for c in self.sequence:
-                if isinstance(c, Jump):
-                    c.bind()
+        self.compile(file)
+        for c in self.sequence:
+            if isinstance(c, Jump):
+                c.bind()
         except Exception as e:
             log.error(f"Error compiling routine: {e}")
             import traceback
@@ -1331,7 +1331,7 @@ class Routine:
         
         # Load layout
         try:
-            config.layout = Layout.load(file)
+        config.layout = Layout.load(file)
         except Exception as e:
             log.warning(f"Failed to load layout: {e}")
             config.layout = None
@@ -1340,9 +1340,9 @@ class Routine:
         try:
             if hasattr(config, 'gui') and config.gui:
                 if hasattr(config.gui, 'view') and hasattr(config.gui.view, 'status'):
-                    config.gui.view.status.set_routine(basename(file))
+        config.gui.view.status.set_routine(basename(file))
                 if hasattr(config.gui, 'edit') and hasattr(config.gui.edit, 'minimap'):
-                    config.gui.edit.minimap.draw_default()
+        config.gui.edit.minimap.draw_default()
         except Exception as e:
             log.warning(f"Failed to update GUI after loading routine: {e}")
         
@@ -1390,20 +1390,20 @@ class Routine:
         self.labels = {}
         try:
             with open(file, newline='', encoding='utf-8') as f:
-                csv_reader = csv.reader(f, skipinitialspace=True)
-                curr_point = None
-                line = 1
-                for row in csv_reader:
-                    result = self._eval(row, line)
-                    if result:
-                        if isinstance(result, Command):
-                            if curr_point:
-                                curr_point.commands.append(result)
-                        else:
-                            self.append_component(result)
-                            if isinstance(result, Point):
-                                curr_point = result
-                    line += 1
+            csv_reader = csv.reader(f, skipinitialspace=True)
+            curr_point = None
+            line = 1
+            for row in csv_reader:
+                result = self._eval(row, line)
+                if result:
+                    if isinstance(result, Command):
+                        if curr_point:
+                            curr_point.commands.append(result)
+                    else:
+                        self.append_component(result)
+                        if isinstance(result, Point):
+                            curr_point = result
+                line += 1
         except FileNotFoundError:
             log.error(f"Routine file not found: {file}")
             raise

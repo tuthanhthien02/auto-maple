@@ -6,6 +6,15 @@ from src.common import config
 class Details(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Details', **kwargs)
+        
+        # Get view_instance from parent (scroll_content) or config.gui
+        if hasattr(parent, 'view_instance'):
+            self.view_instance = parent.view_instance
+        elif hasattr(config, 'gui') and hasattr(config.gui, 'view'):
+            self.view_instance = config.gui.view
+        else:
+            self.view_instance = parent
+        
         self.name_var = tk.StringVar()
 
         self.name = tk.Entry(self, textvariable=self.name_var, justify=tk.CENTER, state=tk.DISABLED)
@@ -31,11 +40,21 @@ class Details(LabelFrame):
 
     def update_details(self):
         """Updates Details to show info about the current selection."""
-
-        selects = self.parent.routine.listbox.curselection()
-        if len(selects) > 0:
-            self.display_info(int(selects[0]))
-        else:
+        try:
+            # Access routine through view_instance
+            if hasattr(self.view_instance, 'routine') and hasattr(self.view_instance.routine, 'listbox'):
+                selects = self.view_instance.routine.listbox.curselection()
+                if len(selects) > 0:
+                    self.display_info(int(selects[0]))
+                else:
+                    self.clear_info()
+            else:
+                self.clear_info()
+        except Exception as e:
+            # If anything fails, just clear info
+            from src.common.logger import get_logger
+            log = get_logger(__name__)
+            log.debug(f"Error updating details: {e}")
             self.clear_info()
 
     def display_info(self, index):
