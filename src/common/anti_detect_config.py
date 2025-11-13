@@ -132,6 +132,20 @@ ANTI_DETECT_CONFIG = {
             'observability': {
                 'log_every_loops': 10
             }
+        },
+        'dynamic_paths': {
+            'enabled': False,
+            'path_count': 4,
+            'generation_strategy': 'random_skip',
+            'skip_percentage_range': [0.1, 0.3],
+            'selection_mode': 'transition_matrix',
+            'switch_interval': {
+                'min_loops': 2,
+                'max_loops': 5
+            },
+            'transition_matrix': {
+                'auto': True
+            }
         }
     }
 }
