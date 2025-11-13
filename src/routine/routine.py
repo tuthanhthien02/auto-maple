@@ -142,15 +142,30 @@ class Routine:
             
             # Load Point Selection settings
             self.skip_enabled = settings.get('Point Selection Enabled')
-            self.skip_probability = settings.get('Point Selection Skip Probability')
+            skip_prob_raw = settings.get('Point Selection Skip Probability')
+            # Ensure skip_probability is a float
+            try:
+                self.skip_probability = float(skip_prob_raw) if skip_prob_raw is not None else self.skip_probability
+            except (ValueError, TypeError):
+                log.warning("Invalid skip_probability value: %s, using default", skip_prob_raw)
             
             # Load Random Backward settings
             self.backward_enabled = settings.get('Random Backward Enabled')
-            self.backward_probability = settings.get('Random Backward Probability')
+            backward_prob_raw = settings.get('Random Backward Probability')
+            # Ensure backward_probability is a float
+            try:
+                self.backward_probability = float(backward_prob_raw) if backward_prob_raw is not None else self.backward_probability
+            except (ValueError, TypeError):
+                log.warning("Invalid backward_probability value: %s, using default", backward_prob_raw)
             
             # Load Routine Pattern settings
             self.variant_enabled = settings.get('Routine Pattern Enabled')
-            self.floor_variant_chance = settings.get('Routine Pattern Floor Only Chance')
+            floor_variant_chance_raw = settings.get('Routine Pattern Floor Only Chance')
+            # Ensure floor_variant_chance is a float
+            try:
+                self.floor_variant_chance = float(floor_variant_chance_raw) if floor_variant_chance_raw is not None else self.floor_variant_chance
+            except (ValueError, TypeError):
+                log.warning("Invalid floor_variant_chance value: %s, using default", floor_variant_chance_raw)
         except Exception as e:
             # Settings might not be available yet, use defaults
             log.debug("Could not load randomization settings: %s", e)
@@ -170,17 +185,27 @@ class Routine:
 
     def _load_point_selection_defaults(self):
         self.skip_enabled = is_feature_enabled('routine_randomization.point_selection.enabled')
-        self.skip_probability = get_feature_value(
+        skip_prob_raw = get_feature_value(
             'routine_randomization.point_selection.skip_probability',
             self.skip_probability
         )
+        # Ensure skip_probability is a float
+        try:
+            self.skip_probability = float(skip_prob_raw) if skip_prob_raw is not None else self.skip_probability
+        except (ValueError, TypeError):
+            log.warning("Invalid skip_probability from config: %s, using default", skip_prob_raw)
 
     def _load_pattern_defaults(self):
         self.variant_enabled = is_feature_enabled('routine_randomization.routine_pattern.enabled')
-        self.floor_variant_chance = get_feature_value(
+        floor_variant_chance_raw = get_feature_value(
             'routine_randomization.routine_pattern.floor_variant_chance',
             self.floor_variant_chance
         )
+        # Ensure floor_variant_chance is a float
+        try:
+            self.floor_variant_chance = float(floor_variant_chance_raw) if floor_variant_chance_raw is not None else self.floor_variant_chance
+        except (ValueError, TypeError):
+            log.warning("Invalid floor_variant_chance from config: %s, using default", floor_variant_chance_raw)
 
     def _load_command_sequence_defaults(self):
         seq_cfg = get_feature_value('routine_randomization.command_sequence', {}) or {}
@@ -937,9 +962,11 @@ class Routine:
             return False
 
         roll = random.random()
-        if roll >= self.floor_variant_chance:
+        # Ensure floor_variant_chance is a float
+        floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
+        if roll >= floor_chance:
             log.debug("Routine Pattern Variation: Floor-only chance skipped (chance: %.2f, roll: %.3f)", 
-                      self.floor_variant_chance, roll)
+                      floor_chance, roll)
             return False
 
         variant = self._choose_floor_variant()
@@ -955,8 +982,10 @@ class Routine:
         
         # Log floor indices for debugging
         floor_indices = self.floor1_indices if variant == 'floor1_only' else self.floor2_indices
+        # Ensure floor_variant_chance is a float before logging
+        floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
         log.info("🛗 Routine Pattern Variation: Activated floor-only variant '%s' for %d loop(s) (chance: %.0f%%, roll: %.3f)", 
-                 variant, self.variant_switch_interval, self.floor_variant_chance * 100, roll)
+                 variant, self.variant_switch_interval, floor_chance * 100, roll)
         log.info("🛗 Floor-only: Floor indices: %s (total: %d points), Starting at index %d, Direction: %s", 
                  floor_indices, len(floor_indices), self.index, self.floor_direction)
         return True
@@ -1354,10 +1383,15 @@ class Routine:
         label_count = sum(1 for item in self.sequence if isinstance(item, Label))
         log.info("📊 Routine Loaded: %d Points, %d Jumps, %d Labels, %d Total Components", 
                 point_count, jump_count, label_count, len(self.sequence))
+        
+        # Ensure skip_probability and backward_probability are floats
+        skip_prob = float(self.skip_probability) if self.skip_probability else 0.0
+        backward_prob = float(self.backward_probability) if self.backward_probability else 0.0
+        
         log.info("🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)", 
-                self.skip_probability * 100, self.max_consecutive_skips)
+                skip_prob * 100, self.max_consecutive_skips)
         log.info("⏮️ Random Move Backward: Ready (%.1f%% backward probability, range %d-%d steps)", 
-                self.backward_probability * 100, self.backward_range[0], self.backward_range[1])
+                backward_prob * 100, self.backward_range[0], self.backward_range[1])
         
         # Reload randomization settings when loading routine
         self._load_randomization_settings()
@@ -1370,8 +1404,10 @@ class Routine:
             self.index = self._get_variant_start_index()
             log.info("🔄 Routine Pattern Variation: Initialized with variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                     self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+            # Ensure floor_variant_chance is a float before logging
+            floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
             log.info("🛗 Routine Pattern Variation: Floor-only activation chance %.0f%%, loop range %d-%d", 
-                     self.floor_variant_chance * 100, self.floor_variant_loop_range[0], self.floor_variant_loop_range[1])
+                     floor_chance * 100, self.floor_variant_loop_range[0], self.floor_variant_loop_range[1])
         
         # Initialize Dynamic Paths
         if self.dynamic_paths_enabled:
