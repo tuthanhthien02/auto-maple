@@ -41,6 +41,9 @@ class Capture:
     A class that handles screen capture and minimap detection.
     """
 
+    LOCAL_SEARCH_X = 0.18
+    LOCAL_SEARCH_Y = 0.24
+
     def __init__(self):
         self.window = {"left": 0, "top": 0, "width": MMT_WIDTH, "height": MMT_HEIGHT}
         config.capture = self
@@ -88,6 +91,25 @@ class Capture:
             )
             return False
         return True
+
+    @staticmethod
+    def _is_player_marker(minimap, point):
+        """
+        Validate that POINT (absolute pixel coordinates) resembles player marker.
+        """
+
+        if minimap is None or minimap.size == 0:
+            return False
+
+        h, w = minimap.shape[:2]
+        x = int(np.clip(point[0], 1, w - 2))
+        y = int(np.clip(point[1], 1, h - 2))
+        patch = minimap[y - 1 : y + 2, x - 1 : x + 2]
+        if patch.size == 0:
+            return False
+        b, g, r = patch.reshape(-1, 3).mean(axis=0)
+        # Expect bright yellow center (high R/G, low B) for player marker
+        return r > 185 and g > 160 and b < 140
 
     def recalibrate_minimap(self):
         """Request minimap recalibration without restarting the module.
@@ -381,17 +403,55 @@ class Capture:
                                     minimap_bgr, cv2.COLOR_BGR2GRAY
                                 )
 
-                                player = utils.multi_match(
-                                    minimap_gray,
-                                    PLAYER_TEMPLATE,
-                                    threshold=PLAYER_THRESHOLD,
-                                    is_gray=True,
-                                    max_results=1,
-                                )
+                                player = []
+                                if self.last_player_pos is not None:
+                                    approx_abs = utils.convert_to_absolute(
+                                        self.last_player_pos, minimap_bgr
+                                    )
+                                    radius_x = int(
+                                        minimap_bgr.shape[1] * Capture.LOCAL_SEARCH_X
+                                    )
+                                    radius_y = int(
+                                        minimap_bgr.shape[0] * Capture.LOCAL_SEARCH_Y
+                                    )
+                                    x0 = max(approx_abs[0] - radius_x, 0)
+                                    y0 = max(approx_abs[1] - radius_y, 0)
+                                    x1 = min(
+                                        approx_abs[0] + radius_x, minimap_bgr.shape[1]
+                                    )
+                                    y1 = min(
+                                        approx_abs[1] + radius_y, minimap_bgr.shape[0]
+                                    )
+                                    roi = minimap_gray[y0:y1, x0:x1]
+                                    if roi.size > 0:
+                                        local_matches = utils.multi_match(
+                                            roi,
+                                            PLAYER_TEMPLATE,
+                                            threshold=PLAYER_THRESHOLD,
+                                            is_gray=True,
+                                            max_results=1,
+                                        )
+                                        if local_matches:
+                                            mx, my, score = local_matches[0]
+                                            player = [(mx + x0, my + y0, score)]
+
+                                if not player:
+                                    player = utils.multi_match(
+                                        minimap_gray,
+                                        PLAYER_TEMPLATE,
+                                        threshold=PLAYER_THRESHOLD,
+                                        is_gray=True,
+                                        max_results=1,
+                                    )
+
+                                if player and not self._is_player_marker(
+                                    minimap_bgr, player[0][:2]
+                                ):
+                                    player = []
 
                                 if player:
                                     new_pos = utils.convert_to_relative(
-                                        player[0], minimap_bgr
+                                        player[0][:2], minimap_bgr
                                     )
                                     if (
                                         new_pos != self.last_player_pos
