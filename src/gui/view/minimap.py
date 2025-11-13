@@ -30,7 +30,8 @@ class Minimap(LabelFrame):
     def display_minimap(self):
         """Updates the Main page with the current minimap."""
 
-        minimap = config.capture.minimap
+        capture = getattr(config, 'capture', None)
+        minimap = getattr(capture, 'minimap', None) if capture else None
         if minimap:
             rune_active = minimap['rune_active']
             rune_pos = minimap['rune_pos']

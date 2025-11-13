@@ -50,6 +50,7 @@ class Capture:
             'width': MMT_WIDTH,
             'height': MMT_HEIGHT
         }
+        config.capture = self
         self.frame = None
         self.sct = None
         self.minimap_sample = None
