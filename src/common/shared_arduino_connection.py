@@ -94,6 +94,7 @@ class SharedArduinoConnection:
     _instance = None
     _lock = threading.Lock()
     _init_lock = threading.Lock()
+    _last_reuse_log = 0.0
     
     def __new__(cls, *args, **kwargs):
         """Singleton pattern - chỉ tạo một instance"""
@@ -116,11 +117,16 @@ class SharedArduinoConnection:
         """
         # Chỉ init một lần (singleton)
         if hasattr(self, '_initialized'):
-            log.debug("[SharedArduinoConnection] Instance already initialized, reusing existing")
+            now = time.time()
+            if now - self.__class__._last_reuse_log >= 60:
+                log.debug("[SharedArduinoConnection] Instance already initialized, reusing existing")
+                self.__class__._last_reuse_log = now
             return
+
         
         log.info("[SharedArduinoConnection] Initializing shared Arduino connection...")
         self._initialized = True
+        self.__class__._last_reuse_log = time.time()
         self.serial: Optional[serial.Serial] = None
         self.com_port = com_port
         self.baudrate = baudrate
