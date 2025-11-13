@@ -27,8 +27,10 @@ class View(Tab):
         self.details = Details(self._scroll_content)
         self.details.grid(row=2, column=2, sticky=tk.NSEW, padx=10, pady=10)
 
-        # Pass self (View) as parent so Routine can access details
-        self.routine = Routine(self._scroll_content, view_instance=self)
+        # Store reference to View instance in scroll_content for widgets to access
+        self._scroll_content.view_instance = self
+        
+        self.routine = Routine(self._scroll_content)
         self.routine.grid(row=0, column=1, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
     
     def _create_scrollable_frame(self):

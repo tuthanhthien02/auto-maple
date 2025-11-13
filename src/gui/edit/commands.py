@@ -9,10 +9,12 @@ class Commands(Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
         
-        # Get edit_instance from kwargs if provided (for scrollbar support)
-        self.edit_instance = kwargs.pop('edit_instance', None)
-        if self.edit_instance is None:
-            # Fallback: try to get from parent chain
+        # Get edit_instance from parent or config.gui
+        if hasattr(parent, 'edit_instance'):
+            self.edit_instance = parent.edit_instance
+        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+            self.edit_instance = config.gui.edit
+        else:
             self.edit_instance = parent
 
         self.label = tk.Label(self, text='Commands')
@@ -22,7 +24,7 @@ class Commands(Frame):
         self.scroll.pack(side=tk.RIGHT, fill='y', pady=(0, 5))
 
         # Get commands_var from routine or parent chain
-        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+        if hasattr(self.edit_instance, 'routine'):
             commands_var = self.edit_instance.routine.commands_var
         else:
             commands_var = parent.parent.commands_var

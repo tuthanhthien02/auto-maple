@@ -9,10 +9,12 @@ class Record(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Recorded Positions', **kwargs)
         
-        # Get edit_instance from kwargs if provided (for scrollbar support)
-        self.edit_instance = kwargs.pop('edit_instance', None)
-        if self.edit_instance is None:
-            # Fallback: try to get from parent chain
+        # Get edit_instance from parent (scroll_content) or config.gui
+        if hasattr(parent, 'edit_instance'):
+            self.edit_instance = parent.edit_instance
+        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+            self.edit_instance = config.gui.edit
+        else:
             self.edit_instance = parent
 
         self.entries = []

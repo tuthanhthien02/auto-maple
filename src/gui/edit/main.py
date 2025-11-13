@@ -21,21 +21,22 @@ class Edit(Tab):
         self._scroll_content.columnconfigure(0, weight=1)
         self._scroll_content.columnconfigure(4, weight=1)
 
-        # Pass self (Edit) as edit_instance so widgets can access parent attributes
-        self.record = Record(self._scroll_content, edit_instance=self)
+        # Store reference to Edit instance in scroll_content for widgets to access
+        self._scroll_content.edit_instance = self
+        
+        self.record = Record(self._scroll_content)
         self.record.grid(row=2, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.minimap = Minimap(self._scroll_content, edit_instance=self)
+        self.minimap = Minimap(self._scroll_content)
         self.minimap.grid(row=0, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.status = Status(self._scroll_content, edit_instance=self)
+        self.status = Status(self._scroll_content)
         self.status.grid(row=1, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        # Pass self (Edit) as edit_instance so widgets can access parent attributes
-        self.routine = Routine(self._scroll_content, edit_instance=self)
+        self.routine = Routine(self._scroll_content)
         self.routine.grid(row=0, column=1, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.editor = Editor(self._scroll_content, edit_instance=self)
+        self.editor = Editor(self._scroll_content)
         self.editor.grid(row=0, column=2, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
     
     def _create_scrollable_frame(self):
@@ -86,10 +87,12 @@ class Editor(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Editor', **kwargs)
         
-        # Get edit_instance from kwargs if provided (for scrollbar support)
-        self.edit_instance = kwargs.pop('edit_instance', None)
-        if self.edit_instance is None:
-            # Fallback: try to get from parent chain
+        # Get edit_instance from parent (scroll_content) or config.gui
+        if hasattr(parent, 'edit_instance'):
+            self.edit_instance = parent.edit_instance
+        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+            self.edit_instance = config.gui.edit
+        else:
             self.edit_instance = parent
 
         self.columnconfigure(0, minsize=350)

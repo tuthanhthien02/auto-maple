@@ -7,10 +7,12 @@ class Routine(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Routine', **kwargs)
         
-        # Get view_instance from kwargs if provided (for scrollbar support)
-        self.view_instance = kwargs.pop('view_instance', None)
-        if self.view_instance is None:
-            # Fallback: try to get from parent chain
+        # Get view_instance from parent (scroll_content) or config.gui
+        if hasattr(parent, 'view_instance'):
+            self.view_instance = parent.view_instance
+        elif hasattr(config, 'gui') and hasattr(config.gui, 'view'):
+            self.view_instance = config.gui.view
+        else:
             self.view_instance = parent
 
         self.scroll = tk.Scrollbar(self)
