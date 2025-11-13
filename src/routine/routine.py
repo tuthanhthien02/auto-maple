@@ -27,6 +27,7 @@ def update(func):
         config.gui.set_routine(self.display)
         config.gui.view.details.update_details()
         return result
+
     return f
 
 
@@ -37,27 +38,36 @@ def dirty(func):
         result = func(self, *args, **kwargs)
         self.dirty = True
         return result
+
     return f
 
 
 class Routine:
     """Describes a routine file in Auto Maple's custom 'machine code'."""
 
-    _floor_descriptor_type = namedtuple('FloorDescriptor', 'floor_id labels y_range priority')
+    _floor_descriptor_type = namedtuple(
+        "FloorDescriptor", "floor_id labels y_range priority"
+    )
 
     def __init__(self):
         self.dirty = False
-        self.path = ''
+        self.path = ""
         self.labels = {}
         self.index = 0
         self.sequence = []
-        self.display = []       # Updated alongside sequence
+        self.display = []  # Updated alongside sequence
         # Point Selection Randomization
         self.skip_probability = 0.10  # Default 10% chance to skip (matches config/docs)
         self.consecutive_skips = 0
-        self.max_consecutive_skips = random.randint(1, 3)  # Max 1-3 consecutive skips (hardcode random)
-        self.skip_enabled = False  # Enable/disable skip feature - Can be enabled from GUI
-        self.is_skipping_context = False  # Track if we're in skip context (for teleport decision)
+        self.max_consecutive_skips = random.randint(
+            1, 3
+        )  # Max 1-3 consecutive skips (hardcode random)
+        self.skip_enabled = (
+            False  # Enable/disable skip feature - Can be enabled from GUI
+        )
+        self.is_skipping_context = (
+            False  # Track if we're in skip context (for teleport decision)
+        )
         # Random Move Backward
         self.backward_enabled = False  # Enable/disable backward feature
         self.backward_probability = 0.10  # 10% chance to backward (default)
@@ -65,116 +75,148 @@ class Routine:
         self.backward_cooldown = 0  # Cooldown counter to prevent consecutive backward
         self.backward_cooldown_min = 5  # Min cooldown (5 points)
         self.backward_cooldown_max = 10  # Max cooldown (10 points)
-        self.is_backwarding_context = False  # Track if we're in backward context (for teleport decision)
+        self.is_backwarding_context = (
+            False  # Track if we're in backward context (for teleport decision)
+        )
         # Routine Pattern Variation
         self.variant_enabled = False
-        self.current_variant = 'normal'
+        self.current_variant = "normal"
         self.variant_switch_counter = 0
         self.variant_switch_interval = random.randint(3, 7)  # Switch every 3-7 loops
         self.variant_cycle = []
         self.variant_cycle_index = 0
         self.floor_variant_active = False
-        self.floor_variant_chance = 0.10  # 10% chance to activate floor-only variant after completing a loop
-        self.floor_variant_loop_range = (3, 5)  # Floor-only variants run for 3-5 loops, then return to normal
+        self.floor_variant_chance = (
+            0.10  # 10% chance to activate floor-only variant after completing a loop
+        )
+        self.floor_variant_loop_range = (
+            3,
+            5,
+        )  # Floor-only variants run for 3-5 loops, then return to normal
         self.floor_variant_last = None
-        self.floor_direction = 'forward'  # Track direction in floor-only: 'forward' or 'reverse'
+        self.floor_direction = (
+            "forward"  # Track direction in floor-only: 'forward' or 'reverse'
+        )
         self.floor1_indices = []  # Indices of Floor 1 points
         self.floor2_indices = []  # Indices of Floor 2 points
         self.floor_indices_map = {}
         self.floor_descriptors = []
         self.loop_count = 0
         self.last_index = -1
-        self.last_floor_index = -1  # Track last index within the same floor (for reverse teleport detection)
+        self.last_floor_index = (
+            -1
+        )  # Track last index within the same floor (for reverse teleport detection)
         self.variant_weights = {}
         self.floor_variant_weights = {}
         self._variant_label_warnings = set()
         self.command_randomization = {
-            'enabled': False,
-            'shuffle_probability': 0.25,
-            'skip_probability': 0.05,
-            'extra_wait_probability': 0.15,
-            'extra_wait_range': (0.05, 0.12),
-            'skip_blacklist': {'Teleport', 'Adjust'},
-            'shuffle_blacklist': {'Teleport', 'Adjust'}
+            "enabled": False,
+            "shuffle_probability": 0.25,
+            "skip_probability": 0.05,
+            "extra_wait_probability": 0.15,
+            "extra_wait_range": (0.05, 0.12),
+            "skip_blacklist": {"Teleport", "Adjust"},
+            "shuffle_blacklist": {"Teleport", "Adjust"},
         }
         # Statistics for command sequence randomization
         self.command_sequence_stats = {
-            'total_shuffles': 0,
-            'total_skips': 0,
-            'total_extra_waits': 0,
-            'last_shuffle_time': None,
-            'last_skip_time': None,
-            'last_extra_wait_time': None
+            "total_shuffles": 0,
+            "total_skips": 0,
+            "total_extra_waits": 0,
+            "last_shuffle_time": None,
+            "last_skip_time": None,
+            "last_extra_wait_time": None,
         }
         self.position_offset_config = {
-            'enabled': False,
-            'range': 0.0,
-            'axes': {'x': True, 'y': False}
+            "enabled": False,
+            "range": 0.0,
+            "axes": {"x": True, "y": False},
         }
         self.micro_gesture_config = {
-            'enabled': False,
-            'mirror_chance': 0.0,
-            'duration_range': (0.02, 0.05)
+            "enabled": False,
+            "mirror_chance": 0.0,
+            "duration_range": (0.02, 0.05),
         }
-        self.observability_config = {
-            'log_every_loops': 0
-        }
+        self.observability_config = {"log_every_loops": 0}
         self.observability_metrics = {
-            'offsets': 0,
-            'micro_pauses': 0,
-            'micro_gestures': 0
+            "offsets": 0,
+            "micro_pauses": 0,
+            "micro_gestures": 0,
         }
         # Dynamic Paths
         self.dynamic_paths_enabled = False
         self.dynamic_paths_config = {
-            'path_count': 4,
-            'generation_strategy': 'random_skip',  # 'random_skip', 'partial', 'mixed'
-            'skip_percentage_range': (0.1, 0.3),
-            'selection_mode': 'transition_matrix',  # 'random', 'weighted', 'transition_matrix', 'sequential'
-            'switch_interval': {'min_loops': 2, 'max_loops': 5},
-            'transition_matrix': {}  # Will be auto-generated or from config
+            "path_count": 4,
+            "generation_strategy": "random_skip",  # 'random_skip', 'partial', 'mixed'
+            "skip_percentage_range": (0.1, 0.3),
+            "selection_mode": "transition_matrix",  # 'random', 'weighted', 'transition_matrix', 'sequential'
+            "switch_interval": {"min_loops": 2, "max_loops": 5},
+            "transition_matrix": {},  # Will be auto-generated or from config
         }
         self.dynamic_paths = []  # List of generated paths: [{'id': 'path1', 'indices': [0,1,2,...], 'weight': 1.0}, ...]
         self.current_path_id = None  # Current active path ID
         self.path_switch_counter = 0  # Counter for switch interval
         self.path_switch_interval = random.randint(2, 5)  # Current switch interval
         self.original_sequence_indices = []  # Original sequence indices before path generation
-        
+
         # Load randomization settings from GUI
         self._load_randomization_settings()
 
     def _load_randomization_settings(self):
         """Load randomization settings from GUI settings file."""
         try:
-            from src.gui.settings.routine_randomization import RoutineRandomizationSettings
-            settings = RoutineRandomizationSettings('routine_randomization')
-            
+            from src.gui.settings.routine_randomization import (
+                RoutineRandomizationSettings,
+            )
+
+            settings = RoutineRandomizationSettings("routine_randomization")
+
             # Load Point Selection settings
-            self.skip_enabled = settings.get('Point Selection Enabled')
-            skip_prob_raw = settings.get('Point Selection Skip Probability')
+            self.skip_enabled = settings.get("Point Selection Enabled")
+            skip_prob_raw = settings.get("Point Selection Skip Probability")
             # Ensure skip_probability is a float
             try:
-                self.skip_probability = float(skip_prob_raw) if skip_prob_raw is not None else self.skip_probability
+                self.skip_probability = (
+                    float(skip_prob_raw)
+                    if skip_prob_raw is not None
+                    else self.skip_probability
+                )
             except (ValueError, TypeError):
-                log.warning("Invalid skip_probability value: %s, using default", skip_prob_raw)
-            
+                log.warning(
+                    "Invalid skip_probability value: %s, using default", skip_prob_raw
+                )
+
             # Load Random Backward settings
-            self.backward_enabled = settings.get('Random Backward Enabled')
-            backward_prob_raw = settings.get('Random Backward Probability')
+            self.backward_enabled = settings.get("Random Backward Enabled")
+            backward_prob_raw = settings.get("Random Backward Probability")
             # Ensure backward_probability is a float
             try:
-                self.backward_probability = float(backward_prob_raw) if backward_prob_raw is not None else self.backward_probability
+                self.backward_probability = (
+                    float(backward_prob_raw)
+                    if backward_prob_raw is not None
+                    else self.backward_probability
+                )
             except (ValueError, TypeError):
-                log.warning("Invalid backward_probability value: %s, using default", backward_prob_raw)
-            
+                log.warning(
+                    "Invalid backward_probability value: %s, using default",
+                    backward_prob_raw,
+                )
+
             # Load Routine Pattern settings
-            self.variant_enabled = settings.get('Routine Pattern Enabled')
-            floor_variant_chance_raw = settings.get('Routine Pattern Floor Only Chance')
+            self.variant_enabled = settings.get("Routine Pattern Enabled")
+            floor_variant_chance_raw = settings.get("Routine Pattern Floor Only Chance")
             # Ensure floor_variant_chance is a float
             try:
-                self.floor_variant_chance = float(floor_variant_chance_raw) if floor_variant_chance_raw is not None else self.floor_variant_chance
+                self.floor_variant_chance = (
+                    float(floor_variant_chance_raw)
+                    if floor_variant_chance_raw is not None
+                    else self.floor_variant_chance
+                )
             except (ValueError, TypeError):
-                log.warning("Invalid floor_variant_chance value: %s, using default", floor_variant_chance_raw)
+                log.warning(
+                    "Invalid floor_variant_chance value: %s, using default",
+                    floor_variant_chance_raw,
+                )
         except Exception as e:
             # Settings might not be available yet, use defaults
             log.debug("Could not load randomization settings: %s", e)
@@ -189,128 +231,189 @@ class Routine:
         self._load_command_sequence_defaults()
         self._load_movement_defaults()
         self._load_dynamic_paths_defaults()
-        raw_floor_descriptors = get_feature_value('routine_randomization.floor_descriptors', None)
+        raw_floor_descriptors = get_feature_value(
+            "routine_randomization.floor_descriptors", None
+        )
         self._load_floor_descriptor_config(raw_floor_descriptors)
 
     def _load_point_selection_defaults(self):
-        self.skip_enabled = is_feature_enabled('routine_randomization.point_selection.enabled')
+        self.skip_enabled = is_feature_enabled(
+            "routine_randomization.point_selection.enabled"
+        )
         skip_prob_raw = get_feature_value(
-            'routine_randomization.point_selection.skip_probability',
-            self.skip_probability
+            "routine_randomization.point_selection.skip_probability",
+            self.skip_probability,
         )
         # Ensure skip_probability is a float
         try:
-            self.skip_probability = float(skip_prob_raw) if skip_prob_raw is not None else self.skip_probability
+            self.skip_probability = (
+                float(skip_prob_raw)
+                if skip_prob_raw is not None
+                else self.skip_probability
+            )
         except (ValueError, TypeError):
-            log.warning("Invalid skip_probability from config: %s, using default", skip_prob_raw)
+            log.warning(
+                "Invalid skip_probability from config: %s, using default", skip_prob_raw
+            )
 
     def _load_pattern_defaults(self):
-        self.variant_enabled = is_feature_enabled('routine_randomization.routine_pattern.enabled')
+        self.variant_enabled = is_feature_enabled(
+            "routine_randomization.routine_pattern.enabled"
+        )
         floor_variant_chance_raw = get_feature_value(
-            'routine_randomization.routine_pattern.floor_variant_chance',
-            self.floor_variant_chance
+            "routine_randomization.routine_pattern.floor_variant_chance",
+            self.floor_variant_chance,
         )
         # Ensure floor_variant_chance is a float
         try:
-            self.floor_variant_chance = float(floor_variant_chance_raw) if floor_variant_chance_raw is not None else self.floor_variant_chance
+            self.floor_variant_chance = (
+                float(floor_variant_chance_raw)
+                if floor_variant_chance_raw is not None
+                else self.floor_variant_chance
+            )
         except (ValueError, TypeError):
-            log.warning("Invalid floor_variant_chance from config: %s, using default", floor_variant_chance_raw)
+            log.warning(
+                "Invalid floor_variant_chance from config: %s, using default",
+                floor_variant_chance_raw,
+            )
 
     def _load_command_sequence_defaults(self):
-        seq_cfg = get_feature_value('routine_randomization.command_sequence', {}) or {}
+        seq_cfg = get_feature_value("routine_randomization.command_sequence", {}) or {}
         base_cfg = self.command_randomization
-        base_cfg['enabled'] = seq_cfg.get('enabled', base_cfg['enabled'])
-        base_cfg['shuffle_probability'] = seq_cfg.get('shuffle_probability', base_cfg['shuffle_probability'])
-        base_cfg['skip_probability'] = seq_cfg.get('skip_probability', base_cfg['skip_probability'])
-        base_cfg['extra_wait_probability'] = seq_cfg.get('extra_wait_probability', base_cfg['extra_wait_probability'])
-        base_cfg['extra_wait_range'] = tuple(seq_cfg.get('extra_wait_range', base_cfg['extra_wait_range']))
-        base_cfg['skip_blacklist'] = set(seq_cfg.get('skip_blacklist', list(base_cfg['skip_blacklist'])))
-        base_cfg['shuffle_blacklist'] = set(seq_cfg.get('shuffle_blacklist', list(base_cfg['shuffle_blacklist'])))
+        base_cfg["enabled"] = seq_cfg.get("enabled", base_cfg["enabled"])
+        base_cfg["shuffle_probability"] = seq_cfg.get(
+            "shuffle_probability", base_cfg["shuffle_probability"]
+        )
+        base_cfg["skip_probability"] = seq_cfg.get(
+            "skip_probability", base_cfg["skip_probability"]
+        )
+        base_cfg["extra_wait_probability"] = seq_cfg.get(
+            "extra_wait_probability", base_cfg["extra_wait_probability"]
+        )
+        base_cfg["extra_wait_range"] = tuple(
+            seq_cfg.get("extra_wait_range", base_cfg["extra_wait_range"])
+        )
+        base_cfg["skip_blacklist"] = set(
+            seq_cfg.get("skip_blacklist", list(base_cfg["skip_blacklist"]))
+        )
+        base_cfg["shuffle_blacklist"] = set(
+            seq_cfg.get("shuffle_blacklist", list(base_cfg["shuffle_blacklist"]))
+        )
 
     def _load_movement_defaults(self):
-        movement_cfg = get_feature_value('routine_randomization.movement', {}) or {}
-        self._load_position_offset_defaults(movement_cfg.get('position_offset', {}))
-        self._load_micro_gesture_defaults(movement_cfg.get('micro_gesture', {}))
-        self._load_observability_defaults(movement_cfg.get('observability', {}))
+        movement_cfg = get_feature_value("routine_randomization.movement", {}) or {}
+        self._load_position_offset_defaults(movement_cfg.get("position_offset", {}))
+        self._load_micro_gesture_defaults(movement_cfg.get("micro_gesture", {}))
+        self._load_observability_defaults(movement_cfg.get("observability", {}))
 
     def _load_position_offset_defaults(self, position_cfg):
-        axes_cfg = position_cfg.get('axes', {})
-        self.position_offset_config['enabled'] = position_cfg.get('enabled', self.position_offset_config['enabled'])
+        axes_cfg = position_cfg.get("axes", {})
+        self.position_offset_config["enabled"] = position_cfg.get(
+            "enabled", self.position_offset_config["enabled"]
+        )
         try:
-            rng = float(position_cfg.get('range', self.position_offset_config['range']))
-            self.position_offset_config['range'] = max(0.0, rng)
+            rng = float(position_cfg.get("range", self.position_offset_config["range"]))
+            self.position_offset_config["range"] = max(0.0, rng)
         except (TypeError, ValueError):
             pass
-        self.position_offset_config['axes']['x'] = axes_cfg.get('x', self.position_offset_config['axes']['x'])
-        self.position_offset_config['axes']['y'] = axes_cfg.get('y', self.position_offset_config['axes']['y'])
+        self.position_offset_config["axes"]["x"] = axes_cfg.get(
+            "x", self.position_offset_config["axes"]["x"]
+        )
+        self.position_offset_config["axes"]["y"] = axes_cfg.get(
+            "y", self.position_offset_config["axes"]["y"]
+        )
 
     def _load_micro_gesture_defaults(self, micro_cfg):
-        self.micro_gesture_config['enabled'] = micro_cfg.get('enabled', self.micro_gesture_config['enabled'])
+        self.micro_gesture_config["enabled"] = micro_cfg.get(
+            "enabled", self.micro_gesture_config["enabled"]
+        )
         try:
-            mirror = float(micro_cfg.get('mirror_chance', self.micro_gesture_config['mirror_chance']))
-            self.micro_gesture_config['mirror_chance'] = max(0.0, mirror)
+            mirror = float(
+                micro_cfg.get(
+                    "mirror_chance", self.micro_gesture_config["mirror_chance"]
+                )
+            )
+            self.micro_gesture_config["mirror_chance"] = max(0.0, mirror)
         except (TypeError, ValueError):
             pass
-        duration_range = micro_cfg.get('duration_range', self.micro_gesture_config['duration_range'])
+        duration_range = micro_cfg.get(
+            "duration_range", self.micro_gesture_config["duration_range"]
+        )
         if isinstance(duration_range, (list, tuple)) and len(duration_range) == 2:
             try:
                 low = max(0.0, float(duration_range[0]))
                 high = max(0.0, float(duration_range[1]))
                 if high < low:
                     low, high = high, low
-                self.micro_gesture_config['duration_range'] = (low, high)
+                self.micro_gesture_config["duration_range"] = (low, high)
             except (TypeError, ValueError):
                 pass
 
     def _load_observability_defaults(self, observability_cfg):
         try:
-            loops = int(observability_cfg.get('log_every_loops', self.observability_config['log_every_loops']))
-            self.observability_config['log_every_loops'] = max(0, loops)
+            loops = int(
+                observability_cfg.get(
+                    "log_every_loops", self.observability_config["log_every_loops"]
+                )
+            )
+            self.observability_config["log_every_loops"] = max(0, loops)
         except (TypeError, ValueError):
             pass
 
     def _load_dynamic_paths_defaults(self):
         """Load dynamic paths configuration from anti_detect_config."""
-        paths_cfg = get_feature_value('routine_randomization.dynamic_paths', {}) or {}
-        self.dynamic_paths_enabled = paths_cfg.get('enabled', False)
-        
+        paths_cfg = get_feature_value("routine_randomization.dynamic_paths", {}) or {}
+        self.dynamic_paths_enabled = paths_cfg.get("enabled", False)
+
         if self.dynamic_paths_enabled:
-            self.dynamic_paths_config['path_count'] = max(2, min(10, paths_cfg.get('path_count', 4)))
-            self.dynamic_paths_config['generation_strategy'] = paths_cfg.get('generation_strategy', 'random_skip')
-            skip_range = paths_cfg.get('skip_percentage_range', [0.1, 0.3])
+            self.dynamic_paths_config["path_count"] = max(
+                2, min(10, paths_cfg.get("path_count", 4))
+            )
+            self.dynamic_paths_config["generation_strategy"] = paths_cfg.get(
+                "generation_strategy", "random_skip"
+            )
+            skip_range = paths_cfg.get("skip_percentage_range", [0.1, 0.3])
             if isinstance(skip_range, (list, tuple)) and len(skip_range) == 2:
                 try:
                     low = max(0.0, min(0.9, float(skip_range[0])))
                     high = max(0.0, min(0.9, float(skip_range[1])))
                     if high < low:
                         low, high = high, low
-                    self.dynamic_paths_config['skip_percentage_range'] = (low, high)
+                    self.dynamic_paths_config["skip_percentage_range"] = (low, high)
                 except (TypeError, ValueError):
                     pass
-            
-            self.dynamic_paths_config['selection_mode'] = paths_cfg.get('selection_mode', 'transition_matrix')
-            switch_interval = paths_cfg.get('switch_interval', {})
+
+            self.dynamic_paths_config["selection_mode"] = paths_cfg.get(
+                "selection_mode", "transition_matrix"
+            )
+            switch_interval = paths_cfg.get("switch_interval", {})
             if isinstance(switch_interval, dict):
-                min_loops = max(1, switch_interval.get('min_loops', 2))
-                max_loops = max(min_loops, switch_interval.get('max_loops', 5))
-                self.dynamic_paths_config['switch_interval'] = {'min_loops': min_loops, 'max_loops': max_loops}
-            
-            transition_matrix = paths_cfg.get('transition_matrix', {})
+                min_loops = max(1, switch_interval.get("min_loops", 2))
+                max_loops = max(min_loops, switch_interval.get("max_loops", 5))
+                self.dynamic_paths_config["switch_interval"] = {
+                    "min_loops": min_loops,
+                    "max_loops": max_loops,
+                }
+
+            transition_matrix = paths_cfg.get("transition_matrix", {})
             if isinstance(transition_matrix, dict):
-                self.dynamic_paths_config['transition_matrix'] = transition_matrix
+                self.dynamic_paths_config["transition_matrix"] = transition_matrix
 
     def _load_variant_weights_from_config(self):
         """Load variant weights from anti_detect_config (used for normal/reverse/floor variants)."""
-        variants_cfg = get_feature_value('routine_randomization.routine_pattern.variants', {}) or {}
+        variants_cfg = (
+            get_feature_value("routine_randomization.routine_pattern.variants", {})
+            or {}
+        )
 
         if not isinstance(variants_cfg, dict):
             variants_cfg = {}
 
         self.variant_weights = variants_cfg
         self.floor_variant_weights = {
-            name: max(0.0, data.get('weight', 0.0))
+            name: max(0.0, data.get("weight", 0.0))
             for name, data in variants_cfg.items()
-            if name in ('floor1_only', 'floor2_only')
+            if name in ("floor1_only", "floor2_only")
         }
 
     def _load_floor_descriptor_config(self, raw_descriptors):
@@ -319,10 +422,14 @@ class Routine:
         if not descriptors:
             fallback = self._generate_default_floor_descriptors()
             descriptors = self._parse_floor_descriptors(fallback)
-            log.debug("Floor descriptors: using autogenerated defaults (label prefix, y-range heuristics)")
+            log.debug(
+                "Floor descriptors: using autogenerated defaults (label prefix, y-range heuristics)"
+            )
 
         if not descriptors:
-            log.warning("Floor descriptors: No valid descriptors available; floor-based variants may be disabled")
+            log.warning(
+                "Floor descriptors: No valid descriptors available; floor-based variants may be disabled"
+            )
 
         self.floor_descriptors = descriptors
         self.floor_indices_map = {descriptor.floor_id: [] for descriptor in descriptors}
@@ -331,17 +438,17 @@ class Routine:
         """Generate basic two-floor descriptors for backward compatibility."""
         return [
             {
-                'id': 'floor1',
-                'labels': ['f1_pos_0', 'f1_pos_1', 'f1_pos_last'],
-                'y_range': [0.16, 1.0],
-                'priority': 10
+                "id": "floor1",
+                "labels": ["f1_pos_0", "f1_pos_1", "f1_pos_last"],
+                "y_range": [0.16, 1.0],
+                "priority": 10,
             },
             {
-                'id': 'floor2',
-                'labels': ['f2_pos_0', 'f2_pos_1', 'f2_pos_last'],
-                'y_range': [-1.0, 0.16],
-                'priority': 20
-            }
+                "id": "floor2",
+                "labels": ["f2_pos_0", "f2_pos_1", "f2_pos_last"],
+                "y_range": [-1.0, 0.16],
+                "priority": 20,
+            },
         ]
 
     def _parse_floor_descriptors(self, raw_descriptors):
@@ -363,7 +470,7 @@ class Routine:
             log.warning("Floor descriptor ignored (not a dict): %s", entry)
             return None
 
-        floor_id = entry.get('id')
+        floor_id = entry.get("id")
         if not floor_id:
             log.warning("Floor descriptor ignored: missing 'id'")
             return None
@@ -381,35 +488,43 @@ class Routine:
             floor_id=floor_id,
             labels=label_set,
             y_range=normalized_range,
-            priority=priority
+            priority=priority,
         )
 
     @staticmethod
     def _parse_descriptor_labels(entry, floor_id):
-        labels = entry.get('labels') or []
+        labels = entry.get("labels") or []
         if not isinstance(labels, (list, tuple, set)):
-            log.warning("Floor descriptor '%s' ignored: 'labels' must be a list/tuple", floor_id)
+            log.warning(
+                "Floor descriptor '%s' ignored: 'labels' must be a list/tuple", floor_id
+            )
             return None
         return {str(label).strip().lower() for label in labels if str(label).strip()}
 
     @staticmethod
     def _parse_descriptor_range(entry, floor_id):
-        y_range = entry.get('y_range')
+        y_range = entry.get("y_range")
         if y_range is None:
             return None
         if not isinstance(y_range, (list, tuple)) or len(y_range) != 2:
-            log.warning("Floor descriptor '%s' ignored: 'y_range' must be length-2 list", floor_id)
+            log.warning(
+                "Floor descriptor '%s' ignored: 'y_range' must be length-2 list",
+                floor_id,
+            )
             return False
         try:
             y_min, y_max = float(y_range[0]), float(y_range[1])
         except (TypeError, ValueError):
-            log.warning("Floor descriptor '%s' ignored: 'y_range' values must be numbers", floor_id)
+            log.warning(
+                "Floor descriptor '%s' ignored: 'y_range' values must be numbers",
+                floor_id,
+            )
             return False
         return (min(y_min, y_max), max(y_min, y_max))
 
     @staticmethod
     def _parse_descriptor_priority(entry):
-        priority = entry.get('priority', 100)
+        priority = entry.get("priority", 100)
         try:
             return int(priority)
         except (TypeError, ValueError):
@@ -439,23 +554,27 @@ class Routine:
 
     def get_position_with_offset(self, location):
         cfg = self.position_offset_config
-        if not cfg.get('enabled') or cfg.get('range', 0.0) <= 0:
+        if not cfg.get("enabled") or cfg.get("range", 0.0) <= 0:
             return location
 
-        offset_range = cfg.get('range', 0.0)
-        axes = cfg.get('axes', {})
+        offset_range = cfg.get("range", 0.0)
+        axes = cfg.get("axes", {})
 
-        offset_x = random.uniform(-offset_range, offset_range) if axes.get('x', True) else 0.0
-        offset_y = random.uniform(-offset_range, offset_range) if axes.get('y', False) else 0.0
+        offset_x = (
+            random.uniform(-offset_range, offset_range) if axes.get("x", True) else 0.0
+        )
+        offset_y = (
+            random.uniform(-offset_range, offset_range) if axes.get("y", False) else 0.0
+        )
 
         new_x = max(0.0, min(1.0, location[0] + offset_x))
         new_y = max(0.0, min(1.0, location[1] + offset_y))
 
-        self.observability_metrics['offsets'] += 1
+        self.observability_metrics["offsets"] += 1
         return (new_x, new_y)
 
     def _log_observability_snapshot(self):
-        interval = self.observability_config.get('log_every_loops', 0)
+        interval = self.observability_config.get("log_every_loops", 0)
         if not interval:
             return
         if self.loop_count % interval != 0:
@@ -463,10 +582,10 @@ class Routine:
         metrics = self.observability_metrics.copy()
         log.info(
             "Observability (movement): offsets=%d, micro_pauses=%d, micro_gestures=%d (last %d loops)",
-            metrics.get('offsets', 0),
-            metrics.get('micro_pauses', 0),
-            metrics.get('micro_gestures', 0),
-            interval
+            metrics.get("offsets", 0),
+            metrics.get("micro_pauses", 0),
+            metrics.get("micro_gestures", 0),
+            interval,
         )
         for key in self.observability_metrics:
             self.observability_metrics[key] = 0
@@ -476,27 +595,34 @@ class Routine:
         try:
             routine_path = Path(routine_path)
             candidates = [
-                routine_path.with_suffix('.meta.json'),
-                routine_path.with_suffix('.floor.json')
+                routine_path.with_suffix(".meta.json"),
+                routine_path.with_suffix(".floor.json"),
             ]
             for meta_path in candidates:
                 if meta_path.exists():
-                    with meta_path.open('r', encoding='utf-8') as handle:
+                    with meta_path.open("r", encoding="utf-8") as handle:
                         meta_data = json.load(handle)
-                    descriptors = meta_data.get('floor_descriptors')
+                    descriptors = meta_data.get("floor_descriptors")
                     if descriptors:
                         self._load_floor_descriptor_config(descriptors)
-                        log.info("Floor descriptors: loaded from metadata file '%s'", meta_path.name)
+                        log.info(
+                            "Floor descriptors: loaded from metadata file '%s'",
+                            meta_path.name,
+                        )
                     return
         except Exception as exc:
-            log.warning("Floor descriptors: failed to load metadata for '%s': %s", routine_path, exc)
+            log.warning(
+                "Floor descriptors: failed to load metadata for '%s': %s",
+                routine_path,
+                exc,
+            )
 
     def _has_required_labels(self, variant_name):
         """Check if required labels exist for a variant and log warning once if missing."""
         required_map = {
-            'reverse': {'start_label': 'f2_pos_1', 'end_label': 'f1_pos_0'},
-            'floor1_only': {'start_label': 'f1_pos_0', 'transition_label': 'jump_up'},
-            'floor2_only': {'start_label': 'f2_pos_1', 'transition_label': 'jump_down'}
+            "reverse": {"start_label": "f2_pos_1", "end_label": "f1_pos_0"},
+            "floor1_only": {"start_label": "f1_pos_0", "transition_label": "jump_up"},
+            "floor2_only": {"start_label": "f2_pos_1", "transition_label": "jump_down"},
         }
 
         if variant_name not in required_map:
@@ -511,7 +637,7 @@ class Routine:
                 log.warning(
                     "Routine Pattern Variation: Variant '%s' bị vô hiệu vì thiếu label: %s",
                     variant_name,
-                    ", ".join(missing)
+                    ", ".join(missing),
                 )
                 self._variant_label_warnings.add(warning_key)
             return False
@@ -551,10 +677,10 @@ class Routine:
         """Moves the component at index I upward if possible."""
 
         if i > 0:
-            temp_s = self.sequence[i-1]
-            temp_d = self.display[i-1]
-            self.sequence[i-1] = self.sequence[i]
-            self.display[i-1] = self.display[i]
+            temp_s = self.sequence[i - 1]
+            temp_d = self.display[i - 1]
+            self.sequence[i - 1] = self.sequence[i]
+            self.display[i - 1] = self.display[i]
             self.sequence[i] = temp_s
             self.display[i] = temp_d
             return i - 1
@@ -564,10 +690,10 @@ class Routine:
     @update
     def move_component_down(self, i):
         if i < len(self.sequence) - 1:
-            temp_s = self.sequence[i+1]
-            temp_d = self.display[i+1]
-            self.sequence[i+1] = self.sequence[i]
-            self.display[i+1] = self.display[i]
+            temp_s = self.sequence[i + 1]
+            temp_d = self.display[i + 1]
+            self.sequence[i + 1] = self.sequence[i]
+            self.display[i + 1] = self.display[i]
             self.sequence[i] = temp_s
             self.display[i] = temp_d
             return i + 1
@@ -583,8 +709,8 @@ class Routine:
 
         point = self.sequence[i]
         if j > 0:
-            temp = point.commands[j-1]
-            point.commands[j-1] = point.commands[j]
+            temp = point.commands[j - 1]
+            point.commands[j - 1] = point.commands[j]
             point.commands[j] = temp
             return j - 1
         return j
@@ -594,8 +720,8 @@ class Routine:
     def move_command_down(self, i, j):
         point = self.sequence[i]
         if j < len(point.commands) - 1:
-            temp = point.commands[j+1]
-            point.commands[j+1] = point.commands[j]
+            temp = point.commands[j + 1]
+            point.commands[j + 1] = point.commands[j]
             point.commands[j] = temp
             return j + 1
         return j
@@ -645,56 +771,86 @@ class Routine:
         Returns: True if should skip, False otherwise
         """
         if not self.skip_enabled:
-            log.debug("Point Selection Randomization: DISABLED - Skip check for index %d", self.index)
+            log.debug(
+                "Point Selection Randomization: DISABLED - Skip check for index %d",
+                self.index,
+            )
             return False
-        
+
         if len(self.sequence) == 0:
-            log.debug("Point Selection Randomization: Empty sequence - Skip check for index %d", self.index)
+            log.debug(
+                "Point Selection Randomization: Empty sequence - Skip check for index %d",
+                self.index,
+            )
             return False
-        
+
         if self.index >= len(self.sequence):
-            log.debug("Point Selection Randomization: Index out of range (%d >= %d)", self.index, len(self.sequence))
+            log.debug(
+                "Point Selection Randomization: Index out of range (%d >= %d)",
+                self.index,
+                len(self.sequence),
+            )
             return False
-        
+
         element = self.sequence[self.index]
         element_type = element.__class__.__name__
-        
+
         # NEVER skip non-Point components (Jump, Label, Setting, Comment)
         if not isinstance(element, Point):
-            log.info("🔄 Point Selection Randomization: Index %d - %s (NOT a Point - will execute)", 
-                    self.index, element_type)
+            log.info(
+                "🔄 Point Selection Randomization: Index %d - %s (NOT a Point - will execute)",
+                self.index,
+                element_type,
+            )
             return False
-        
+
         # Get point info for logging
-        point_location = element.location if hasattr(element, 'location') else 'unknown'
-        
+        point_location = element.location if hasattr(element, "location") else "unknown"
+
         # Check consecutive skips - don't skip if we've skipped too many consecutive points
         if self.consecutive_skips >= self.max_consecutive_skips:
-            log.info("✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (max consecutive skips reached: %d/%d)", 
-                    self.index, point_location, self.consecutive_skips, self.max_consecutive_skips)
+            log.info(
+                "✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (max consecutive skips reached: %d/%d)",
+                self.index,
+                point_location,
+                self.consecutive_skips,
+                self.max_consecutive_skips,
+            )
             self.consecutive_skips = 0  # Reset after max reached
             # Regenerate max_consecutive_skips for next time (random 1-3)
             self.max_consecutive_skips = random.randint(1, 3)
-            log.debug("🎲 Point Selection Randomization: New max consecutive skips set to %d", self.max_consecutive_skips)
+            log.debug(
+                "🎲 Point Selection Randomization: New max consecutive skips set to %d",
+                self.max_consecutive_skips,
+            )
             return False
-        
+
         # Random skip probability
         random_value = random.random()
         should_skip = random_value < self.skip_probability
-        
+
         if should_skip:
             self.consecutive_skips += 1
-            log.info("⏭️ Point Selection Randomization: Index %d - Point %s - SKIP (probability: %.1f%%, random: %.3f, consecutive: %d/%d)", 
-                    self.index, point_location, 
-                    self.skip_probability * 100, random_value,
-                    self.consecutive_skips, self.max_consecutive_skips)
+            log.info(
+                "⏭️ Point Selection Randomization: Index %d - Point %s - SKIP (probability: %.1f%%, random: %.3f, consecutive: %d/%d)",
+                self.index,
+                point_location,
+                self.skip_probability * 100,
+                random_value,
+                self.consecutive_skips,
+                self.max_consecutive_skips,
+            )
         else:
             # Reset consecutive skips counter when we don't skip
             self.consecutive_skips = 0
-            log.info("✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (probability: %.1f%%, random: %.3f)", 
-                    self.index, point_location, 
-                    self.skip_probability * 100, random_value)
-        
+            log.info(
+                "✅ Point Selection Randomization: Index %d - Point %s - EXECUTE (probability: %.1f%%, random: %.3f)",
+                self.index,
+                point_location,
+                self.skip_probability * 100,
+                random_value,
+            )
+
         return should_skip
 
     def should_backward(self):
@@ -705,33 +861,47 @@ class Routine:
         # Check if enabled
         if not self.backward_enabled:
             return False, 0
-        
+
         # Check cooldown
         if self.backward_cooldown > 0:
             self.backward_cooldown -= 1
-            log.debug("🎲 Random Backward: Cooldown active (%d points remaining)", self.backward_cooldown)
+            log.debug(
+                "🎲 Random Backward: Cooldown active (%d points remaining)",
+                self.backward_cooldown,
+            )
             return False, 0
-        
+
         # Check if we can backward (need at least backward_range[1] indices before current)
         min_steps = self.backward_range[1]  # Max backward steps (3)
         if len(self.sequence) == 0:
             return False, 0
-        
+
         if self.index < min_steps:
             # Not enough indices to backward
-            log.debug("🎲 Random Backward: Not enough indices to backward (index: %d, required: %d)", 
-                     self.index, min_steps)
+            log.debug(
+                "🎲 Random Backward: Not enough indices to backward (index: %d, required: %d)",
+                self.index,
+                min_steps,
+            )
             return False, 0
-        
+
         # Random probability check
         random_value = random.random()
         if random_value < self.backward_probability:
             # Backward event triggered
-            backward_steps = random.randint(self.backward_range[0], self.backward_range[1])
+            backward_steps = random.randint(
+                self.backward_range[0], self.backward_range[1]
+            )
             # Set cooldown
-            self.backward_cooldown = random.randint(self.backward_cooldown_min, self.backward_cooldown_max)
-            log.info("⏮️ Random Backward: Triggered at index %d, backwarding %d steps (cooldown: %d)", 
-                    self.index, backward_steps, self.backward_cooldown)
+            self.backward_cooldown = random.randint(
+                self.backward_cooldown_min, self.backward_cooldown_max
+            )
+            log.info(
+                "⏮️ Random Backward: Triggered at index %d, backwarding %d steps (cooldown: %d)",
+                self.index,
+                backward_steps,
+                self.backward_cooldown,
+            )
             return True, backward_steps
         else:
             return False, 0
@@ -744,14 +914,18 @@ class Routine:
         """
         if len(self.sequence) == 0:
             return
-        
+
         old_index = self.index
         # Backward: move index backward
         self.index = (self.index - backward_steps) % len(self.sequence)
-        
-        log.info("⏮️ Random Backward: Index %d -> %d (backwarded %d steps)", 
-                old_index, self.index, backward_steps)
-        
+
+        log.info(
+            "⏮️ Random Backward: Index %d -> %d (backwarded %d steps)",
+            old_index,
+            self.index,
+            backward_steps,
+        )
+
         # Set backward context for next point (so Move command can teleport if distance is far)
         self.is_backwarding_context = True
         # Reset skip context (backward is a new movement, not skip)
@@ -761,9 +935,11 @@ class Routine:
 
     def detect_floors(self):
         """Detect floor points based on configured descriptors."""
-        self.floor_indices_map = {descriptor.floor_id: [] for descriptor in self.floor_descriptors}
-        self.floor1_indices = self.floor_indices_map.get('floor1', [])
-        self.floor2_indices = self.floor_indices_map.get('floor2', [])
+        self.floor_indices_map = {
+            descriptor.floor_id: [] for descriptor in self.floor_descriptors
+        }
+        self.floor1_indices = self.floor_indices_map.get("floor1", [])
+        self.floor2_indices = self.floor_indices_map.get("floor2", [])
 
         for i, component in enumerate(self.sequence):
             if not isinstance(component, Point):
@@ -778,13 +954,16 @@ class Routine:
                 self.floor_indices_map.setdefault(floor_id, []).append(i)
 
         # Update legacy floor caches for backwards compatibility
-        self.floor1_indices = self.floor_indices_map.get('floor1', [])
-        self.floor2_indices = self.floor_indices_map.get('floor2', [])
+        self.floor1_indices = self.floor_indices_map.get("floor1", [])
+        self.floor2_indices = self.floor_indices_map.get("floor2", [])
 
-        summary = ", ".join(
-            f"{floor_id}: {len(indices)} point(s)"
-            for floor_id, indices in self.floor_indices_map.items()
-        ) or "no floor assignments"
+        summary = (
+            ", ".join(
+                f"{floor_id}: {len(indices)} point(s)"
+                for floor_id, indices in self.floor_indices_map.items()
+            )
+            or "no floor assignments"
+        )
         log.info("🏢 Floor Detection: %s", summary)
 
     def get_f1_last_index(self):
@@ -792,28 +971,28 @@ class Routine:
         if not self.floor1_indices:
             return -1
         return self.floor1_indices[-1]
-    
+
     def get_f1_first_index(self):
         """Get index in self.sequence for f1_pos_0."""
         if not self.floor1_indices:
             return -1
         return self.floor1_indices[0]
-    
+
     def get_f2_last_index(self):
         """Get index in self.sequence for f2_pos_last."""
         if not self.floor2_indices:
             return -1
         return self.floor2_indices[-1]
-    
+
     def get_f2_first_index(self):
         """Get index in self.sequence for f2_pos_0."""
         if not self.floor2_indices:
             return -1
         return self.floor2_indices[0]
-    
+
     def get_current_floor_position(self, current_index):
         """Get current position index within floor (0-based) and floor type.
-        
+
         Returns:
             tuple: (floor_type, position_index, sequence_index) or (None, -1, -1) if not in any floor
             floor_type: legacy 'f1'/'f2' for first two floors, otherwise descriptor id
@@ -824,34 +1003,37 @@ class Routine:
             if current_index in indices:
                 position_index = indices.index(current_index)
                 legacy_id = floor_id
-                if floor_id == 'floor1':
-                    legacy_id = 'f1'
-                elif floor_id == 'floor2':
-                    legacy_id = 'f2'
+                if floor_id == "floor1":
+                    legacy_id = "f1"
+                elif floor_id == "floor2":
+                    legacy_id = "f2"
                 return (legacy_id, position_index, current_index)
         return (None, -1, -1)
 
     def _pick_switch_interval(self, variant=None):
         """Pick a switch interval based on variant type."""
         target_variant = variant if variant else self.current_variant
-        if target_variant in ('floor1_only', 'floor2_only'):
+        if target_variant in ("floor1_only", "floor2_only"):
             low, high = self.floor_variant_loop_range
             return random.randint(low, high)
         return random.randint(3, 7)
 
     def _build_variant_cycle(self):
         """Build the base variant cycle using configured weights."""
-        preferred_order = ['normal', 'reverse']
+        preferred_order = ["normal", "reverse"]
         combined_cycle = []
 
         for variant in preferred_order:
-            weight = 1.0 if variant == 'normal' and not self.variant_weights else \
-                self.variant_weights.get(variant, {}).get('weight', 0.0)
+            weight = (
+                1.0
+                if variant == "normal" and not self.variant_weights
+                else self.variant_weights.get(variant, {}).get("weight", 0.0)
+            )
             if weight > 0 and self._has_required_labels(variant):
                 combined_cycle.append(variant)
 
         if not combined_cycle:
-            combined_cycle = ['normal']
+            combined_cycle = ["normal"]
 
         self.variant_cycle = combined_cycle
         self.variant_cycle_index = 0
@@ -860,7 +1042,10 @@ class Routine:
         self.variant_switch_counter = 0
         self.floor_variant_active = False
 
-        log.info("🔁 Routine Pattern Variation: Variant cycle set to %s", " -> ".join(self.variant_cycle))
+        log.info(
+            "🔁 Routine Pattern Variation: Variant cycle set to %s",
+            " -> ".join(self.variant_cycle),
+        )
 
     def _get_next_variant_in_cycle(self):
         """Advance to the next available variant in the cycle."""
@@ -868,24 +1053,26 @@ class Routine:
             self._build_variant_cycle()
 
         for _ in range(len(self.variant_cycle)):
-            self.variant_cycle_index = (self.variant_cycle_index + 1) % len(self.variant_cycle)
+            self.variant_cycle_index = (self.variant_cycle_index + 1) % len(
+                self.variant_cycle
+            )
             candidate = self.variant_cycle[self.variant_cycle_index]
-            if candidate == 'floor1_only' and not self.floor1_indices:
+            if candidate == "floor1_only" and not self.floor1_indices:
                 continue
-            if candidate == 'floor2_only' and not self.floor2_indices:
+            if candidate == "floor2_only" and not self.floor2_indices:
                 continue
             return candidate
 
         # Fallback if no other variant is available
-        return 'normal'
+        return "normal"
 
     def _choose_floor_variant(self):
         """Choose which floor-only variant to activate (50% floor1, 50% floor2)."""
         options = []
-        if self.floor1_indices and self._has_required_labels('floor1_only'):
-            options.append('floor1_only')
-        if self.floor2_indices and self._has_required_labels('floor2_only'):
-            options.append('floor2_only')
+        if self.floor1_indices and self._has_required_labels("floor1_only"):
+            options.append("floor1_only")
+        if self.floor2_indices and self._has_required_labels("floor2_only"):
+            options.append("floor2_only")
 
         if not options:
             return None
@@ -910,7 +1097,7 @@ class Routine:
 
         normalized = [w / total_weight for w in weights]
         choice = random.choices(options, weights=normalized)[0]
-        
+
         self.floor_variant_last = choice
         return choice
 
@@ -920,24 +1107,32 @@ class Routine:
             self.current_variant = forced_variant
             self.variant_switch_interval = self._pick_switch_interval(forced_variant)
             self.variant_switch_counter = 0
-            self.floor_variant_active = forced_variant in ('floor1_only', 'floor2_only')
+            self.floor_variant_active = forced_variant in ("floor1_only", "floor2_only")
             self._reset_movement_context(reset_skip_counter=True)
-            log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
-                     self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+            log.info(
+                "🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)",
+                self.current_variant,
+                self.variant_switch_interval,
+                self.variant_switch_interval,
+            )
             return
 
         # If floor-only was active, return to normal variant
         if self.floor_variant_active:
             self.floor_variant_active = False
             # Force switch to normal variant after floor-only completes
-            self.current_variant = 'normal'
+            self.current_variant = "normal"
             # Reset to normal variant start index
             self.index = 0
-            self.variant_switch_interval = random.randint(3, 7)  # Reset interval for normal variant
+            self.variant_switch_interval = random.randint(
+                3, 7
+            )  # Reset interval for normal variant
             self.variant_switch_counter = 0
             self._reset_movement_context(reset_skip_counter=True)
-            log.info("🔄 Routine Pattern Variation: Returned to normal variant from floor-only (switch every %d loops)", 
-                     self.variant_switch_interval)
+            log.info(
+                "🔄 Routine Pattern Variation: Returned to normal variant from floor-only (switch every %d loops)",
+                self.variant_switch_interval,
+            )
             return
 
         next_variant = self._get_next_variant_in_cycle()
@@ -948,8 +1143,12 @@ class Routine:
         self.variant_switch_counter = 0
         self._reset_movement_context(reset_skip_counter=True)
 
-        log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
-                 self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+        log.info(
+            "🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)",
+            self.current_variant,
+            self.variant_switch_interval,
+            self.variant_switch_interval,
+        )
         # Record variant switch in metrics
         try:
             get_metrics_logger().record_variant_switch(self.current_variant)
@@ -962,20 +1161,25 @@ class Routine:
             return False
 
         available = []
-        if self.floor1_indices and self._has_required_labels('floor1_only'):
-            available.append('floor1_only')
-        if self.floor2_indices and self._has_required_labels('floor2_only'):
-            available.append('floor2_only')
+        if self.floor1_indices and self._has_required_labels("floor1_only"):
+            available.append("floor1_only")
+        if self.floor2_indices and self._has_required_labels("floor2_only"):
+            available.append("floor2_only")
 
         if not available:
             return False
 
         roll = random.random()
         # Ensure floor_variant_chance is a float
-        floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
+        floor_chance = (
+            float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
+        )
         if roll >= floor_chance:
-            log.debug("Routine Pattern Variation: Floor-only chance skipped (chance: %.2f, roll: %.3f)", 
-                      floor_chance, roll)
+            log.debug(
+                "Routine Pattern Variation: Floor-only chance skipped (chance: %.2f, roll: %.3f)",
+                floor_chance,
+                roll,
+            )
             return False
 
         variant = self._choose_floor_variant()
@@ -985,57 +1189,79 @@ class Routine:
         self._switch_variant(forced_variant=variant)
         self.index = self._get_variant_start_index()
         self.last_index = -1
-        self.last_floor_index = -1  # Reset last_floor_index when activating floor variant
+        self.last_floor_index = (
+            -1
+        )  # Reset last_floor_index when activating floor variant
         self.floor_variant_active = True
         self._reset_movement_context(reset_skip_counter=True)
-        
+
         # Log floor indices for debugging
-        floor_indices = self.floor1_indices if variant == 'floor1_only' else self.floor2_indices
+        floor_indices = (
+            self.floor1_indices if variant == "floor1_only" else self.floor2_indices
+        )
         # Ensure floor_variant_chance is a float before logging
-        floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
-        log.info("🛗 Routine Pattern Variation: Activated floor-only variant '%s' for %d loop(s) (chance: %.0f%%, roll: %.3f)", 
-                 variant, self.variant_switch_interval, floor_chance * 100, roll)
-        log.info("🛗 Floor-only: Floor indices: %s (total: %d points), Starting at index %d, Direction: %s", 
-                 floor_indices, len(floor_indices), self.index, self.floor_direction)
+        floor_chance = (
+            float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
+        )
+        log.info(
+            "🛗 Routine Pattern Variation: Activated floor-only variant '%s' for %d loop(s) (chance: %.0f%%, roll: %.3f)",
+            variant,
+            self.variant_switch_interval,
+            floor_chance * 100,
+            roll,
+        )
+        log.info(
+            "🛗 Floor-only: Floor indices: %s (total: %d points), Starting at index %d, Direction: %s",
+            floor_indices,
+            len(floor_indices),
+            self.index,
+            self.floor_direction,
+        )
         return True
 
     def _should_switch_variant(self):
         """Check if we should switch variant."""
         if not self.variant_enabled:
             return False
-        
+
         # If floor-only variant is active, check if we've reached the loop limit
-        if self.floor_variant_active and self.current_variant in ['floor1_only', 'floor2_only']:
+        if self.floor_variant_active and self.current_variant in [
+            "floor1_only",
+            "floor2_only",
+        ]:
             if self.variant_switch_counter >= self.variant_switch_interval:
                 # Floor-only completed, return to normal
-                log.info("🛗 Floor-only: Completed %d loop(s), returning to normal variant", self.variant_switch_interval)
+                log.info(
+                    "🛗 Floor-only: Completed %d loop(s), returning to normal variant",
+                    self.variant_switch_interval,
+                )
                 return True
-        
+
         # Check if we've completed enough loops for normal variant switching
         # Note: variant_switch_counter is incremented in step() when loop completion is detected
         if self.variant_switch_counter >= self.variant_switch_interval:
             return True
-        
+
         return False
 
     def _get_variant_start_index(self):
         """Get start index based on current variant."""
         if len(self.sequence) == 0:
             return 0
-        
-        if self.current_variant == 'normal':
+
+        if self.current_variant == "normal":
             return 0
-        elif self.current_variant == 'reverse':
+        elif self.current_variant == "reverse":
             return len(self.sequence) - 1
-        elif self.current_variant == 'floor1_only':
+        elif self.current_variant == "floor1_only":
             # Floor1_only: Start from first position with forward direction (f1_pos_0 -> f1_pos_last)
             # When reaching f1_pos_last, will switch to reverse direction (f1_pos_last -> f1_pos_0)
-            self.floor_direction = 'forward'  # Start in forward direction
+            self.floor_direction = "forward"  # Start in forward direction
             f1_first = self.get_f1_first_index()  # Get f1_pos_0 index in self.sequence
             return f1_first if f1_first >= 0 else 0
-        elif self.current_variant == 'floor2_only':
+        elif self.current_variant == "floor2_only":
             # Floor2_only: Start from last position and reverse direction (f2_pos_last -> f2_pos_1)
-            self.floor_direction = 'reverse'  # Start in reverse direction
+            self.floor_direction = "reverse"  # Start in reverse direction
             f2_last = self.get_f2_last_index()  # Get f2_pos_last index in self.sequence
             return f2_last if f2_last >= 0 else 0
         return 0
@@ -1044,7 +1270,7 @@ class Routine:
         """Get next index based on current variant and dynamic paths."""
         if len(self.sequence) == 0:
             return 0
-        
+
         # If dynamic paths enabled, step within current path
         if self.dynamic_paths_enabled and self.current_path_id:
             path_indices = self._get_current_path_indices()
@@ -1054,46 +1280,91 @@ class Routine:
                     if current_path_idx < len(path_indices) - 1:
                         # Not at end of path, step to next point in path
                         next_idx = path_indices[current_path_idx + 1]
-                        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                        path_number = (
+                            next(
+                                (
+                                    i
+                                    for i, p in enumerate(self.dynamic_paths)
+                                    if p["id"] == self.current_path_id
+                                ),
+                                0,
+                            )
+                            + 1
+                        )
                         # Log every 5 steps to avoid spam, but always log important transitions
                         if (current_path_idx + 1) % 5 == 0 or current_path_idx == 0:
-                            log.debug("🛤️ Dynamic Paths: Stepping in path %d/%d (%s) - point %d/%d (index %d → %d)",
-                                     path_number, len(self.dynamic_paths), self.current_path_id,
-                                     current_path_idx + 1, len(path_indices), current_index, next_idx)
+                            log.debug(
+                                "🛤️ Dynamic Paths: Stepping in path %d/%d (%s) - point %d/%d (index %d → %d)",
+                                path_number,
+                                len(self.dynamic_paths),
+                                self.current_path_id,
+                                current_path_idx + 1,
+                                len(path_indices),
+                                current_index,
+                                next_idx,
+                            )
                         return next_idx
                     else:
                         # At end of path, loop back to start of path
                         next_idx = path_indices[0]
-                        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
-                        log.info("🛤️ Dynamic Paths: Reached end of path %d/%d (%s, %d points), looping back to start (index %d → %d)",
-                                path_number, len(self.dynamic_paths), self.current_path_id,
-                                len(path_indices), current_index, next_idx)
+                        path_number = (
+                            next(
+                                (
+                                    i
+                                    for i, p in enumerate(self.dynamic_paths)
+                                    if p["id"] == self.current_path_id
+                                ),
+                                0,
+                            )
+                            + 1
+                        )
+                        log.info(
+                            "🛤️ Dynamic Paths: Reached end of path %d/%d (%s, %d points), looping back to start (index %d → %d)",
+                            path_number,
+                            len(self.dynamic_paths),
+                            self.current_path_id,
+                            len(path_indices),
+                            current_index,
+                            next_idx,
+                        )
                         return next_idx
                 except ValueError:
                     # Current index not in path, fallback to first point in path
                     next_idx = path_indices[0] if path_indices else current_index
-                    log.warning("🛤️ Dynamic Paths: Current index %d not in %s, falling back to first point (index %d)",
-                               current_index, self.current_path_id, next_idx)
+                    log.warning(
+                        "🛤️ Dynamic Paths: Current index %d not in %s, falling back to first point (index %d)",
+                        current_index,
+                        self.current_path_id,
+                        next_idx,
+                    )
                     return next_idx
-        
+
         # Normal variant logic (when dynamic paths disabled or not in path)
-        if self.current_variant == 'normal':
+        if self.current_variant == "normal":
             # Normal: forward
             return (current_index + 1) % len(self.sequence)
-        elif self.current_variant == 'reverse':
+        elif self.current_variant == "reverse":
             # Reverse: backward
             return (current_index - 1) % len(self.sequence)
-        elif self.current_variant == 'floor1_only':
+        elif self.current_variant == "floor1_only":
             # Floor 1 only: only visit Floor 1 points
             next_idx = self._get_next_floor_index(current_index, self.floor1_indices)
-            log.debug("🛗 Floor1-only: Current index %d -> Next index %d (direction: %s)", 
-                     current_index, next_idx, self.floor_direction)
+            log.debug(
+                "🛗 Floor1-only: Current index %d -> Next index %d (direction: %s)",
+                current_index,
+                next_idx,
+                self.floor_direction,
+            )
             return next_idx
-        elif self.current_variant == 'floor2_only':
+        elif self.current_variant == "floor2_only":
             # Floor 2 only: only visit Floor 2 points
             next_idx = self._get_next_floor_index(current_index, self.floor2_indices)
-            log.debug("🛗 Floor2-only: Current index %d -> Next index %d (direction: %s)", 
-                     current_index, next_idx, self.floor_direction)
+            log.debug(
+                "🛗 Floor2-only: Current index %d -> Next index %d (direction: %s)",
+                current_index,
+                next_idx,
+                self.floor_direction,
+            )
             return next_idx
         return (current_index + 1) % len(self.sequence)
 
@@ -1102,25 +1373,34 @@ class Routine:
         if not floor_indices:
             # Fallback to normal stepping if no floor indices
             return (current_index + 1) % len(self.sequence)
-        
+
         is_floor1 = floor_indices is self.floor1_indices
         is_floor2 = floor_indices is self.floor2_indices
 
-        first_floor_idx, last_floor_idx = self._get_floor_bounds(floor_indices, is_floor1, is_floor2)
+        first_floor_idx, last_floor_idx = self._get_floor_bounds(
+            floor_indices, is_floor1, is_floor2
+        )
         if first_floor_idx < 0 or last_floor_idx < 0:
-            log.warning("🛗 Floor-only: Invalid floor indices (first=%d, last=%d), falling back to normal step", 
-                       first_floor_idx, last_floor_idx)
+            log.warning(
+                "🛗 Floor-only: Invalid floor indices (first=%d, last=%d), falling back to normal step",
+                first_floor_idx,
+                last_floor_idx,
+            )
             return (current_index + 1) % len(self.sequence)
 
         try:
             current_floor_index = floor_indices.index(current_index)
         except ValueError:
-            self.floor_direction = 'forward'
+            self.floor_direction = "forward"
             return self._fallback_floor_start(is_floor1, is_floor2, floor_indices)
 
-        if self.floor_direction == 'forward':
-            return self._next_floor_forward(current_index, current_floor_index, floor_indices, last_floor_idx)
-        return self._next_floor_reverse(current_index, current_floor_index, floor_indices, first_floor_idx)
+        if self.floor_direction == "forward":
+            return self._next_floor_forward(
+                current_index, current_floor_index, floor_indices, last_floor_idx
+            )
+        return self._next_floor_reverse(
+            current_index, current_floor_index, floor_indices, first_floor_idx
+        )
 
     def _get_floor_bounds(self, floor_indices, is_floor1, is_floor2):
         if is_floor1:
@@ -1138,41 +1418,66 @@ class Routine:
             return self.get_f2_first_index() if self.get_f2_first_index() >= 0 else 0
         return floor_indices[0] if floor_indices else 0
 
-    def _next_floor_forward(self, current_index, current_floor_index, floor_indices, last_floor_idx):
+    def _next_floor_forward(
+        self, current_index, current_floor_index, floor_indices, last_floor_idx
+    ):
         if current_index == last_floor_idx:
-            self.floor_direction = 'reverse'
+            self.floor_direction = "reverse"
             if current_floor_index > 0:
                 next_floor_index = current_floor_index - 1
                 next_idx = floor_indices[next_floor_index]
-                log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction, moving to position %d",
-                         last_floor_idx, next_idx)
+                log.info(
+                    "🛗 Floor-only: Reached last position %d, switching to REVERSE direction, moving to position %d",
+                    last_floor_idx,
+                    next_idx,
+                )
                 return next_idx
-            log.info("🛗 Floor-only: Reached last position %d, switching to REVERSE direction", last_floor_idx)
+            log.info(
+                "🛗 Floor-only: Reached last position %d, switching to REVERSE direction",
+                last_floor_idx,
+            )
             return last_floor_idx
 
         next_floor_index = current_floor_index + 1
         if next_floor_index < len(floor_indices):
             next_idx = floor_indices[next_floor_index]
-            log.debug("🛗 Floor-only FORWARD: Moving from position %d (index %d) -> position %d (index %d)",
-                      current_index, current_floor_index, next_idx, next_floor_index)
+            log.debug(
+                "🛗 Floor-only FORWARD: Moving from position %d (index %d) -> position %d (index %d)",
+                current_index,
+                current_floor_index,
+                next_idx,
+                next_floor_index,
+            )
             return next_idx
         return last_floor_idx
 
-    def _next_floor_reverse(self, current_index, current_floor_index, floor_indices, first_floor_idx):
+    def _next_floor_reverse(
+        self, current_index, current_floor_index, floor_indices, first_floor_idx
+    ):
         if current_index == first_floor_idx:
-            self.floor_direction = 'forward'
-            log.info("🛗 Floor-only: Reached first position %d, switching to FORWARD direction (loop will complete on next step)",
-                     first_floor_idx)
+            self.floor_direction = "forward"
+            log.info(
+                "🛗 Floor-only: Reached first position %d, switching to FORWARD direction (loop will complete on next step)",
+                first_floor_idx,
+            )
             return first_floor_idx
 
         next_floor_index = current_floor_index - 1
         if next_floor_index >= 0:
             next_idx = floor_indices[next_floor_index]
-            log.info("🛗 Floor-only REVERSE: Moving from position %d (index %d) -> position %d (index %d)",
-                     current_index, current_floor_index, next_idx, next_floor_index)
+            log.info(
+                "🛗 Floor-only REVERSE: Moving from position %d (index %d) -> position %d (index %d)",
+                current_index,
+                current_floor_index,
+                next_idx,
+                next_floor_index,
+            )
             return next_idx
 
-        log.warning("🛗 Floor-only REVERSE: Unexpected state at position %d, falling back to first", current_index)
+        log.warning(
+            "🛗 Floor-only REVERSE: Unexpected state at position %d, falling back to first",
+            current_index,
+        )
         return first_floor_idx
 
     @utils.run_if_enabled
@@ -1194,8 +1499,12 @@ class Routine:
             self._on_loop_completed()
 
         self._update_last_indices(old_index)
-        log.debug("Routine Pattern Variation: Variant '%s', Index: %d/%d",
-                  self.current_variant, self.index, len(self.sequence) - 1)
+        log.debug(
+            "Routine Pattern Variation: Variant '%s', Index: %d/%d",
+            self.current_variant,
+            self.index,
+            len(self.sequence) - 1,
+        )
 
     def _handle_variant_switch_if_needed(self):
         if not self._should_switch_variant():
@@ -1204,19 +1513,27 @@ class Routine:
         self.index = self._get_variant_start_index()
         self.last_index = -1
         self.last_floor_index = -1
-        log.info("🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')",
-                 self.index, self.current_variant)
+        log.info(
+            "🔄 Routine Pattern Variation: Reset to start index %d (variant: '%s')",
+            self.index,
+            self.current_variant,
+        )
         return True
 
     def _log_floor_step(self, old_idx_before_step):
-        if self.current_variant in ['floor1_only', 'floor2_only']:
-            log.info("🛗 Floor-only STEP: Variant '%s', Index %d -> %d, Direction: %s",
-                     self.current_variant, old_idx_before_step, self.index, self.floor_direction)
+        if self.current_variant in ["floor1_only", "floor2_only"]:
+            log.info(
+                "🛗 Floor-only STEP: Variant '%s', Index %d -> %d, Direction: %s",
+                self.current_variant,
+                old_idx_before_step,
+                self.index,
+                self.floor_direction,
+            )
 
     def _detect_loop_completion(self, old_index):
         if self.last_index == -1:
             return False
-        
+
         # Check dynamic path loop completion first
         if self.dynamic_paths_enabled and self.current_path_id:
             path_indices = self._get_current_path_indices()
@@ -1224,71 +1541,128 @@ class Routine:
                 # Loop completed when we're back at first point in path
                 first_path_idx = path_indices[0]
                 return old_index == path_indices[-1] and self.index == first_path_idx
-        
+
         # Normal variant logic
-        if self.current_variant == 'normal':
+        if self.current_variant == "normal":
             return old_index == len(self.sequence) - 1 and self.index == 0
-        if self.current_variant == 'reverse':
+        if self.current_variant == "reverse":
             return old_index == 0 and self.index == len(self.sequence) - 1
-        if self.current_variant in ['floor1_only', 'floor2_only']:
+        if self.current_variant in ["floor1_only", "floor2_only"]:
             return self._floor_variant_loop_completed(old_index)
         return False
 
     def _floor_variant_loop_completed(self, old_index):
-        floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
+        floor_indices = (
+            self.floor1_indices
+            if self.current_variant == "floor1_only"
+            else self.floor2_indices
+        )
         if not floor_indices:
             return False
-        first_floor_idx = self.get_f1_first_index() if self.current_variant == 'floor1_only' else self.get_f2_first_index()
+        first_floor_idx = (
+            self.get_f1_first_index()
+            if self.current_variant == "floor1_only"
+            else self.get_f2_first_index()
+        )
         if first_floor_idx < 0:
             return False
         completed = (
-            self.index == first_floor_idx and
-            self.floor_direction == 'forward' and
-            old_index in floor_indices and
-            old_index != first_floor_idx
+            self.index == first_floor_idx
+            and self.floor_direction == "forward"
+            and old_index in floor_indices
+            and old_index != first_floor_idx
         )
         if completed:
-            log.info("🛗 Floor-only: Loop completed! (forward: pos_0->pos_last, reverse: pos_last->pos_0)")
+            log.info(
+                "🛗 Floor-only: Loop completed! (forward: pos_0->pos_last, reverse: pos_last->pos_0)"
+            )
         return completed
 
     def _on_loop_completed(self):
         self.loop_count += 1
         self.variant_switch_counter += 1
-        
+
         # Handle dynamic path switching
         if self.dynamic_paths_enabled and self.current_path_id:
             self.path_switch_counter += 1
             if self.path_switch_counter >= self.path_switch_interval:
                 # Time to switch path
-                current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
-                path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                current_path = next(
+                    (p for p in self.dynamic_paths if p["id"] == self.current_path_id),
+                    None,
+                )
+                path_number = (
+                    next(
+                        (
+                            i
+                            for i, p in enumerate(self.dynamic_paths)
+                            if p["id"] == self.current_path_id
+                        ),
+                        0,
+                    )
+                    + 1
+                )
                 total_paths = len(self.dynamic_paths)
-                log.info("🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s, %d points) - switching path...",
-                        self.path_switch_counter, path_number, total_paths, self.current_path_id,
-                        len(current_path['indices']) if current_path else 0)
+                log.info(
+                    "🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s, %d points) - switching path...",
+                    self.path_switch_counter,
+                    path_number,
+                    total_paths,
+                    self.current_path_id,
+                    len(current_path["indices"]) if current_path else 0,
+                )
                 self._select_next_path()
             else:
                 loops_remaining = self.path_switch_interval - self.path_switch_counter
-                path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                path_number = (
+                    next(
+                        (
+                            i
+                            for i, p in enumerate(self.dynamic_paths)
+                            if p["id"] == self.current_path_id
+                        ),
+                        0,
+                    )
+                    + 1
+                )
                 total_paths = len(self.dynamic_paths)
-                log.info("🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s) - %d/%d loops, %d remaining before switch",
-                        self.path_switch_counter, path_number, total_paths, self.current_path_id,
-                        self.path_switch_counter, self.path_switch_interval, loops_remaining)
-        
+                log.info(
+                    "🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s) - %d/%d loops, %d remaining before switch",
+                    self.path_switch_counter,
+                    path_number,
+                    total_paths,
+                    self.current_path_id,
+                    self.path_switch_counter,
+                    self.path_switch_interval,
+                    loops_remaining,
+                )
+
         loops_remaining = self.variant_switch_interval - self.variant_switch_counter
-        log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
-                 self.loop_count, self.current_variant,
-                 self.variant_switch_counter, self.variant_switch_interval,
-                 loops_remaining)
+        log.info(
+            "🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
+            self.loop_count,
+            self.current_variant,
+            self.variant_switch_counter,
+            self.variant_switch_interval,
+            loops_remaining,
+        )
         self._log_observability_snapshot()
         if not self.floor_variant_active:
             self._maybe_activate_floor_variant()
 
     def _update_last_indices(self, old_index):
         self.last_index = old_index
-        if self.current_variant in ['floor1_only', 'floor2_only']:
-            floor_indices = self.floor1_indices if self.current_variant == 'floor1_only' else self.floor2_indices
-            if floor_indices and old_index in floor_indices and self.index in floor_indices:
+        if self.current_variant in ["floor1_only", "floor2_only"]:
+            floor_indices = (
+                self.floor1_indices
+                if self.current_variant == "floor1_only"
+                else self.floor2_indices
+            )
+            if (
+                floor_indices
+                and old_index in floor_indices
+                and self.index in floor_indices
+            ):
                 self.last_floor_index = old_index
                 return
         self.last_floor_index = -1
@@ -1301,11 +1675,11 @@ class Routine:
             result.append(item.encode())
             if isinstance(item, Point):
                 for c in item.commands:
-                    result.append(' ' * 4 + c.encode())
-        result.append('')
+                    result.append(" " * 4 + c.encode())
+        result.append("")
 
-        with open(file_path, 'w') as file:
-            file.write('\n'.join(result))
+        with open(file_path, "w") as file:
+            file.write("\n".join(result))
         self.dirty = False
 
         utils.print_separator()
@@ -1315,7 +1689,7 @@ class Routine:
         self.index = 0
         self.set([])
         self.dirty = False
-        self.path = ''
+        self.path = ""
         config.layout = None
         settings.reset()
         # Reset skip tracking
@@ -1334,11 +1708,11 @@ class Routine:
         self.variant_cycle_index = 0
         self.floor_variant_active = False
         self.floor_variant_last = None
-        self.floor_direction = 'forward'
+        self.floor_direction = "forward"
         self.observability_metrics = {
-            'offsets': 0,
-            'micro_pauses': 0,
-            'micro_gestures': 0
+            "offsets": 0,
+            "micro_pauses": 0,
+            "micro_gestures": 0,
         }
         # Reset Dynamic Paths
         self.dynamic_paths = []
@@ -1348,12 +1722,12 @@ class Routine:
         self.original_sequence_indices = []
         # Reset Command Sequence stats
         self.command_sequence_stats = {
-            'total_shuffles': 0,
-            'total_skips': 0,
-            'total_extra_waits': 0,
-            'last_shuffle_time': None,
-            'last_skip_time': None,
-            'last_extra_wait_time': None
+            "total_shuffles": 0,
+            "total_skips": 0,
+            "total_extra_waits": 0,
+            "last_shuffle_time": None,
+            "last_skip_time": None,
+            "last_extra_wait_time": None,
         }
 
         config.gui.clear_routine_info()
@@ -1372,13 +1746,15 @@ class Routine:
         if not file:
             if self.path:
                 file = self.path
-                print(' *  File path not provided, using previously loaded routine')
+                print(" *  File path not provided, using previously loaded routine")
             else:
-                print('[!] File path not provided, no routine was previously loaded either')
+                print(
+                    "[!] File path not provided, no routine was previously loaded either"
+                )
                 return False
 
         ext = splitext(file)[1]
-        if ext != '.csv':
+        if ext != ".csv":
             print(f" !  '{ext}' is not a supported file extension.")
             return False
 
@@ -1393,91 +1769,129 @@ class Routine:
         except Exception as e:
             log.error(f"Error compiling routine: {e}")
             import traceback
+
             log.error(traceback.format_exc())
             print(f"[!] Failed to compile routine: {e}")
             return False
 
         self.dirty = False
         self.path = file
-        
+
         # Load layout
         try:
             config.layout = Layout.load(file)
         except Exception as e:
             log.warning(f"Failed to load layout: {e}")
             config.layout = None
-        
+
         # Update GUI
         try:
-            if hasattr(config, 'gui') and config.gui:
-                if hasattr(config.gui, 'view') and hasattr(config.gui.view, 'status'):
+            if hasattr(config, "gui") and config.gui:
+                if hasattr(config.gui, "view") and hasattr(config.gui.view, "status"):
                     config.gui.view.status.set_routine(basename(file))
-                if hasattr(config.gui, 'edit') and hasattr(config.gui.edit, 'minimap'):
+                if hasattr(config.gui, "edit") and hasattr(config.gui.edit, "minimap"):
                     config.gui.edit.minimap.draw_default()
         except Exception as e:
             log.warning(f"Failed to update GUI after loading routine: {e}")
-        
+
         print(f" ~  Finished loading routine '{basename(splitext(file)[0])}'.")
-        
+
         # Log routine info for Point Selection Randomization
         point_count = sum(1 for item in self.sequence if isinstance(item, Point))
         jump_count = sum(1 for item in self.sequence if isinstance(item, Jump))
         label_count = sum(1 for item in self.sequence if isinstance(item, Label))
-        log.info("📊 Routine Loaded: %d Points, %d Jumps, %d Labels, %d Total Components", 
-                point_count, jump_count, label_count, len(self.sequence))
-        
+        log.info(
+            "📊 Routine Loaded: %d Points, %d Jumps, %d Labels, %d Total Components",
+            point_count,
+            jump_count,
+            label_count,
+            len(self.sequence),
+        )
+
         # Ensure skip_probability and backward_probability are floats
         skip_prob = float(self.skip_probability) if self.skip_probability else 0.0
-        backward_prob = float(self.backward_probability) if self.backward_probability else 0.0
-        
-        log.info("🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)", 
-                skip_prob * 100, self.max_consecutive_skips)
-        log.info("⏮️ Random Move Backward: Ready (%.1f%% backward probability, range %d-%d steps)", 
-                backward_prob * 100, self.backward_range[0], self.backward_range[1])
-        
+        backward_prob = (
+            float(self.backward_probability) if self.backward_probability else 0.0
+        )
+
+        log.info(
+            "🎯 Point Selection Randomization: Ready (%.1f%% skip probability, max %d consecutive skips)",
+            skip_prob * 100,
+            self.max_consecutive_skips,
+        )
+        log.info(
+            "⏮️ Random Move Backward: Ready (%.1f%% backward probability, range %d-%d steps)",
+            backward_prob * 100,
+            self.backward_range[0],
+            self.backward_range[1],
+        )
+
         # Log Command Sequence Randomization status
-        if self.command_randomization.get('enabled', False):
-            shuffle_prob = self.command_randomization.get('shuffle_probability', 0.0) * 100
-            skip_prob = self.command_randomization.get('skip_probability', 0.0) * 100
-            wait_prob = self.command_randomization.get('extra_wait_probability', 0.0) * 100
-            log.info("🔀 Command Sequence Randomization: Ready (Shuffle: %.1f%%, Skip: %.1f%%, Extra Wait: %.1f%%)",
-                    shuffle_prob, skip_prob, wait_prob)
+        if self.command_randomization.get("enabled", False):
+            shuffle_prob = (
+                self.command_randomization.get("shuffle_probability", 0.0) * 100
+            )
+            skip_prob = self.command_randomization.get("skip_probability", 0.0) * 100
+            wait_prob = (
+                self.command_randomization.get("extra_wait_probability", 0.0) * 100
+            )
+            log.info(
+                "🔀 Command Sequence Randomization: Ready (Shuffle: %.1f%%, Skip: %.1f%%, Extra Wait: %.1f%%)",
+                shuffle_prob,
+                skip_prob,
+                wait_prob,
+            )
         else:
             log.debug("🔀 Command Sequence Randomization: DISABLED")
-        
+
         # Reload randomization settings when loading routine
         self._load_randomization_settings()
         self._load_floor_metadata(file)
-        
+
         # Initialize Routine Pattern Variation
         if self.variant_enabled:
             self.detect_floors()
             self._build_variant_cycle()
             self.index = self._get_variant_start_index()
-            log.info("🔄 Routine Pattern Variation: Initialized with variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
-                    self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+            log.info(
+                "🔄 Routine Pattern Variation: Initialized with variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)",
+                self.current_variant,
+                self.variant_switch_interval,
+                self.variant_switch_interval,
+            )
             # Ensure floor_variant_chance is a float before logging
-            floor_chance = float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
-            log.info("🛗 Routine Pattern Variation: Floor-only activation chance %.0f%%, loop range %d-%d", 
-                     floor_chance * 100, self.floor_variant_loop_range[0], self.floor_variant_loop_range[1])
-        
+            floor_chance = (
+                float(self.floor_variant_chance) if self.floor_variant_chance else 0.0
+            )
+            log.info(
+                "🛗 Routine Pattern Variation: Floor-only activation chance %.0f%%, loop range %d-%d",
+                floor_chance * 100,
+                self.floor_variant_loop_range[0],
+                self.floor_variant_loop_range[1],
+            )
+
         # Initialize Dynamic Paths
         if self.dynamic_paths_enabled:
             self._generate_dynamic_paths()
             if self.dynamic_paths:
                 self._generate_transition_matrix()
                 self._select_initial_path()
-                log.info("🛤️ Dynamic Paths: Generated %d paths, selection mode: %s", 
-                        len(self.dynamic_paths), self.dynamic_paths_config['selection_mode'])
-                log.info("🛤️ Dynamic Paths: Switch interval %d-%d loops, current path: %s", 
-                        self.dynamic_paths_config['switch_interval']['min_loops'],
-                        self.dynamic_paths_config['switch_interval']['max_loops'],
-                        self.current_path_id)
+                log.info(
+                    "🛤️ Dynamic Paths: Generated %d paths, selection mode: %s",
+                    len(self.dynamic_paths),
+                    self.dynamic_paths_config["selection_mode"],
+                )
+                log.info(
+                    "🛤️ Dynamic Paths: Switch interval %d-%d loops, current path: %s",
+                    self.dynamic_paths_config["switch_interval"]["min_loops"],
+                    self.dynamic_paths_config["switch_interval"]["max_loops"],
+                    self.current_path_id,
+                )
 
     def compile(self, file):
         self.labels = {}
         try:
-            with open(file, newline='', encoding='utf-8') as f:
+            with open(file, newline="", encoding="utf-8") as f:
                 csv_reader = csv.reader(f, skipinitialspace=True)
                 curr_point = None
                 line = 1
@@ -1498,6 +1912,7 @@ class Routine:
         except Exception as e:
             log.error(f"Error compiling routine file '{file}': {e}")
             import traceback
+
             log.error(traceback.format_exc())
             raise
 
@@ -1505,7 +1920,7 @@ class Routine:
         if row and isinstance(row, list):
             first, rest = row[0].lower(), row[1:]
             args, kwargs = utils.separate_args(rest)
-            line_error = f' !  Line {i}: '
+            line_error = f" !  Line {i}: "
 
             if first in SYMBOLS:
                 c = SYMBOLS[first]
@@ -1531,84 +1946,106 @@ class Routine:
             log.warning("🛤️ Dynamic Paths: Cannot generate paths - sequence is empty")
             self.dynamic_paths = []
             return
-        
+
         # Get all Point indices (skip Labels, Jumps, Settings)
-        point_indices = [i for i, item in enumerate(self.sequence) if isinstance(item, Point)]
-        
+        point_indices = [
+            i for i, item in enumerate(self.sequence) if isinstance(item, Point)
+        ]
+
         if len(point_indices) < 2:
-            log.warning("🛤️ Dynamic Paths: Not enough points to generate paths (need at least 2, got %d)", len(point_indices))
+            log.warning(
+                "🛤️ Dynamic Paths: Not enough points to generate paths (need at least 2, got %d)",
+                len(point_indices),
+            )
             self.dynamic_paths = []
             return
-        
+
         # Store original sequence indices
         self.original_sequence_indices = list(range(len(self.sequence)))
-        
-        path_count = self.dynamic_paths_config['path_count']
-        strategy = self.dynamic_paths_config['generation_strategy']
-        skip_range = self.dynamic_paths_config['skip_percentage_range']
-        
+
+        path_count = self.dynamic_paths_config["path_count"]
+        strategy = self.dynamic_paths_config["generation_strategy"]
+        skip_range = self.dynamic_paths_config["skip_percentage_range"]
+
         self.dynamic_paths = []
-        
+
         # Path 1: Full path (always include)
         full_path = {
-            'id': 'path1',
-            'indices': point_indices.copy(),
-            'weight': 1.0,
-            'description': 'Full path (100% points)'
+            "id": "path1",
+            "indices": point_indices.copy(),
+            "weight": 1.0,
+            "description": "Full path (100% points)",
         }
         self.dynamic_paths.append(full_path)
-        log.info("🛤️ Dynamic Paths: Generated path1 (full path: %d points)", len(point_indices))
-        
+        log.info(
+            "🛤️ Dynamic Paths: Generated path1 (full path: %d points)",
+            len(point_indices),
+        )
+
         # Generate additional paths based on strategy
         for path_num in range(2, path_count + 1):
-            path_id = f'path{path_num}'
-            path_indices = self._generate_single_path(point_indices, strategy, skip_range, path_num)
-            
+            path_id = f"path{path_num}"
+            path_indices = self._generate_single_path(
+                point_indices, strategy, skip_range, path_num
+            )
+
             if path_indices and len(path_indices) >= 2:
                 path = {
-                    'id': path_id,
-                    'indices': path_indices,
-                    'weight': 1.0,  # Equal weight by default
-                    'description': f'Generated path {path_num} ({len(path_indices)}/{len(point_indices)} points)'
+                    "id": path_id,
+                    "indices": path_indices,
+                    "weight": 1.0,  # Equal weight by default
+                    "description": f"Generated path {path_num} ({len(path_indices)}/{len(point_indices)} points)",
                 }
                 self.dynamic_paths.append(path)
-                log.info("🛤️ Dynamic Paths: Generated %s (%d/%d points, %.1f%%) - strategy: %s",
-                        path_id, len(path_indices), len(point_indices),
-                        (len(path_indices) / len(point_indices)) * 100, strategy)
+                log.info(
+                    "🛤️ Dynamic Paths: Generated %s (%d/%d points, %.1f%%) - strategy: %s",
+                    path_id,
+                    len(path_indices),
+                    len(point_indices),
+                    (len(path_indices) / len(point_indices)) * 100,
+                    strategy,
+                )
             else:
-                log.warning("🛤️ Dynamic Paths: Failed to generate %s (got %d indices, need at least 2)",
-                           path_id, len(path_indices) if path_indices else 0)
-        
+                log.warning(
+                    "🛤️ Dynamic Paths: Failed to generate %s (got %d indices, need at least 2)",
+                    path_id,
+                    len(path_indices) if path_indices else 0,
+                )
+
         # Normalize weights
-        total_weight = sum(p['weight'] for p in self.dynamic_paths)
+        total_weight = sum(p["weight"] for p in self.dynamic_paths)
         if total_weight > 0:
             for path in self.dynamic_paths:
-                path['weight'] /= total_weight
-        
-        log.info("🛤️ Dynamic Paths: Generated %d total paths from %d points (strategy: %s)",
-                len(self.dynamic_paths), len(point_indices), strategy)
-    
+                path["weight"] /= total_weight
+
+        log.info(
+            "🛤️ Dynamic Paths: Generated %d total paths from %d points (strategy: %s)",
+            len(self.dynamic_paths),
+            len(point_indices),
+            strategy,
+        )
+
     def _generate_single_path(self, point_indices, strategy, skip_range, path_num):
         """Generate a single path based on strategy."""
-        if strategy == 'random_skip':
+        if strategy == "random_skip":
             # Random skip strategy: skip random percentage of points
             skip_percentage = random.uniform(skip_range[0], skip_range[1])
             num_to_keep = int(len(point_indices) * (1.0 - skip_percentage))
-            
+
             # Ensure we keep at least 2 points
             if num_to_keep < 2:
                 num_to_keep = 2
-            
+
             # Randomly select points to keep
             selected_indices = sorted(random.sample(point_indices, num_to_keep))
             return selected_indices
-        
-        elif strategy == 'partial':
+
+        elif strategy == "partial":
             # Partial strategy: take first N% or last N%
             skip_percentage = random.uniform(skip_range[0], skip_range[1])
             keep_percentage = 1.0 - skip_percentage
             num_to_keep = max(2, int(len(point_indices) * keep_percentage))
-            
+
             # Randomly choose first N% or last N%
             if random.random() < 0.5:
                 # First N%
@@ -1616,233 +2053,372 @@ class Routine:
             else:
                 # Last N%
                 return point_indices[-num_to_keep:]
-        
-        elif strategy == 'mixed':
+
+        elif strategy == "mixed":
             # Mixed strategy: combine random_skip and partial
             if random.random() < 0.5:
-                return self._generate_single_path(point_indices, 'random_skip', skip_range, path_num)
+                return self._generate_single_path(
+                    point_indices, "random_skip", skip_range, path_num
+                )
             else:
-                return self._generate_single_path(point_indices, 'partial', skip_range, path_num)
-        
+                return self._generate_single_path(
+                    point_indices, "partial", skip_range, path_num
+                )
+
         else:
             # Fallback to random_skip
-            return self._generate_single_path(point_indices, 'random_skip', skip_range, path_num)
-    
+            return self._generate_single_path(
+                point_indices, "random_skip", skip_range, path_num
+            )
+
     def _generate_transition_matrix(self):
         """Generate or load transition matrix for path selection."""
-        matrix_cfg = self.dynamic_paths_config.get('transition_matrix', {})
-        
+        matrix_cfg = self.dynamic_paths_config.get("transition_matrix", {})
+
         # Check if auto-generate
-        if matrix_cfg.get('auto', True) or not matrix_cfg:
+        if matrix_cfg.get("auto", True) or not matrix_cfg:
             # Auto-generate balanced transition matrix
-            path_ids = [p['id'] for p in self.dynamic_paths]
+            path_ids = [p["id"] for p in self.dynamic_paths]
             num_paths = len(path_ids)
-            
+
             # Create balanced matrix: each path can transition to any path with equal probability
             # But slightly favor staying in same path (40%) vs switching (60% distributed)
             matrix = {}
             for path_id in path_ids:
                 transitions = {}
                 stay_probability = 0.4
-                switch_probability = (1.0 - stay_probability) / (num_paths - 1) if num_paths > 1 else 0.0
-                
+                switch_probability = (
+                    (1.0 - stay_probability) / (num_paths - 1) if num_paths > 1 else 0.0
+                )
+
                 for target_id in path_ids:
                     if target_id == path_id:
                         transitions[target_id] = stay_probability
                     else:
                         transitions[target_id] = switch_probability
-                
+
                 matrix[path_id] = transitions
-            
-            self.dynamic_paths_config['transition_matrix'] = matrix
+
+            self.dynamic_paths_config["transition_matrix"] = matrix
             log.debug("🛤️ Dynamic Paths: Auto-generated transition matrix")
         else:
             # Use provided matrix
-            self.dynamic_paths_config['transition_matrix'] = matrix_cfg
+            self.dynamic_paths_config["transition_matrix"] = matrix_cfg
             log.debug("🛤️ Dynamic Paths: Using provided transition matrix")
-    
+
     def _select_initial_path(self):
         """Select initial path when routine starts."""
         if not self.dynamic_paths:
             self.current_path_id = None
             return
-        
-        selection_mode = self.dynamic_paths_config['selection_mode']
-        
-        if selection_mode == 'random':
-            self.current_path_id = random.choice(self.dynamic_paths)['id']
-            log.debug("🛤️ Dynamic Paths: Initial selection (random): %s", self.current_path_id)
-        elif selection_mode == 'weighted':
+
+        selection_mode = self.dynamic_paths_config["selection_mode"]
+
+        if selection_mode == "random":
+            self.current_path_id = random.choice(self.dynamic_paths)["id"]
+            log.debug(
+                "🛤️ Dynamic Paths: Initial selection (random): %s", self.current_path_id
+            )
+        elif selection_mode == "weighted":
             # Weighted random selection
-            weights = [p['weight'] for p in self.dynamic_paths]
+            weights = [p["weight"] for p in self.dynamic_paths]
             self.current_path_id = random.choices(
-                [p['id'] for p in self.dynamic_paths],
-                weights=weights
+                [p["id"] for p in self.dynamic_paths], weights=weights
             )[0]
-            selected_weight = next((p['weight'] for p in self.dynamic_paths if p['id'] == self.current_path_id), 0.0)
-            log.debug("🛤️ Dynamic Paths: Initial selection (weighted, weight=%.3f): %s",
-                     selected_weight, self.current_path_id)
-        elif selection_mode == 'transition_matrix':
+            selected_weight = next(
+                (
+                    p["weight"]
+                    for p in self.dynamic_paths
+                    if p["id"] == self.current_path_id
+                ),
+                0.0,
+            )
+            log.debug(
+                "🛤️ Dynamic Paths: Initial selection (weighted, weight=%.3f): %s",
+                selected_weight,
+                self.current_path_id,
+            )
+        elif selection_mode == "transition_matrix":
             # For initial selection, use equal probability
-            self.current_path_id = random.choice(self.dynamic_paths)['id']
-            log.debug("🛤️ Dynamic Paths: Initial selection (transition_matrix, equal prob): %s", self.current_path_id)
-        elif selection_mode == 'sequential':
+            self.current_path_id = random.choice(self.dynamic_paths)["id"]
+            log.debug(
+                "🛤️ Dynamic Paths: Initial selection (transition_matrix, equal prob): %s",
+                self.current_path_id,
+            )
+        elif selection_mode == "sequential":
             # Start with first path
-            self.current_path_id = self.dynamic_paths[0]['id']
-            log.debug("🛤️ Dynamic Paths: Initial selection (sequential): %s", self.current_path_id)
+            self.current_path_id = self.dynamic_paths[0]["id"]
+            log.debug(
+                "🛤️ Dynamic Paths: Initial selection (sequential): %s",
+                self.current_path_id,
+            )
         else:
             # Fallback to random
-            self.current_path_id = random.choice(self.dynamic_paths)['id']
-            log.debug("🛤️ Dynamic Paths: Initial selection (fallback random): %s", self.current_path_id)
-        
+            self.current_path_id = random.choice(self.dynamic_paths)["id"]
+            log.debug(
+                "🛤️ Dynamic Paths: Initial selection (fallback random): %s",
+                self.current_path_id,
+            )
+
         # Set initial index based on current path
         self._apply_path_to_index()
         self.path_switch_interval = random.randint(
-            self.dynamic_paths_config['switch_interval']['min_loops'],
-            self.dynamic_paths_config['switch_interval']['max_loops']
+            self.dynamic_paths_config["switch_interval"]["min_loops"],
+            self.dynamic_paths_config["switch_interval"]["max_loops"],
         )
         self.path_switch_counter = 0
-        
+
         # Log initial path selection details
-        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+        current_path = next(
+            (p for p in self.dynamic_paths if p["id"] == self.current_path_id), None
+        )
         if current_path:
-            path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
-            log.info("🛤️ Dynamic Paths: Starting with %s (path %d/%d, %d points, switch interval: %d loops)",
-                    self.current_path_id, path_number, len(self.dynamic_paths),
-                    len(current_path['indices']), self.path_switch_interval)
-    
+            path_number = (
+                next(
+                    (
+                        i
+                        for i, p in enumerate(self.dynamic_paths)
+                        if p["id"] == self.current_path_id
+                    ),
+                    0,
+                )
+                + 1
+            )
+            log.info(
+                "🛤️ Dynamic Paths: Starting with %s (path %d/%d, %d points, switch interval: %d loops)",
+                self.current_path_id,
+                path_number,
+                len(self.dynamic_paths),
+                len(current_path["indices"]),
+                self.path_switch_interval,
+            )
+
     def _select_next_path(self):
         """Select next path based on selection mode and transition matrix."""
         if not self.dynamic_paths or not self.current_path_id:
-            log.warning("🛤️ Dynamic Paths: Cannot select next path - no paths or current_path_id is None")
+            log.warning(
+                "🛤️ Dynamic Paths: Cannot select next path - no paths or current_path_id is None"
+            )
             return
-        
-        selection_mode = self.dynamic_paths_config['selection_mode']
+
+        selection_mode = self.dynamic_paths_config["selection_mode"]
         old_path_id = self.current_path_id
-        
-        if selection_mode == 'random':
+
+        if selection_mode == "random":
             # Random selection
-            available_paths = [p['id'] for p in self.dynamic_paths if p['id'] != self.current_path_id]
+            available_paths = [
+                p["id"] for p in self.dynamic_paths if p["id"] != self.current_path_id
+            ]
             if available_paths:
                 self.current_path_id = random.choice(available_paths)
-                log.debug("🛤️ Dynamic Paths: Next path selection (random, excluding current): %s → %s",
-                         old_path_id, self.current_path_id)
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (random, excluding current): %s → %s",
+                    old_path_id,
+                    self.current_path_id,
+                )
             else:
-                self.current_path_id = random.choice(self.dynamic_paths)['id']
-                log.debug("🛤️ Dynamic Paths: Next path selection (random, no alternatives): %s → %s",
-                         old_path_id, self.current_path_id)
-        
-        elif selection_mode == 'weighted':
+                self.current_path_id = random.choice(self.dynamic_paths)["id"]
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (random, no alternatives): %s → %s",
+                    old_path_id,
+                    self.current_path_id,
+                )
+
+        elif selection_mode == "weighted":
             # Weighted random (excluding current path)
-            available_paths = [p for p in self.dynamic_paths if p['id'] != self.current_path_id]
+            available_paths = [
+                p for p in self.dynamic_paths if p["id"] != self.current_path_id
+            ]
             if available_paths:
-                weights = [p['weight'] for p in available_paths]
+                weights = [p["weight"] for p in available_paths]
                 self.current_path_id = random.choices(
-                    [p['id'] for p in available_paths],
-                    weights=weights
+                    [p["id"] for p in available_paths], weights=weights
                 )[0]
-                selected_weight = next((p['weight'] for p in available_paths if p['id'] == self.current_path_id), 0.0)
-                log.debug("🛤️ Dynamic Paths: Next path selection (weighted, weight=%.3f): %s → %s",
-                         selected_weight, old_path_id, self.current_path_id)
+                selected_weight = next(
+                    (
+                        p["weight"]
+                        for p in available_paths
+                        if p["id"] == self.current_path_id
+                    ),
+                    0.0,
+                )
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (weighted, weight=%.3f): %s → %s",
+                    selected_weight,
+                    old_path_id,
+                    self.current_path_id,
+                )
             else:
-                self.current_path_id = random.choice(self.dynamic_paths)['id']
-                log.debug("🛤️ Dynamic Paths: Next path selection (weighted, no alternatives): %s → %s",
-                         old_path_id, self.current_path_id)
-        
-        elif selection_mode == 'transition_matrix':
+                self.current_path_id = random.choice(self.dynamic_paths)["id"]
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (weighted, no alternatives): %s → %s",
+                    old_path_id,
+                    self.current_path_id,
+                )
+
+        elif selection_mode == "transition_matrix":
             # Use transition matrix
-            matrix = self.dynamic_paths_config.get('transition_matrix', {})
+            matrix = self.dynamic_paths_config.get("transition_matrix", {})
             if self.current_path_id in matrix:
                 transitions = matrix[self.current_path_id]
                 path_ids = list(transitions.keys())
                 probabilities = list(transitions.values())
-                self.current_path_id = random.choices(path_ids, weights=probabilities)[0]
+                self.current_path_id = random.choices(path_ids, weights=probabilities)[
+                    0
+                ]
                 selected_prob = transitions.get(self.current_path_id, 0.0)
-                log.debug("🛤️ Dynamic Paths: Next path selection (transition_matrix, prob=%.3f): %s → %s",
-                         selected_prob, old_path_id, self.current_path_id)
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (transition_matrix, prob=%.3f): %s → %s",
+                    selected_prob,
+                    old_path_id,
+                    self.current_path_id,
+                )
             else:
                 # Fallback to random
-                self.current_path_id = random.choice(self.dynamic_paths)['id']
-                log.debug("🛤️ Dynamic Paths: Next path selection (transition_matrix, fallback): %s → %s",
-                         old_path_id, self.current_path_id)
-        
-        elif selection_mode == 'sequential':
+                self.current_path_id = random.choice(self.dynamic_paths)["id"]
+                log.debug(
+                    "🛤️ Dynamic Paths: Next path selection (transition_matrix, fallback): %s → %s",
+                    old_path_id,
+                    self.current_path_id,
+                )
+
+        elif selection_mode == "sequential":
             # Sequential: path1 -> path2 -> ... -> path1
-            current_idx = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0)
+            current_idx = next(
+                (
+                    i
+                    for i, p in enumerate(self.dynamic_paths)
+                    if p["id"] == self.current_path_id
+                ),
+                0,
+            )
             next_idx = (current_idx + 1) % len(self.dynamic_paths)
-            self.current_path_id = self.dynamic_paths[next_idx]['id']
-            log.debug("🛤️ Dynamic Paths: Next path selection (sequential): %s → %s (path %d → %d)",
-                     old_path_id, self.current_path_id, current_idx + 1, next_idx + 1)
-        
+            self.current_path_id = self.dynamic_paths[next_idx]["id"]
+            log.debug(
+                "🛤️ Dynamic Paths: Next path selection (sequential): %s → %s (path %d → %d)",
+                old_path_id,
+                self.current_path_id,
+                current_idx + 1,
+                next_idx + 1,
+            )
+
         # Apply new path to index
         self._apply_path_to_index()
         self.path_switch_counter = 0
         self.path_switch_interval = random.randint(
-            self.dynamic_paths_config['switch_interval']['min_loops'],
-            self.dynamic_paths_config['switch_interval']['max_loops']
+            self.dynamic_paths_config["switch_interval"]["min_loops"],
+            self.dynamic_paths_config["switch_interval"]["max_loops"],
         )
-        
+
         # Get path info for logging
-        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
-        path_points = len(current_path['indices']) if current_path else 0
+        current_path = next(
+            (p for p in self.dynamic_paths if p["id"] == self.current_path_id), None
+        )
+        path_points = len(current_path["indices"]) if current_path else 0
         total_paths = len(self.dynamic_paths)
-        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
-        
+        path_number = (
+            next(
+                (
+                    i
+                    for i, p in enumerate(self.dynamic_paths)
+                    if p["id"] == self.current_path_id
+                ),
+                0,
+            )
+            + 1
+        )
+
         # Get previous path info for context
-        previous_path_id = getattr(self, '_previous_path_id', None)
+        previous_path_id = getattr(self, "_previous_path_id", None)
         previous_path_number = None
         if previous_path_id:
-            previous_path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == previous_path_id), 0) + 1
-        
+            previous_path_number = (
+                next(
+                    (
+                        i
+                        for i, p in enumerate(self.dynamic_paths)
+                        if p["id"] == previous_path_id
+                    ),
+                    0,
+                )
+                + 1
+            )
+
         if previous_path_id and previous_path_number:
-            log.info("🛤️ Dynamic Paths: Switched from path %d/%d (%s) to path %d/%d (%s) - %d points, next switch in %d loops", 
-                    previous_path_number, total_paths, previous_path_id,
-                    path_number, total_paths, self.current_path_id, path_points, self.path_switch_interval)
+            log.info(
+                "🛤️ Dynamic Paths: Switched from path %d/%d (%s) to path %d/%d (%s) - %d points, next switch in %d loops",
+                previous_path_number,
+                total_paths,
+                previous_path_id,
+                path_number,
+                total_paths,
+                self.current_path_id,
+                path_points,
+                self.path_switch_interval,
+            )
         else:
-            log.info("🛤️ Dynamic Paths: Switched to path %d/%d (%s) - %d points, next switch in %d loops", 
-                    path_number, total_paths, self.current_path_id, path_points, self.path_switch_interval)
-        
+            log.info(
+                "🛤️ Dynamic Paths: Switched to path %d/%d (%s) - %d points, next switch in %d loops",
+                path_number,
+                total_paths,
+                self.current_path_id,
+                path_points,
+                self.path_switch_interval,
+            )
+
         # Store current path as previous for next switch
         self._previous_path_id = self.current_path_id
-        
+
         # Record path switch in metrics
         try:
             get_metrics_logger().record_path_switch(self.current_path_id)
         except Exception:
             pass  # Metrics logger might not be initialized yet
-    
+
     def _apply_path_to_index(self):
         """Apply current path to routine index (set index to first point in path)."""
         if not self.current_path_id or not self.dynamic_paths:
-            log.debug("🛤️ Dynamic Paths: Cannot apply path to index - no current_path_id or paths")
+            log.debug(
+                "🛤️ Dynamic Paths: Cannot apply path to index - no current_path_id or paths"
+            )
             return
-        
-        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
-        if current_path and current_path['indices']:
+
+        current_path = next(
+            (p for p in self.dynamic_paths if p["id"] == self.current_path_id), None
+        )
+        if current_path and current_path["indices"]:
             # Set index to first point in path
-            old_index = getattr(self, 'index', 0)
-            self.index = current_path['indices'][0]
+            old_index = getattr(self, "index", 0)
+            self.index = current_path["indices"][0]
             self.last_index = -1  # Reset last_index to allow loop detection
-            log.debug("🛤️ Dynamic Paths: Applied %s to index (index %d → %d, first point in path)",
-                     self.current_path_id, old_index, self.index)
+            log.debug(
+                "🛤️ Dynamic Paths: Applied %s to index (index %d → %d, first point in path)",
+                self.current_path_id,
+                old_index,
+                self.index,
+            )
         else:
-            log.warning("🛤️ Dynamic Paths: Cannot apply path %s - path not found or has no indices",
-                       self.current_path_id)
-    
+            log.warning(
+                "🛤️ Dynamic Paths: Cannot apply path %s - path not found or has no indices",
+                self.current_path_id,
+            )
+
     def _get_current_path_indices(self):
         """Get indices for current path."""
         if not self.current_path_id or not self.dynamic_paths:
             return None
-        
-        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
-        return current_path['indices'] if current_path else None
-    
+
+        current_path = next(
+            (p for p in self.dynamic_paths if p["id"] == self.current_path_id), None
+        )
+        return current_path["indices"] if current_path else None
+
     def _is_path_end(self, current_index):
         """Check if current index is the end of current path."""
         path_indices = self._get_current_path_indices()
         if not path_indices:
             return False
-        
+
         # Check if we're at the last index in path
         return current_index == path_indices[-1]
 

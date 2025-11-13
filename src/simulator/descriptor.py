@@ -109,19 +109,25 @@ class DescriptorRoutine:
                 if lower_head == "jump":
                     target_label = cls._require_arg(row, "Jump")
                     frequency = cls._parse_int_kwarg(row[2:], "frequency", default=1)
-                    instructions.append(JumpInstruction(target=target_label, frequency=frequency))
+                    instructions.append(
+                        JumpInstruction(target=target_label, frequency=frequency)
+                    )
                     cls._apply_pending_labels(instructions, labels, pending_labels)
                     continue
 
                 # Otherwise treat as a command for the current point.
-                if not instructions or not isinstance(instructions[-1], PointInstruction):
+                if not instructions or not isinstance(
+                    instructions[-1], PointInstruction
+                ):
                     raise ValueError(
                         f"Command '{head}' encountered before any point declaration in {path}"
                     )
                 instructions[-1].commands.append(DescriptorCommand.from_row(row))
 
         if pending_labels:
-            raise ValueError(f"Unattached labels found in descriptor {path}: {pending_labels}")
+            raise ValueError(
+                f"Unattached labels found in descriptor {path}: {pending_labels}"
+            )
 
         return cls(
             instructions=instructions,
@@ -251,5 +257,3 @@ class DescriptorRoutine:
             return instruction.labels[0]
 
         return None
-
-

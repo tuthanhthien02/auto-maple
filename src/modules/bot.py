@@ -4,29 +4,26 @@ import threading
 import time
 import git
 import cv2
-import inspect
-import importlib
-import traceback
-from os.path import splitext, basename
 from src.common import config, utils
-from src.common.anti_detect import initialize_anti_detect, cleanup_anti_detect, update_activity, get_human_delay
+from src.common.anti_detect import initialize_anti_detect, update_activity
+
 # Routine randomization - DISABLED
 # from src.common.routine_randomization import initialize_routine_randomization, get_variant_start_index
-from src.common.process_stealth import enable_process_stealth, disable_process_stealth
-from src.common.screenshot_blocker import enable_screenshot_blocking, disable_screenshot_blocking, protect_maplestory_window
+from src.common.process_stealth import enable_process_stealth
 from src.detection import detection
-from src.routine import components
 from src.routine.routine import Routine
 from src.command_book.command_book import CommandBook
 from src.routine.components import Point
-from src.common.vkeys import press, click, press_with_behavioral_pause
+from src.common.vkeys import press, click
 from src.common.interfaces import Configurable
 from src.common.logger import get_logger
 from src.common.metrics_logger import get_metrics_logger
 
 
 # The rune's buff icon
-RUNE_BUFF_TEMPLATE = cv2.imread(utils.get_asset_path('assets/rune_buff_template.jpg'), 0)
+RUNE_BUFF_TEMPLATE = cv2.imread(
+    utils.get_asset_path("assets/rune_buff_template.jpg"), 0
+)
 
 
 log = get_logger(__name__)
@@ -35,22 +32,19 @@ log = get_logger(__name__)
 class Bot(Configurable):
     """A class that interprets and executes user-defined routines."""
 
-    DEFAULT_CONFIG = {
-        'Interact': 'y',
-        'Feed pet': '9'
-    }
+    DEFAULT_CONFIG = {"Interact": "y", "Feed pet": "9"}
 
     def __init__(self):
         """Loads a user-defined routine on start up and initializes this Bot's main thread."""
 
-        super().__init__('keybindings')
+        super().__init__("keybindings")
         config.bot = self
 
         self.rune_active = False
         self.rune_pos = (0, 0)
-        self.rune_closest_pos = (0, 0)      # Location of the Point closest to rune
+        self.rune_closest_pos = (0, 0)  # Location of the Point closest to rune
         self.submodules = []
-        self.command_book = None            # CommandBook instance
+        self.command_book = None  # CommandBook instance
         # self.module_name = None
         # self.buff = components.Buff()
 
@@ -73,16 +67,16 @@ class Bot(Configurable):
 
         # Initialize anti-detect features
         initialize_anti_detect()
-        
+
         # Routine randomization - DISABLED
         # initialize_routine_randomization()
-        
+
         # Enable process stealth (optional)
         try:
             enable_process_stealth()
         except Exception as e:
             log.warning("Failed to enable process stealth: %s", e)
-        
+
         # Enable screenshot blocking (recommended) - DISABLED TEMPORARILY
         # try:
         #     enable_screenshot_blocking()
@@ -90,9 +84,9 @@ class Bot(Configurable):
         #     print("[Bot] Screenshot blocking enabled")
         # except Exception as e:
         #     print(f"[Bot] Failed to enable screenshot blocking: {e}")
-        
+
         # tạm tắt cập nhật recoures
-        
+
         # self.update_submodules()
         # print('\n[~] Started main bot loop')
         self.thread.start()
@@ -105,83 +99,82 @@ class Bot(Configurable):
 
         log.info("Initializing detection algorithm")
         # model = detection.load_model()  # Disabled: rune solving turned off
-        model = None
         log.info("Detection algorithm disabled (rune solving off)")
 
         self.ready = True
         config.listener.enabled = True
         last_activity_update = time.time()
-        
+
         # Variant switching - DISABLED
         # Routine starts from index 0 (normal behavior)
-        
+
         consecutive_errors = 0
         max_consecutive_errors = 10
         metrics = get_metrics_logger()
-        
+
         while True:
             try:
                 # Check if we should log periodic summary
                 if metrics.should_log_summary():
                     metrics.log_summary()
 
-            if config.enabled and len(config.routine) > 0:
+                if config.enabled and len(config.routine) > 0:
                     # Track loop start time
                     loop_start_time = time.time()
 
-                # Update activity for anti-detect
-                current_time = time.time()
-                if current_time - last_activity_update > 1.0:  # Update every second
-                    update_activity()
-                    last_activity_update = current_time
-                
-                    # Highlight the current Point in GUI (if available)
-                    try:
-                config.gui.view.routine.select(config.routine.index)
-                config.gui.view.details.display_info(config.routine.index)
-                    except Exception as gui_error:
-                        log.debug("GUI update error (non-critical): %s", gui_error)
+                    # Update activity for anti-detect
+                    current_time = time.time()
+                    if current_time - last_activity_update > 1.0:
+                        update_activity()
+                        last_activity_update = current_time
 
-                # Random Move Backward: Check if we should backward BEFORE any command execution
-                should_backward, backward_steps = config.routine.should_backward()
-                if should_backward:
-                    config.routine.apply_backward(backward_steps)
+                        # Highlight the current Point in GUI (if available)
+                        try:
+                            config.gui.view.routine.select(config.routine.index)
+                            config.gui.view.details.display_info(config.routine.index)
+                        except Exception as gui_error:
+                            log.debug("GUI update error (non-critical): %s", gui_error)
+
+                    # Random Move Backward: Check if we should backward BEFORE any command execution
+                    should_backward, backward_steps = config.routine.should_backward()
+                    if should_backward:
+                        config.routine.apply_backward(backward_steps)
                         metrics.record_backward_movement()
-                    element = config.routine[config.routine.index]
-                    element_type = element.__class__.__name__
+                        element = config.routine[config.routine.index]
+                        element_type = element.__class__.__name__
                         log.info(
-                            "⏮️ Random Backward: Now at index %d, element type: %s",
+                            "Random Backward: Now at index %d, element type: %s",
                             config.routine.index,
                             element_type,
                         )
-                
-                element = config.routine[config.routine.index]
-                element_type = element.__class__.__name__
-                
-                # Log current routine state
+
+                    element = config.routine[config.routine.index]
+                    element_type = element.__class__.__name__
+
+                    # Log current routine state
                     log.debug(
-                        "📍 Routine Execution: Index %d/%d - %s",
+                        "Routine Execution: Index %d/%d - %s",
                         config.routine.index,
                         len(config.routine.sequence) - 1,
                         element_type,
                     )
-                
-                # Check if we should skip this point
-                should_skip = config.routine.should_skip_current_point()
-                
-                if should_skip:
-                    if isinstance(element, Point):
+
+                    # Check if we should skip this point
+                    should_skip = config.routine.should_skip_current_point()
+
+                    if should_skip:
+                        if isinstance(element, Point):
                             log.info(
-                                "🚫 Point Selection Randomization: SKIPPING execution of point at index %d",
+                                "Skipping point at index %d due to randomization",
                                 config.routine.index,
                             )
                             metrics.record_point_skip()
                         config.routine.is_skipping_context = True
-                    config.routine.step()
-                else:
-                    if isinstance(element, Point):
+                        config.routine.step()
+                    else:
+                        if isinstance(element, Point):
                             log.info(
-                                "▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)",
+                                "Executing point at index %d (location: %.3f, %.3f)",
                                 config.routine.index,
                                 element.location[0],
                                 element.location[1],
@@ -189,52 +182,59 @@ class Bot(Configurable):
                             metrics.record_point_execution()
                             metrics.update_position(element.location)
 
-                    element.execute()
-                    config.routine.step()
+                        element.execute()
+                        config.routine.step()
 
-                    config.routine.is_skipping_context = False
-                    config.routine.is_backwarding_context = False
+                        config.routine.is_skipping_context = False
+                        config.routine.is_backwarding_context = False
 
                         loop_duration = time.time() - loop_start_time
                         metrics.record_loop_completion(loop_duration)
 
                         consecutive_errors = 0
 
-                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
-                time.sleep(0.05)
-            else:
-                # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
-                time.sleep(0.2)
+                    # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
+                    time.sleep(0.05)
+                else:
+                    # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
+                    time.sleep(0.2)
             except KeyboardInterrupt:
-                # Allow clean shutdown on Ctrl+C
                 log.info("Bot loop interrupted by user")
                 raise
             except Exception as e:
                 consecutive_errors += 1
                 metrics.record_error()
-                log.error("Bot loop error (consecutive: %d/%d): %s", 
-                         consecutive_errors, max_consecutive_errors, e, exc_info=True)
-                
-                # If too many consecutive errors, disable bot to prevent infinite loop
+                log.error(
+                    "Bot loop error (consecutive: %d/%d): %s",
+                    consecutive_errors,
+                    max_consecutive_errors,
+                    e,
+                    exc_info=True,
+                )
+
                 if consecutive_errors >= max_consecutive_errors:
-                    log.critical("Too many consecutive errors (%d), disabling bot to prevent crash", 
-                                consecutive_errors)
+                    log.critical(
+                        "Too many consecutive errors (%d), disabling bot to prevent crash",
+                        consecutive_errors,
+                    )
                     config.enabled = False
-                    consecutive_errors = 0  # Reset counter
-                    time.sleep(5)  # Wait before retrying
+                    consecutive_errors = 0
+                    time.sleep(5)
                 else:
-                    # Recovery: Skip current point and continue
                     try:
-                        if len(config.routine) > 0 and config.routine.index < len(config.routine.sequence):
-                            log.warning("Recovering: Skipping current point and continuing")
+                        if len(config.routine) > 0 and config.routine.index < len(
+                            config.routine.sequence
+                        ):
+                            log.warning(
+                                "Recovering: Skipping current point and continuing"
+                            )
                             metrics.record_recovery()
                             config.routine.step()
                             config.routine.is_skipping_context = False
                             config.routine.is_backwarding_context = False
                     except Exception as recovery_error:
                         log.error("Recovery failed: %s", recovery_error, exc_info=True)
-                    
-                    # Brief pause before retry
+
                     time.sleep(0.5)
 
     @utils.run_if_enabled
@@ -246,12 +246,12 @@ class Bot(Configurable):
         :return:        None
         """
 
-        move = self.command_book['move']
+        move = self.command_book["move"]
         move(*self.rune_pos).execute()
-        adjust = self.command_book['adjust']
+        adjust = self.command_book["adjust"]
         adjust(*self.rune_pos).execute()
         time.sleep(0.2)
-        press(self.config['Interact'], 1, down_time=0.2)        # Inherited from Configurable
+        press(self.config["Interact"], 1, down_time=0.2)  # Inherited from Configurable
 
         log.info("Solving rune")
         inferences = []
@@ -269,15 +269,22 @@ class Bot(Configurable):
                         time.sleep(0.3)
                         frame = config.capture.frame
                         # CPU Optimization: Pre-convert to grayscale once
-                        frame_top_gray = cv2.cvtColor(frame[:frame.shape[0] // 8, :], cv2.COLOR_BGR2GRAY)
-                        rune_buff = utils.multi_match(frame_top_gray, RUNE_BUFF_TEMPLATE, threshold=0.9, is_gray=True)
+                        frame_top_gray = cv2.cvtColor(
+                            frame[: frame.shape[0] // 8, :], cv2.COLOR_BGR2GRAY
+                        )
+                        rune_buff = utils.multi_match(
+                            frame_top_gray,
+                            RUNE_BUFF_TEMPLATE,
+                            threshold=0.9,
+                            is_gray=True,
+                        )
                         if rune_buff:
                             rune_buff_pos = min(rune_buff, key=lambda p: p[0])
                             target = (
-                                round(rune_buff_pos[0] + config.capture.window['left']),
-                                round(rune_buff_pos[1] + config.capture.window['top'])
+                                round(rune_buff_pos[0] + config.capture.window["left"]),
+                                round(rune_buff_pos[1] + config.capture.window["top"]),
                             )
-                            click(target, button='right')
+                            click(target, button="right")
                     self.rune_active = False
                     break
                 elif len(solution) == 4:
@@ -288,7 +295,7 @@ class Bot(Configurable):
             self.command_book = CommandBook(file)
             config.gui.settings.update_class_bindings()
         except ValueError:
-            pass    # TODO: UI warning popup, say check cmd for errors
+            pass  # TODO: UI warning popup, say check cmd for errors
         #
         # utils.print_separator()
         # print(f"[~] Loading command book '{basename(file)}':")
@@ -371,32 +378,35 @@ class Bot(Configurable):
         log.info("Retrieving latest submodules")
         self.submodules = []
         repo = git.Repo.init()
-        with open('.gitmodules', 'r') as file:
+        with open(".gitmodules", "r") as file:
             lines = file.readlines()
             i = 0
             while i < len(lines):
-                if lines[i].startswith('[') and i < len(lines) - 2:
-                    path = lines[i + 1].split('=')[1].strip()
-                    url = lines[i + 2].split('=')[1].strip()
+                if lines[i].startswith("[") and i < len(lines) - 2:
+                    path = lines[i + 1].split("=")[1].strip()
+                    url = lines[i + 2].split("=")[1].strip()
                     self.submodules.append(path)
                     try:
-                        repo.git.clone(url, path)       # First time loading submodule
+                        repo.git.clone(url, path)  # First time loading submodule
                         log.info("Initialized submodule '%s'", path)
                     except git.exc.GitCommandError:
                         sub_repo = git.Repo(path)
                         if not force:
-                            sub_repo.git.stash()        # Save modified content
-                        sub_repo.git.fetch('origin', 'main')
-                        sub_repo.git.reset('--hard', 'FETCH_HEAD')
+                            sub_repo.git.stash()  # Save modified content
+                        sub_repo.git.fetch("origin", "main")
+                        sub_repo.git.reset("--hard", "FETCH_HEAD")
                         if not force:
-                            try:                # Restore modified content
-                                sub_repo.git.checkout('stash', '--', '.')
-                                log.info("Updated submodule '%s', restored local changes", path)
+                            try:  # Restore modified content
+                                sub_repo.git.checkout("stash", "--", ".")
+                                log.info(
+                                    "Updated submodule '%s', restored local changes",
+                                    path,
+                                )
                             except git.exc.GitCommandError:
                                 log.info("Updated submodule '%s'", path)
                         else:
                             log.info("Rebuilt submodule '%s'", path)
-                        sub_repo.git.stash('clear')
+                        sub_repo.git.stash("clear")
                     i += 3
                 else:
                     i += 1

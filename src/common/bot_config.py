@@ -30,8 +30,11 @@ class BotConfig:
     @active_profile.setter
     def active_profile(self, profile_name: str) -> None:
         if profile_name not in self._data.get("profiles", {}):
-            log.warning("BotConfig: profile '%s' not found; keeping '%s'",
-                        profile_name, self._active_profile)
+            log.warning(
+                "BotConfig: profile '%s' not found; keeping '%s'",
+                profile_name,
+                self._active_profile,
+            )
             return
         self._active_profile = profile_name
         self._data["active_profile"] = profile_name
@@ -101,7 +104,9 @@ class BotConfig:
 
     def _load_file(self, path: Path) -> Dict[str, Any]:
         if not path.exists():
-            log.warning("BotConfig: config file '%s' not found. Using empty config.", path)
+            log.warning(
+                "BotConfig: config file '%s' not found. Using empty config.", path
+            )
             return {"defaults": {}, "profiles": {"default": {}}}
         try:
             with path.open("r", encoding="utf-8") as handle:
@@ -112,7 +117,9 @@ class BotConfig:
                 data["defaults"] = {}
             return data
         except Exception as exc:
-            log.warning("BotConfig: failed to read '%s': %s. Using empty config.", path, exc)
+            log.warning(
+                "BotConfig: failed to read '%s': %s. Using empty config.", path, exc
+            )
             return {"defaults": {}, "profiles": {"default": {}}}
 
     def _persist(self):
@@ -121,5 +128,6 @@ class BotConfig:
             with self.config_path.open("w", encoding="utf-8") as handle:
                 json.dump(self._data, handle, indent=2)
         except Exception as exc:
-            log.warning("BotConfig: failed to persist config '%s': %s", self.config_path, exc)
-
+            log.warning(
+                "BotConfig: failed to persist config '%s': %s", self.config_path, exc
+            )

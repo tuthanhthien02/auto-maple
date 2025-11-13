@@ -15,11 +15,11 @@ DEBUG = False
 
 user32 = ctypes.windll.user32
 
-MM_TL_TEMPLATE = cv2.imread('assets/minimap_tl_template.png', 0)
-MM_BR_TEMPLATE = cv2.imread('assets/minimap_br_template.png', 0)
+MM_TL_TEMPLATE = cv2.imread("assets/minimap_tl_template.png", 0)
+MM_BR_TEMPLATE = cv2.imread("assets/minimap_br_template.png", 0)
 PLAYER_TEMPLATES = [
-    ('player_template_new.png', cv2.imread('assets/player_template_new.png', 0)),
-    ('player_template.png', cv2.imread('assets/player_template.png', 0))
+    ("player_template_new.png", cv2.imread("assets/player_template_new.png", 0)),
+    ("player_template.png", cv2.imread("assets/player_template.png", 0)),
 ]
 
 MINIMAP_TOP_BORDER = 3
@@ -44,12 +44,7 @@ class Capture:
     """
 
     def __init__(self):
-        self.window = {
-            'left': 0,
-            'top': 0,
-            'width': MMT_WIDTH,
-            'height': MMT_HEIGHT
-        }
+        self.window = {"left": 0, "top": 0, "width": MMT_WIDTH, "height": MMT_HEIGHT}
         config.capture = self
         self.frame = None
         self.sct = None
@@ -61,7 +56,7 @@ class Capture:
         self.mm_tl = None
         self.mm_br = None
         self._recalibrate_requested = False
-        
+
         # Position tracking for CPU optimization
         self.last_player_pos = None
         self.last_pos_update_time = 0
@@ -74,9 +69,7 @@ class Capture:
         """
         try:
             self.thread = threading.Thread(
-                target=self._main,
-                name="CaptureThread",
-                daemon=True
+                target=self._main, name="CaptureThread", daemon=True
             )
             self.thread.start()
         except Exception:
@@ -91,8 +84,10 @@ class Capture:
                 missing.append("MM_TL_TEMPLATE")
             if MM_BR_TEMPLATE is None:
                 missing.append("MM_BR_TEMPLATE")
-            log.error("Missing minimap template(s): %s. Please ensure assets are present.",
-                      ", ".join(missing))
+            log.error(
+                "Missing minimap template(s): %s. Please ensure assets are present.",
+                ", ".join(missing),
+            )
             return False
         return True
 
@@ -113,14 +108,16 @@ class Capture:
         consecutive_calibration_errors = 0
         max_calibration_errors = 20
         calibration_attempts = 0
-        max_calibration_attempts = 60  # 60 attempts * 0.5s = 30 seconds before giving up
+        max_calibration_attempts = (
+            60  # 60 attempts * 0.5s = 30 seconds before giving up
+        )
 
         while True:
             try:
                 calibration_attempts += 1
 
                 handle = None
-                for title in ['MapleStory N', 'MapleStory']:
+                for title in ["MapleStory N", "MapleStory"]:
                     handle = user32.FindWindowW(None, title)
                     if handle:
                         if DEBUG:
@@ -137,8 +134,13 @@ class Capture:
                     elif calibration_attempts == 1:
                         log.info("🔍 Searching for MapleStory window...")
                     if calibration_attempts >= max_calibration_attempts:
-                        log.error("❌ Failed to find MapleStory window after %d attempts", max_calibration_attempts)
-                        log.error("   Please ensure MapleStory is running and try again")
+                        log.error(
+                            "❌ Failed to find MapleStory window after %d attempts",
+                            max_calibration_attempts,
+                        )
+                        log.error(
+                            "   Please ensure MapleStory is running and try again"
+                        )
                         self.ready = True
                         break
                     time.sleep(0.5)
@@ -149,10 +151,10 @@ class Capture:
                 rect = (rect.left, rect.top, rect.right, rect.bottom)
                 rect = tuple(max(0, x) for x in rect)
 
-                self.window['left'] = rect[0]
-                self.window['top'] = rect[1]
-                self.window['width'] = max(rect[2] - rect[0], MMT_WIDTH)
-                self.window['height'] = max(rect[3] - rect[1], MMT_HEIGHT)
+                self.window["left"] = rect[0]
+                self.window["top"] = rect[1]
+                self.window["width"] = max(rect[2] - rect[0], MMT_WIDTH)
+                self.window["height"] = max(rect[3] - rect[1], MMT_HEIGHT)
 
                 if DEBUG:
                     log.debug("Window rect: %s", rect)
@@ -189,7 +191,10 @@ class Capture:
 
                 if DEBUG:
                     log.debug("Searching for TL corner in ROI...")
-                if tl_roi.shape[0] < MM_TL_TEMPLATE.shape[0] or tl_roi.shape[1] < MM_TL_TEMPLATE.shape[1]:
+                if (
+                    tl_roi.shape[0] < MM_TL_TEMPLATE.shape[0]
+                    or tl_roi.shape[1] < MM_TL_TEMPLATE.shape[1]
+                ):
                     if DEBUG:
                         log.debug(
                             "TL ROI smaller than template: roi=%s, template=%s",
@@ -227,7 +232,10 @@ class Capture:
 
                 if DEBUG:
                     log.debug("Searching for BR corner in ROI...")
-                if br_roi.shape[0] < MM_BR_TEMPLATE.shape[0] or br_roi.shape[1] < MM_BR_TEMPLATE.shape[1]:
+                if (
+                    br_roi.shape[0] < MM_BR_TEMPLATE.shape[0]
+                    or br_roi.shape[1] < MM_BR_TEMPLATE.shape[1]
+                ):
                     if DEBUG:
                         log.debug(
                             "BR ROI smaller than template: roi=%s, template=%s",
@@ -259,7 +267,10 @@ class Capture:
 
                 self.minimap_ratio = (mm_br[0] - mm_tl[0]) / (mm_br[1] - mm_tl[1])
 
-                expected_w, expected_h = int(421 * MINIMAP_WIDTH_SCALE), int(133 * MINIMAP_HEIGHT_SCALE)
+                expected_w, expected_h = (
+                    int(421 * MINIMAP_WIDTH_SCALE),
+                    int(133 * MINIMAP_HEIGHT_SCALE),
+                )
                 crop_w = max(0, mm_br[0] - mm_tl[0])
                 crop_h = max(0, mm_br[1] - mm_tl[1])
                 if crop_w < 200 or crop_h < 80:
@@ -270,17 +281,27 @@ class Capture:
 
                 if mm_tl[0] >= mm_br[0] or mm_tl[1] >= mm_br[1]:
                     if DEBUG:
-                        log.debug("Invalid minimap crop bounds: mm_tl=%s, mm_br=%s", mm_tl, mm_br)
+                        log.debug(
+                            "Invalid minimap crop bounds: mm_tl=%s, mm_br=%s",
+                            mm_tl,
+                            mm_br,
+                        )
                     continue
 
-                self.minimap_sample = self.frame[mm_tl[1]:mm_br[1], mm_tl[0]:mm_br[0]]
+                self.minimap_sample = self.frame[
+                    mm_tl[1] : mm_br[1], mm_tl[0] : mm_br[0]
+                ]
                 if self.minimap_sample.size == 0:
                     if DEBUG:
                         log.debug("Minimap sample is empty")
                     continue
 
                 if DEBUG:
-                    log.debug("Calibration successful! Minimap size: %sx%s", mm_br[0] - mm_tl[0], mm_br[1] - mm_tl[1])
+                    log.debug(
+                        "Calibration successful! Minimap size: %sx%s",
+                        mm_br[0] - mm_tl[0],
+                        mm_br[1] - mm_tl[1],
+                    )
 
                 self.mm_tl = mm_tl
                 self.mm_br = mm_br
@@ -296,7 +317,9 @@ class Capture:
                         try:
                             if not self.calibrated or self._recalibrate_requested:
                                 if self._recalibrate_requested:
-                                    log.info("🔄 Recalibration requested, restarting calibration...")
+                                    log.info(
+                                        "🔄 Recalibration requested, restarting calibration..."
+                                    )
                                     self.calibrated = False
                                     self._recalibrate_requested = False
                                 break
@@ -316,11 +339,20 @@ class Capture:
                                 time.sleep(frame_delay)
                                 continue
 
-                            minimap = self.frame[self.mm_tl[1]:self.mm_br[1], self.mm_tl[0]:self.mm_br[0]]
+                            minimap = self.frame[
+                                self.mm_tl[1] : self.mm_br[1],
+                                self.mm_tl[0] : self.mm_br[0],
+                            ]
 
                             should_match = True
-                            time_since_last_update = current_time - self.last_pos_update_time
-                            if self.last_player_pos is not None and time_since_last_update < self.position_check_interval:
+                            time_since_last_update = (
+                                current_time - self.last_pos_update_time
+                            )
+                            if (
+                                self.last_player_pos is not None
+                                and time_since_last_update
+                                < self.position_check_interval
+                            ):
                                 should_match = False
                             elif time_since_last_update >= self.pos_update_interval:
                                 should_match = True
@@ -329,22 +361,29 @@ class Capture:
 
                             if should_match:
                                 minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
-                                minimap_gray = cv2.cvtColor(minimap_bgr, cv2.COLOR_BGR2GRAY)
+                                minimap_gray = cv2.cvtColor(
+                                    minimap_bgr, cv2.COLOR_BGR2GRAY
+                                )
 
                                 player = []
                                 for name, tpl in PLAYER_TEMPLATES:
                                     thr = 0.6
-                                    if name.endswith('player_template_new.png'):
+                                    if name.endswith("player_template_new.png"):
                                         thr = 0.55
-                                    player = utils.multi_match(minimap_gray, tpl, threshold=thr, is_gray=True)
+                                    player = utils.multi_match(
+                                        minimap_gray, tpl, threshold=thr, is_gray=True
+                                    )
                                     if player:
                                         break
 
                                 if player:
-                                    new_pos = utils.convert_to_relative(player[0], minimap)
+                                    new_pos = utils.convert_to_relative(
+                                        player[0], minimap
+                                    )
                                     if (
                                         new_pos != self.last_player_pos
-                                        or time_since_last_update >= self.pos_update_interval
+                                        or time_since_last_update
+                                        >= self.pos_update_interval
                                     ):
                                         config.player_pos = new_pos
                                         self.last_player_pos = new_pos
@@ -353,11 +392,11 @@ class Capture:
                             if minimap_bgr is None:
                                 minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
                             self.minimap = {
-                                'minimap': minimap_bgr,
-                                'rune_active': config.bot.rune_active,
-                                'rune_pos': config.bot.rune_pos,
-                                'path': config.path,
-                                'player_pos': config.player_pos,
+                                "minimap": minimap_bgr,
+                                "rune_active": config.bot.rune_active,
+                                "rune_pos": config.bot.rune_pos,
+                                "path": config.path,
+                                "player_pos": config.player_pos,
                             }
 
                             if not self.ready:
@@ -380,7 +419,9 @@ class Capture:
                             )
 
                             if consecutive_tracking_errors >= max_tracking_errors:
-                                log.warning("Too many tracking errors, forcing recalibration")
+                                log.warning(
+                                    "Too many tracking errors, forcing recalibration"
+                                )
                                 self.calibrated = False
                                 self._recalibrate_requested = False
                                 break
@@ -400,7 +441,9 @@ class Capture:
                 )
 
                 if consecutive_calibration_errors >= max_calibration_errors:
-                    log.warning("Too many calibration errors, waiting 5 seconds before retry")
+                    log.warning(
+                        "Too many calibration errors, waiting 5 seconds before retry"
+                    )
                     time.sleep(5)
                     consecutive_calibration_errors = 0
                 else:

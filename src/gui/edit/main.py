@@ -13,7 +13,7 @@ from src.gui.interfaces import Tab, Frame, LabelFrame
 
 class Edit(Tab):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, 'Edit', **kwargs)
+        super().__init__(parent, "Edit", **kwargs)
 
         # Create scrollable frame
         self._create_scrollable_frame()
@@ -23,7 +23,7 @@ class Edit(Tab):
 
         # Store reference to Edit instance in scroll_content for widgets to access
         self._scroll_content.edit_instance = self
-        
+
         self.record = Record(self._scroll_content)
         self.record.grid(row=2, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
@@ -38,45 +38,49 @@ class Edit(Tab):
 
         self.editor = Editor(self._scroll_content)
         self.editor.grid(row=0, column=2, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
-    
+
     def _create_scrollable_frame(self):
         """Create a scrollable container for Edit content"""
         # Create canvas and scrollbar
         self._canvas = tk.Canvas(self, highlightthickness=0)
-        self._scrollbar = tk.Scrollbar(self, orient="vertical", command=self._canvas.yview)
+        self._scrollbar = tk.Scrollbar(
+            self, orient="vertical", command=self._canvas.yview
+        )
         self._scroll_content = Frame(self._canvas)
-        
+
         # Configure scroll region
         self._scroll_content.bind(
             "<Configure>",
-            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")),
         )
-        
+
         # Create window in canvas
-        self._canvas_window = self._canvas.create_window((0, 0), window=self._scroll_content, anchor="nw")
-        
+        self._canvas_window = self._canvas.create_window(
+            (0, 0), window=self._scroll_content, anchor="nw"
+        )
+
         # Configure canvas scrolling
         self._canvas.configure(yscrollcommand=self._scrollbar.set)
-        
+
         # Pack canvas and scrollbar
         self._canvas.pack(side="left", fill="both", expand=True)
         self._scrollbar.pack(side="right", fill="y")
-        
+
         # Bind mouse wheel to canvas
         def _on_mousewheel(event):
             """Handle mouse wheel scrolling"""
-            if event.num == 4 or (hasattr(event, 'delta') and event.delta > 0):
+            if event.num == 4 or (hasattr(event, "delta") and event.delta > 0):
                 self._canvas.yview_scroll(-1, "units")
-            elif event.num == 5 or (hasattr(event, 'delta') and event.delta < 0):
+            elif event.num == 5 or (hasattr(event, "delta") and event.delta < 0):
                 self._canvas.yview_scroll(1, "units")
-        
+
         self._canvas.bind("<MouseWheel>", _on_mousewheel)
         self._canvas.bind("<Button-4>", _on_mousewheel)
         self._canvas.bind("<Button-5>", _on_mousewheel)
-        
+
         # Update canvas width when window resizes
-        self._canvas.bind('<Configure>', self._on_canvas_configure)
-    
+        self._canvas.bind("<Configure>", self._on_canvas_configure)
+
     def _on_canvas_configure(self, event):
         """Update canvas window width when canvas is resized"""
         canvas_width = event.width
@@ -85,12 +89,12 @@ class Edit(Tab):
 
 class Editor(LabelFrame):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, 'Editor', **kwargs)
-        
+        super().__init__(parent, "Editor", **kwargs)
+
         # Get edit_instance from parent (scroll_content) or config.gui
-        if hasattr(parent, 'edit_instance'):
+        if hasattr(parent, "edit_instance"):
             self.edit_instance = parent.edit_instance
-        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+        elif hasattr(config, "gui") and hasattr(config.gui, "edit"):
             self.edit_instance = config.gui.edit
         else:
             self.edit_instance = parent
@@ -114,22 +118,22 @@ class Editor(LabelFrame):
         self.contents.grid(row=0, column=0, sticky=tk.EW, padx=5)
 
         title = tk.Entry(self.contents, justify=tk.CENTER)
-        title.pack(expand=True, fill='x', pady=(5, 2))
-        title.insert(0, 'Nothing selected')
+        title.pack(expand=True, fill="x", pady=(5, 2))
+        title.insert(0, "Nothing selected")
         title.config(state=tk.DISABLED)
 
         self.create_disabled_entry()
 
     def create_disabled_entry(self):
         row = Frame(self.contents, highlightthickness=0)
-        row.pack(expand=True, fill='x')
+        row.pack(expand=True, fill="x")
 
         label = tk.Entry(row)
-        label.pack(side=tk.LEFT, expand=True, fill='x')
+        label.pack(side=tk.LEFT, expand=True, fill="x")
         label.config(state=tk.DISABLED)
 
         entry = tk.Entry(row)
-        entry.pack(side=tk.RIGHT, expand=True, fill='x')
+        entry.pack(side=tk.RIGHT, expand=True, fill="x")
         entry.config(state=tk.DISABLED)
 
     def create_entry(self, key, value):
@@ -141,15 +145,15 @@ class Editor(LabelFrame):
         self.vars[key] = tk.StringVar(value=str(value))
 
         row = Frame(self.contents, highlightthickness=0)
-        row.pack(expand=True, fill='x')
+        row.pack(expand=True, fill="x")
 
         label = tk.Entry(row)
-        label.pack(side=tk.LEFT, expand=True, fill='x')
+        label.pack(side=tk.LEFT, expand=True, fill="x")
         label.insert(0, key)
         label.config(state=tk.DISABLED)
 
         entry = tk.Entry(row, textvariable=self.vars[key])
-        entry.pack(side=tk.RIGHT, expand=True, fill='x')
+        entry.pack(side=tk.RIGHT, expand=True, fill="x")
 
     def create_edit_ui(self, arr, i, func):
         """
@@ -166,14 +170,16 @@ class Editor(LabelFrame):
         self.contents.grid(row=0, column=0, sticky=tk.EW, padx=5)
 
         title = tk.Entry(self.contents, justify=tk.CENTER)
-        title.pack(expand=True, fill='x', pady=(5, 2))
+        title.pack(expand=True, fill="x", pady=(5, 2))
         title.insert(0, f"Editing {arr[i].__class__.__name__}")
         title.config(state=tk.DISABLED)
 
         if len(arr[i].kwargs) > 0:
             for key, value in arr[i].kwargs.items():
                 self.create_entry(key, value)
-            button = tk.Button(self.contents, text='Save', command=func(arr, i, self.vars))
+            button = tk.Button(
+                self.contents, text="Save", command=func(arr, i, self.vars)
+            )
             button.pack(pady=5)
         else:
             self.create_disabled_entry()
@@ -187,8 +193,8 @@ class Editor(LabelFrame):
         self.contents.grid(row=0, column=0, sticky=tk.EW, padx=5)
 
         title = tk.Entry(self.contents, justify=tk.CENTER)
-        title.pack(expand=True, fill='x', pady=(5, 2))
-        title.insert(0, f"Creating new ...")
+        title.pack(expand=True, fill="x", pady=(5, 2))
+        title.insert(0, "Creating new ...")
         title.config(state=tk.DISABLED)
 
         options = config.routine.get_all_components()
@@ -196,7 +202,7 @@ class Editor(LabelFrame):
 
         def update_search(*_):
             value = input_var.get().strip().lower()
-            if value == '':
+            if value == "":
                 var.set(tuple(options.keys()))
             else:
                 new_options = []
@@ -232,28 +238,28 @@ class Editor(LabelFrame):
         # Search bar
         input_var = tk.StringVar()
         user_input = tk.Entry(self.contents, textvariable=input_var)
-        user_input.pack(expand=True, fill='x')
-        user_input.insert(0, 'Search for a component')
-        user_input.bind('<FocusIn>', lambda _: user_input.selection_range(0, 'end'))
-        user_input.bind('<Return>', on_entry_return)
-        user_input.bind('<Down>', on_entry_down)
-        input_var.trace('w', update_search)         # Show filtered results in real time
+        user_input.pack(expand=True, fill="x")
+        user_input.insert(0, "Search for a component")
+        user_input.bind("<FocusIn>", lambda _: user_input.selection_range(0, "end"))
+        user_input.bind("<Return>", on_entry_return)
+        user_input.bind("<Down>", on_entry_down)
+        input_var.trace("w", update_search)  # Show filtered results in real time
         user_input.focus()
 
         # Display search results
         results = Frame(self.contents)
-        results.pack(expand=True, fill='both', pady=(1, 0))
+        results.pack(expand=True, fill="both", pady=(1, 0))
 
         scroll = tk.Scrollbar(results)
-        scroll.pack(side=tk.RIGHT, fill='both')
+        scroll.pack(side=tk.RIGHT, fill="both")
 
-        display = tk.Listbox(results, listvariable=var,
-                             activestyle='none',
-                             yscrollcommand=scroll.set)
-        display.bind('<Double-1>', on_display_submit)
-        display.bind('<Return>', on_display_submit)
-        display.bind('<Up>', on_display_up)
-        display.pack(side=tk.LEFT, expand=True, fill='both')
+        display = tk.Listbox(
+            results, listvariable=var, activestyle="none", yscrollcommand=scroll.set
+        )
+        display.bind("<Double-1>", on_display_submit)
+        display.bind("<Return>", on_display_submit)
+        display.bind("<Up>", on_display_up)
+        display.pack(side=tk.LEFT, expand=True, fill="both")
 
         scroll.config(command=display.yview)
 
@@ -270,7 +276,7 @@ class Editor(LabelFrame):
         # Prevent Components and Commands from overwriting this UI
         if sticky:
             # Use edit_instance to access Edit tab attributes
-            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            if self.edit_instance and hasattr(self.edit_instance, "routine"):
                 routine = self.edit_instance.routine
             else:
                 # Fallback to parent chain
@@ -284,7 +290,7 @@ class Editor(LabelFrame):
         self.contents.grid(row=0, column=0, sticky=tk.EW, padx=5)
 
         title = tk.Entry(self.contents, justify=tk.CENTER)
-        title.pack(expand=True, fill='x', pady=(5, 2))
+        title.pack(expand=True, fill="x", pady=(5, 2))
         title.insert(0, f"Creating new {component.__name__}")
         title.config(state=tk.DISABLED)
 
@@ -299,12 +305,12 @@ class Editor(LabelFrame):
             kwargs = {}
         for i in range(diff):
             arg = sig.args[i]
-            if arg != 'self' and arg not in kwargs:
-                kwargs[sig.args[i]] = ''
+            if arg != "self" and arg not in kwargs:
+                kwargs[sig.args[i]] = ""
 
         # Populate kwargs
         for i in range(diff, len(sig.args)):
-            kwargs[sig.args[i]] = sig.defaults[i-diff]
+            kwargs[sig.args[i]] = sig.defaults[i - diff]
 
         if len(kwargs) > 0:
             for key, value in kwargs.items():
@@ -313,12 +319,14 @@ class Editor(LabelFrame):
             self.create_disabled_entry()
 
         controls = Frame(self.contents)
-        controls.pack(expand=True, fill='x')
+        controls.pack(expand=True, fill="x")
 
-        add_button = tk.Button(controls, text='Add', command=self.add(component))
-        if sticky:          # Only create 'cancel' button if stickied
+        add_button = tk.Button(controls, text="Add", command=self.add(component))
+        if sticky:  # Only create 'cancel' button if stickied
             add_button.pack(side=tk.RIGHT, pady=5)
-            cancel_button = tk.Button(controls, text='Cancel', command=self.cancel, takefocus=False)
+            cancel_button = tk.Button(
+                controls, text="Cancel", command=self.cancel, takefocus=False
+            )
             cancel_button.pack(side=tk.LEFT, pady=5)
         else:
             add_button.pack(pady=5)
@@ -327,7 +335,7 @@ class Editor(LabelFrame):
         """Button callback that exits the current Component creation UI."""
 
         # Use edit_instance to access Edit tab attributes
-        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+        if self.edit_instance and hasattr(self.edit_instance, "routine"):
             routine = self.edit_instance.routine
         else:
             # Fallback to parent chain
@@ -342,7 +350,7 @@ class Editor(LabelFrame):
         def f():
             new_kwargs = {k: v.get() for k, v in self.vars.items()}
             # Use edit_instance to access Edit tab attributes
-            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            if self.edit_instance and hasattr(self.edit_instance, "routine"):
                 routine = self.edit_instance.routine
             else:
                 # Fallback to parent chain
@@ -359,15 +367,20 @@ class Editor(LabelFrame):
                             routine.commands.update_display()
                             self.cancel()
                         else:
-                            print(f"\n[!] Error while adding Command: currently selected Component is not a Point.")
+                            print(
+                                "\n[!] Error while adding Command: currently selected Component is not a Point."
+                            )
                     else:
-                        print(f"\n[!] Error while adding Command: no Point is currently selected.")
+                        print(
+                            "\n[!] Error while adding Command: no Point is currently selected."
+                        )
                 else:
                     config.routine.append_component(obj)
                     self.cancel()
             except (ValueError, TypeError) as e:
                 print(f"\n[!] Found invalid arguments for '{component.__name__}':")
                 print(f"{' ' * 4} -  {e}")
+
         return f
 
     def update_display(self):
@@ -378,7 +391,7 @@ class Editor(LabelFrame):
         """
 
         # Use edit_instance to access Edit tab attributes
-        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+        if self.edit_instance and hasattr(self.edit_instance, "routine"):
             routine = self.edit_instance.routine
         else:
             # Fallback to parent chain
@@ -389,11 +402,15 @@ class Editor(LabelFrame):
             p_index = int(components[0])
             if len(commands) > 0:
                 c_index = int(commands[0])
-                self.create_edit_ui(config.routine[p_index].commands, c_index,
-                                    routine.commands.update_obj)
+                self.create_edit_ui(
+                    config.routine[p_index].commands,
+                    c_index,
+                    routine.commands.update_obj,
+                )
             else:
-                self.create_edit_ui(config.routine, p_index,
-                                    routine.components.update_obj)
+                self.create_edit_ui(
+                    config.routine, p_index, routine.components.update_obj
+                )
         else:
             self.contents.destroy()
             self.create_default_state()

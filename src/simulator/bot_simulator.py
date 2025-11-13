@@ -9,11 +9,16 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean, pstdev
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from src.common.logger import get_logger
 
-from .descriptor import DescriptorCommand, DescriptorRoutine, Instruction, JumpInstruction, PointInstruction
+from .descriptor import (
+    DescriptorCommand,
+    DescriptorRoutine,
+    JumpInstruction,
+    PointInstruction,
+)
 
 log = get_logger(__name__)
 
@@ -183,12 +188,16 @@ class BotRunSimulator:
             routine.infer_loop_start_label() or routine.primary_start_label()
         )
 
-    def run(self, *, max_loops: int = 1, max_iterations: int | None = None) -> SimulationResult:
+    def run(
+        self, *, max_loops: int = 1, max_iterations: int | None = None
+    ) -> SimulationResult:
         instructions = self.routine.instructions
         if not instructions:
             raise ValueError("Routine contains no instructions")
 
-        iteration_budget = max_iterations or max(1000, len(instructions) * max(1, max_loops) * 5)
+        iteration_budget = max_iterations or max(
+            1000, len(instructions) * max(1, max_loops) * 5
+        )
 
         ip = 0
         iterations = 0
@@ -218,7 +227,9 @@ class BotRunSimulator:
 
         metrics_summary = self._build_metrics_summary()
 
-        source_stem = self.routine.source_path.stem if self.routine.source_path else "routine"
+        source_stem = (
+            self.routine.source_path.stem if self.routine.source_path else "routine"
+        )
         seed_part = f"seed{self._seed}" if self._seed is not None else "seedNA"
         metadata = {
             "run_id": f"{source_stem}_{seed_part}",
@@ -319,7 +330,9 @@ class BotRunSimulator:
 
         return target_index
 
-    def _execute_command(self, command: DescriptorCommand, instruction_index: int, label: Optional[str]) -> None:
+    def _execute_command(
+        self, command: DescriptorCommand, instruction_index: int, label: Optional[str]
+    ) -> None:
         name = command.name.lower()
         self.metrics.record_command(command.name)
 
@@ -420,7 +433,9 @@ class BotRunSimulator:
 
     def _wait_random_duration(self, args: Sequence[str]) -> float:
         if len(args) < 2:
-            raise ValueError(f"wait_random requires min and max arguments, received: {args}")
+            raise ValueError(
+                f"wait_random requires min and max arguments, received: {args}"
+            )
         try:
             low = float(args[0])
             high = float(args[1])
@@ -442,7 +457,9 @@ class BotRunSimulator:
                 raise ValueError(f"Invalid teleport step count: {args[1]}") from exc
         return direction, steps
 
-    def _update_position_by_direction(self, direction: str, steps: int, *, scale: float) -> None:
+    def _update_position_by_direction(
+        self, direction: str, steps: int, *, scale: float
+    ) -> None:
         if self.state.position is None:
             return
         x, y = self.state.position
@@ -492,7 +509,9 @@ class BotRunSimulator:
             command_counts=self.metrics.command_counts,
             loop_durations=self.metrics.loop_durations,
         )
-        flags, score = evaluate_human_like(summary, loops_expected=self.state.loop_count)
+        flags, score = evaluate_human_like(
+            summary, loops_expected=self.state.loop_count
+        )
         summary.flags = flags
         summary.score = score
         summary.human_like = not flags
@@ -502,7 +521,9 @@ class BotRunSimulator:
 # ----------------------------
 # Metrics evaluation helpers
 # ----------------------------
-def evaluate_human_like(metrics: MetricsSummary, *, loops_expected: int) -> Tuple[List[str], float]:
+def evaluate_human_like(
+    metrics: MetricsSummary, *, loops_expected: int
+) -> Tuple[List[str], float]:
     flags: List[str] = []
     score_components: List[float] = []
 
@@ -522,8 +543,14 @@ def evaluate_human_like(metrics: MetricsSummary, *, loops_expected: int) -> Tupl
         flags.append("incomplete_loops")
         score_components.append(0.2)
     elif metrics.loop_durations:
-        loop_std = pstdev(metrics.loop_durations) if len(metrics.loop_durations) > 1 else 0.0
-        loop_cv = loop_std / mean(metrics.loop_durations) if mean(metrics.loop_durations) else 0.0
+        loop_std = (
+            pstdev(metrics.loop_durations) if len(metrics.loop_durations) > 1 else 0.0
+        )
+        loop_cv = (
+            loop_std / mean(metrics.loop_durations)
+            if mean(metrics.loop_durations)
+            else 0.0
+        )
         score_components.append(0.5 + min(loop_cv, 0.5))
 
     if metrics.direction_changes == 0:
@@ -532,7 +559,9 @@ def evaluate_human_like(metrics: MetricsSummary, *, loops_expected: int) -> Tupl
     else:
         score_components.append(min(1.0, 0.4 + metrics.direction_changes * 0.15))
 
-    teleport_penalty = sum(count for key, count in metrics.teleport_counts.items() if key.endswith(":1"))
+    teleport_penalty = sum(
+        count for key, count in metrics.teleport_counts.items() if key.endswith(":1")
+    )
     if teleport_penalty <= 0:
         score_components.append(0.6)
     else:
@@ -578,5 +607,3 @@ def distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
-
-

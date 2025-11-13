@@ -6,11 +6,11 @@ from src.common import config, utils
 from src.routine import components
 from src.common.interfaces import Configurable
 from src.common.logger import get_logger
+
 log = get_logger(__name__)
 
 
-
-CB_KEYBINDING_DIR = os.path.join('resources', 'keybindings')
+CB_KEYBINDING_DIR = os.path.join("resources", "keybindings")
 
 
 class CommandBook(Configurable):
@@ -23,7 +23,7 @@ class CommandBook(Configurable):
             raise ValueError(f"Invalid command book at '{file}'")
         self.dict, self.module = result
         super().__init__(self.name, directory=CB_KEYBINDING_DIR)
-        
+
     def load_commands(self, file):
         """Prompts the user to select a command module to import. Updates config's command book."""
 
@@ -31,40 +31,48 @@ class CommandBook(Configurable):
         log.info("Loading command book '%s'", basename(file))
 
         ext = splitext(file)[1]
-        if ext != '.py':
+        if ext != ".py":
             log.error("'%s' is not a supported command book extension", ext)
             return
 
         new_step = components.step
         new_cb = {}
-        for c in (components.Wait, components.Wait_Random, components.Walk, components.Fall):
+        for c in (
+            components.Wait,
+            components.Wait_Random,
+            components.Walk,
+            components.Fall,
+        ):
             new_cb[c.__name__.lower()] = c
 
         # Import the desired command book file
-        target = '.'.join(['resources', 'command_books', self.name])
+        target = ".".join(["resources", "command_books", self.name])
         try:
             module = importlib.import_module(target)
             module = importlib.reload(module)
-        except ImportError:     # Display errors in the target Command Book
+        except ImportError:  # Display errors in the target Command Book
             log.exception("Errors during compilation for command book '%s'", self.name)
             log.error("Command book '%s' was not loaded", self.name)
             return
 
         # Load key map
-        if hasattr(module, 'Key'):
+        if hasattr(module, "Key"):
             default_config = {}
             for key, value in module.Key.__dict__.items():
-                if not key.startswith('__') and not key.endswith('__'):
+                if not key.startswith("__") and not key.endswith("__"):
                     default_config[key] = value
             self.DEFAULT_CONFIG = default_config
         else:
-            log.error("Error loading command book '%s': keymap class 'Key' is missing", self.name)
+            log.error(
+                "Error loading command book '%s': keymap class 'Key' is missing",
+                self.name,
+            )
             return
 
         # Check if the 'step' function has been implemented
         step_found = False
         for name, func in inspect.getmembers(module, inspect.isfunction):
-            if name.lower() == 'step':
+            if name.lower() == "step":
                 step_found = True
                 new_step = func
 
@@ -80,7 +88,9 @@ class CommandBook(Configurable):
             if name not in new_cb:
                 required_found = False
                 new_cb[name] = command
-                log.error("Required command '%s' missing; using default implementation", name)
+                log.error(
+                    "Required command '%s' missing; using default implementation", name
+                )
 
         # Look for overridden movement commands
         movement_found = True
@@ -91,9 +101,12 @@ class CommandBook(Configurable):
                 new_cb[name] = command
 
         if not step_found and not movement_found:
-            log.error("Command book '%s' must implement both Move and Adjust or override step()", self.name)
+            log.error(
+                "Command book '%s' must implement both Move and Adjust or override step()",
+                self.name,
+            )
         if required_found and (step_found or movement_found):
-            self.buff = new_cb['buff']()
+            self.buff = new_cb["buff"]()
             components.step = new_step
             config.gui.menu.file.enable_routine_state()
             config.gui.view.status.set_cb(basename(file))

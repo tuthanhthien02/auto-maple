@@ -1,6 +1,7 @@
 """The central program that ties all the modules together."""
 
 import time
+import atexit
 from datetime import datetime
 from src.modules.bot import Bot
 from src.modules.capture import Capture
@@ -8,6 +9,7 @@ from src.modules.notifier import Notifier
 from src.modules.listener import Listener
 from src.modules.gui import GUI
 from src.common.logger import get_logger
+from src.common import config
 
 
 log = get_logger(__name__)
@@ -45,7 +47,10 @@ while not capture.ready:
     time.sleep(0.1)
     elapsed += 0.1
     if elapsed >= timeout:
-        log.warning("⚠️  Capture module not ready after %d seconds (MapleStory window may not be found)", timeout)
+        log.warning(
+            "⚠️  Capture module not ready after %d seconds (MapleStory window may not be found)",
+            timeout,
+        )
         log.warning("   Continuing anyway - capture will retry in background...")
         break
 if capture.ready:
@@ -79,18 +84,17 @@ log.info("✅ AUTO MAPLE - SUCCESSFULLY INITIALIZED")
 log.info("=" * 80)
 log.info("")
 
-# Initialize VMware Receiver if enabled
-from src.common import config
 if config.enable_vmware_receiver:
     try:
         from src.modules.vmware_receiver_integrated import VMwareReceiverIntegrated
+
         log.info("📡 Initializing VMware Receiver (integrated)...")
         log.info(f"   Port: {config.vmware_receiver_port}")
         log.info(f"   Hotkey hook: {config.vmware_receiver_hotkey_hook}")
         config.vmware_receiver = VMwareReceiverIntegrated(
             server_port=config.vmware_receiver_port,
             enable_hotkey_hook=config.vmware_receiver_hotkey_hook,
-            enable_logging=False  # Use log level instead of verbose logging
+            enable_logging=False,  # Use log level instead of verbose logging
         )
         config.vmware_receiver.start_tcp_server()
         log.info("✅ VMware Receiver started successfully")
@@ -98,6 +102,7 @@ if config.enable_vmware_receiver:
         log.warning(f"⚠️  Failed to initialize VMware Receiver: {e}")
         log.warning("   Continuing without VMware Receiver...")
         import traceback
+
         log.debug(f"Traceback: {traceback.format_exc()}")
         config.vmware_receiver = None
 else:
@@ -105,11 +110,12 @@ else:
 
 gui = GUI()
 
+
 # Cleanup function
 def cleanup():
     """Cleanup on exit"""
     log.info("🛑 Shutting down...")
-    
+
     # Stop VMware Receiver
     if config.vmware_receiver:
         try:
@@ -117,10 +123,11 @@ def cleanup():
             log.info("✅ VMware Receiver stopped")
         except Exception as e:
             log.warning(f"⚠️  Error stopping VMware Receiver: {e}")
-    
+
     # Disconnect shared Arduino connection
     try:
         from src.common.shared_arduino_connection import SharedArduinoConnection
+
         shared_conn = SharedArduinoConnection._instance
         if shared_conn:
             shared_conn.disconnect()
@@ -128,8 +135,7 @@ def cleanup():
     except Exception as e:
         log.debug(f"Error closing shared connection: {e}")
 
-# Register cleanup
-import atexit
+
 atexit.register(cleanup)
 
 # Main execution with crash handling
@@ -140,6 +146,7 @@ except KeyboardInterrupt:
     cleanup()
 except Exception as e:
     import traceback
+
     log.error("=" * 80)
     log.error("❌ CRITICAL ERROR - APPLICATION CRASHED")
     log.error("=" * 80)
@@ -148,13 +155,13 @@ except Exception as e:
     log.error("Full traceback:")
     log.error(traceback.format_exc())
     log.error("=" * 80)
-    
+
     # Cleanup on crash
     try:
         cleanup()
     except Exception as cleanup_error:
         log.error(f"Error during cleanup: {cleanup_error}")
-    
+
     # Pause console for debugging
     print("\n" + "=" * 80)
     print("❌ APPLICATION CRASHED - CONSOLE PAUSED FOR DEBUGGING")

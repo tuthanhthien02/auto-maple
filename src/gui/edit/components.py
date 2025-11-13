@@ -7,40 +7,45 @@ from src.gui.interfaces import Frame
 class Components(Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        
+
         # Get edit_instance from parent or config.gui
-        if hasattr(parent, 'edit_instance'):
+        if hasattr(parent, "edit_instance"):
             self.edit_instance = parent.edit_instance
-        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+        elif hasattr(config, "gui") and hasattr(config.gui, "edit"):
             self.edit_instance = config.gui.edit
         else:
             self.edit_instance = parent
 
-        self.label = tk.Label(self, text='Components')
-        self.label.pack(fill='x', padx=5)
+        self.label = tk.Label(self, text="Components")
+        self.label.pack(fill="x", padx=5)
 
         self.scroll = tk.Scrollbar(self)
-        self.scroll.pack(side=tk.RIGHT, fill='y', pady=(0, 5))
+        self.scroll.pack(side=tk.RIGHT, fill="y", pady=(0, 5))
 
-        self.listbox = tk.Listbox(self, width=25,
-                                  listvariable=config.gui.routine_var,
-                                  exportselection=False,
-                                  activestyle='none',
-                                  yscrollcommand=self.scroll.set)
-        self.listbox.bind('<Up>', lambda e: 'break')
-        self.listbox.bind('<Down>', lambda e: 'break')
-        self.listbox.bind('<Left>', lambda e: 'break')
-        self.listbox.bind('<Right>', lambda e: 'break')
+        self.listbox = tk.Listbox(
+            self,
+            width=25,
+            listvariable=config.gui.routine_var,
+            exportselection=False,
+            activestyle="none",
+            yscrollcommand=self.scroll.set,
+        )
+        self.listbox.bind("<Up>", lambda e: "break")
+        self.listbox.bind("<Down>", lambda e: "break")
+        self.listbox.bind("<Left>", lambda e: "break")
+        self.listbox.bind("<Right>", lambda e: "break")
         self.bind_select()
-        self.listbox.pack(side=tk.LEFT, expand=True, fill='both', padx=(5, 0), pady=(0, 5))
+        self.listbox.pack(
+            side=tk.LEFT, expand=True, fill="both", padx=(5, 0), pady=(0, 5)
+        )
 
         self.scroll.config(command=self.listbox.yview)
 
     def bind_select(self):
-        self.listbox.bind('<<ListboxSelect>>', self.on_select(create_ui=True))
+        self.listbox.bind("<<ListboxSelect>>", self.on_select(create_ui=True))
 
     def unbind_select(self):
-        self.listbox.bind('<<ListboxSelect>>', self.on_select(create_ui=False))
+        self.listbox.bind("<<ListboxSelect>>", self.on_select(create_ui=False))
 
     def on_select(self, create_ui=True):
         """
@@ -50,7 +55,7 @@ class Components(Frame):
 
         def callback(e):
             # Use edit_instance to access Edit tab attributes
-            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            if self.edit_instance and hasattr(self.edit_instance, "routine"):
                 routine = self.edit_instance.routine
                 edit = self.edit_instance
             else:
@@ -74,6 +79,7 @@ class Components(Frame):
 
                 if create_ui:
                     edit.editor.create_edit_ui(config.routine, index, self.update_obj)
+
         return callback
 
     def update_obj(self, arr, i, stringvars):
@@ -82,19 +88,20 @@ class Components(Frame):
             config.routine.update_component(i, new_kwargs)
 
             # Use edit_instance to access Edit tab attributes
-            if self.edit_instance and hasattr(self.edit_instance, 'minimap'):
+            if self.edit_instance and hasattr(self.edit_instance, "minimap"):
                 edit = self.edit_instance
             else:
                 # Fallback to parent chain
                 edit = self.parent.parent.parent
             edit.minimap.redraw()
             edit.editor.create_edit_ui(arr, i, self.update_obj)
+
         return f
 
     def select(self, i):
-        self.listbox.selection_clear(0, 'end')
+        self.listbox.selection_clear(0, "end")
         self.listbox.selection_set(i)
         self.listbox.see(i)
 
     def clear_selection(self):
-        self.listbox.selection_clear(0, 'end')
+        self.listbox.selection_clear(0, "end")

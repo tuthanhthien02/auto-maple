@@ -164,6 +164,3 @@ def get_action_logger() -> logging.Logger:
 
 if os.getenv("AUTO_MAPLE_ACTION_LOG", "").lower() in {"1", "true", "yes", "on"}:
     set_action_logging(True)
-
-
-

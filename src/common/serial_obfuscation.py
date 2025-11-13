@@ -74,7 +74,7 @@ class SerialObfuscator:
         return frames
 
     def _build_ascii_payload(self, action: str, key: str = None) -> bytes:
-        if action == 'all_up':
+        if action == "all_up":
             return b"all_up\n"
         if not key:
             raise ValueError("Key is required for action %s" % action)
@@ -82,14 +82,16 @@ class SerialObfuscator:
 
     def _build_handshake_frame(self) -> bytes:
         checksum = (self.HANDSHAKE_COUNTER + sum(self._session_key)) & 0xFF
-        frame = bytes(
-            [self.START_BYTE, self.HANDSHAKE_COUNTER, self.HANDSHAKE_LENGTH]
-        ) + self._session_key + bytes([checksum])
+        frame = (
+            bytes([self.START_BYTE, self.HANDSHAKE_COUNTER, self.HANDSHAKE_LENGTH])
+            + self._session_key
+            + bytes([checksum])
+        )
         log.debug("[SerialObfuscator] Handshake frame generated")
         return frame
 
     def _build_payload(self, action: str, key: str = None) -> bytes:
-        if action == 'all_up':
+        if action == "all_up":
             return b"all_up"
         if not key:
             raise ValueError("Key is required for action %s" % action)
@@ -124,5 +126,3 @@ class SerialObfuscator:
             stream.extend(digest)
             block_index += 1
         return bytes(stream[:length])
-
-

@@ -8,30 +8,35 @@ from src.gui.interfaces import LabelFrame
 
 class Minimap(LabelFrame):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, 'Minimap', **kwargs)
+        super().__init__(parent, "Minimap", **kwargs)
 
         # Get edit_instance from parent (scroll_content) or config.gui
-        if hasattr(parent, 'edit_instance'):
+        if hasattr(parent, "edit_instance"):
             self.edit_instance = parent.edit_instance
-        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+        elif hasattr(config, "gui") and hasattr(config.gui, "edit"):
             self.edit_instance = config.gui.edit
         else:
             self.edit_instance = parent
 
         self.WIDTH = 400
         self.HEIGHT = 300
-        self.canvas = tk.Canvas(self, bg='black',
-                                width=self.WIDTH, height=self.HEIGHT,
-                                borderwidth=0, highlightthickness=0)
-        self.canvas.pack(expand=True, fill='both', padx=5, pady=5)
+        self.canvas = tk.Canvas(
+            self,
+            bg="black",
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.canvas.pack(expand=True, fill="both", padx=5, pady=5)
         self.container = None
 
         self.draw_default()
 
     def _get_current_minimap(self):
         """Return current minimap sample if available."""
-        capture = getattr(config, 'capture', None)
-        if capture and getattr(capture, 'minimap_sample', None) is not None:
+        capture = getattr(config, "capture", None)
+        if capture and getattr(capture, "minimap_sample", None) is not None:
             try:
                 return cv2.cvtColor(capture.minimap_sample, cv2.COLOR_BGR2RGB)
             except Exception:
@@ -59,7 +64,7 @@ class Minimap(LabelFrame):
         """Re-draws the current point if it exists, otherwise resets to the default state."""
 
         selects = ()
-        if hasattr(self.edit_instance, 'routine'):
+        if hasattr(self.edit_instance, "routine"):
             selects = self.edit_instance.routine.components.listbox.curselection()
 
         if len(selects) > 0:
@@ -67,7 +72,7 @@ class Minimap(LabelFrame):
             obj = config.routine[index]
             if isinstance(obj, Point):
                 self.draw_point(obj.location)
-                if hasattr(self.edit_instance, 'record'):
+                if hasattr(self.edit_instance, "record"):
                     self.edit_instance.record.clear_selection()
             else:
                 self.draw_default()
@@ -89,13 +94,13 @@ class Minimap(LabelFrame):
         """Draws IMG onto the Canvas."""
 
         if config.layout:
-            config.layout.draw(img)     # Display the current Layout
+            config.layout.draw(img)  # Display the current Layout
 
         img = ImageTk.PhotoImage(Image.fromarray(img))
         if self.container is None:
-            self.container = self.canvas.create_image(self.WIDTH // 2,
-                                                      self.HEIGHT // 2,
-                                                      image=img, anchor=tk.CENTER)
+            self.container = self.canvas.create_image(
+                self.WIDTH // 2, self.HEIGHT // 2, image=img, anchor=tk.CENTER
+            )
         else:
             self.canvas.itemconfig(self.container, image=img)
-        self._img = img                 # Prevent garbage collection
+        self._img = img  # Prevent garbage collection

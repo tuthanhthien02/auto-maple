@@ -26,9 +26,13 @@ def _build_gui_stub():
     routine_view = SimpleNamespace(select=_noop)
     status = SimpleNamespace(set_routine=_noop)
     minimap = SimpleNamespace(draw_default=_noop)
-    view = SimpleNamespace(details=details, routine=routine_view, status=status, minimap=minimap)
+    view = SimpleNamespace(
+        details=details, routine=routine_view, status=status, minimap=minimap
+    )
     edit = SimpleNamespace(minimap=minimap)
-    return SimpleNamespace(set_routine=_noop, view=view, edit=edit, clear_routine_info=_noop)
+    return SimpleNamespace(
+        set_routine=_noop, view=view, edit=edit, clear_routine_info=_noop
+    )
 
 
 def _setup_environment():
@@ -104,15 +108,45 @@ def _simulate(routine: Routine, steps: int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Routine randomization diagnostics (headless).")
-    parser.add_argument("--routine", type=Path, required=True, help="Đường dẫn file routine (.csv).")
-    parser.add_argument("--loops", type=int, default=10, help="Số vòng lặp muốn mô phỏng.")
-    parser.add_argument("--enable-skip", dest="enable_skip", action="store_true", help="Bật skip points.")
-    parser.add_argument("--disable-skip", dest="enable_skip", action="store_false", help="Tắt skip points.")
-    parser.add_argument("--skip-probability", type=float, help="Xác suất skip (0.0 - 1.0).")
-    parser.add_argument("--enable-pattern", dest="enable_pattern", action="store_true", help="Bật pattern variants.")
-    parser.add_argument("--disable-pattern", dest="enable_pattern", action="store_false", help="Tắt pattern variants.")
-    parser.add_argument("--floor-variant-chance", type=float, help="Xác suất kích hoạt floor-only.")
+    parser = argparse.ArgumentParser(
+        description="Routine randomization diagnostics (headless)."
+    )
+    parser.add_argument(
+        "--routine", type=Path, required=True, help="Đường dẫn file routine (.csv)."
+    )
+    parser.add_argument(
+        "--loops", type=int, default=10, help="Số vòng lặp muốn mô phỏng."
+    )
+    parser.add_argument(
+        "--enable-skip",
+        dest="enable_skip",
+        action="store_true",
+        help="Bật skip points.",
+    )
+    parser.add_argument(
+        "--disable-skip",
+        dest="enable_skip",
+        action="store_false",
+        help="Tắt skip points.",
+    )
+    parser.add_argument(
+        "--skip-probability", type=float, help="Xác suất skip (0.0 - 1.0)."
+    )
+    parser.add_argument(
+        "--enable-pattern",
+        dest="enable_pattern",
+        action="store_true",
+        help="Bật pattern variants.",
+    )
+    parser.add_argument(
+        "--disable-pattern",
+        dest="enable_pattern",
+        action="store_false",
+        help="Tắt pattern variants.",
+    )
+    parser.add_argument(
+        "--floor-variant-chance", type=float, help="Xác suất kích hoạt floor-only."
+    )
     parser.add_argument("--seed", type=int, help="Seed cho random module để tái lập.")
     parser.add_argument("--verbose", action="store_true", help="In thêm log DEBUG.")
     parser.set_defaults(enable_skip=None, enable_pattern=None)
@@ -171,4 +205,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

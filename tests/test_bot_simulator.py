@@ -23,7 +23,9 @@ def test_descriptor_parsing_basic(routine: DescriptorRoutine) -> None:
     assert first_point.commands, "First point should contain commands"
 
 
-def test_simulation_produces_logs_and_metrics(tmp_path: Path, routine: DescriptorRoutine) -> None:
+def test_simulation_produces_logs_and_metrics(
+    tmp_path: Path, routine: DescriptorRoutine
+) -> None:
     simulator = BotRunSimulator(routine, random_seed=42)
     result = simulator.run(max_loops=1)
     assert result.logs, "Simulation should produce log entries"
@@ -40,4 +42,3 @@ def test_simulation_produces_logs_and_metrics(tmp_path: Path, routine: Descripto
 
     assert "analysis" in metrics_payload
     assert "command_counts" in metrics_payload
-

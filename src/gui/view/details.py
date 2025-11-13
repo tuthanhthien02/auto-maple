@@ -5,28 +5,35 @@ from src.common import config
 
 class Details(LabelFrame):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, 'Details', **kwargs)
-        
+        super().__init__(parent, "Details", **kwargs)
+
         # Get view_instance from parent (scroll_content) or config.gui
-        if hasattr(parent, 'view_instance'):
+        if hasattr(parent, "view_instance"):
             self.view_instance = parent.view_instance
-        elif hasattr(config, 'gui') and hasattr(config.gui, 'view'):
+        elif hasattr(config, "gui") and hasattr(config.gui, "view"):
             self.view_instance = config.gui.view
         else:
             self.view_instance = parent
-        
+
         self.name_var = tk.StringVar()
 
-        self.name = tk.Entry(self, textvariable=self.name_var, justify=tk.CENTER, state=tk.DISABLED)
+        self.name = tk.Entry(
+            self, textvariable=self.name_var, justify=tk.CENTER, state=tk.DISABLED
+        )
         self.name.pack(pady=(5, 2))
 
         self.scroll = tk.Scrollbar(self)
         self.scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
 
-        self.text = tk.Text(self, width=1, height=10,
-                            yscrollcommand=self.scroll.set,
-                            state=tk.DISABLED, wrap=tk.WORD)
-        self.text.pack(side=tk.LEFT, expand=True, fill='both', padx=(5, 0), pady=(0, 5))
+        self.text = tk.Text(
+            self,
+            width=1,
+            height=10,
+            yscrollcommand=self.scroll.set,
+            state=tk.DISABLED,
+            wrap=tk.WORD,
+        )
+        self.text.pack(side=tk.LEFT, expand=True, fill="both", padx=(5, 0), pady=(0, 5))
 
         self.scroll.config(command=self.text.yview)
 
@@ -42,7 +49,9 @@ class Details(LabelFrame):
         """Updates Details to show info about the current selection."""
         try:
             # Access routine through view_instance
-            if hasattr(self.view_instance, 'routine') and hasattr(self.view_instance.routine, 'listbox'):
+            if hasattr(self.view_instance, "routine") and hasattr(
+                self.view_instance.routine, "listbox"
+            ):
                 selects = self.view_instance.routine.listbox.curselection()
                 if len(selects) > 0:
                     self.display_info(int(selects[0]))
@@ -53,6 +62,7 @@ class Details(LabelFrame):
         except Exception as e:
             # If anything fails, just clear info
             from src.common.logger import get_logger
+
             log = get_logger(__name__)
             log.debug(f"Error updating details: {e}")
             self.clear_info()
@@ -63,17 +73,17 @@ class Details(LabelFrame):
         self.text.config(state=tk.NORMAL)
 
         info = config.routine[index].info()
-        self.name_var.set(info['name'])
+        self.name_var.set(info["name"])
         arr = []
-        for key, value in info['vars'].items():
-            arr.append(f'{key}: {value}')
-        self.text.delete(1.0, 'end')
-        self.text.insert(1.0, '\n'.join(arr))
+        for key, value in info["vars"].items():
+            arr.append(f"{key}: {value}")
+        self.text.delete(1.0, "end")
+        self.text.insert(1.0, "\n".join(arr))
 
         self.text.config(state=tk.DISABLED)
 
     def clear_info(self):
-        self.name_var.set('')
+        self.name_var.set("")
         self.text.config(state=tk.NORMAL)
-        self.text.delete(1.0, 'end')
+        self.text.delete(1.0, "end")
         self.text.config(state=tk.DISABLED)

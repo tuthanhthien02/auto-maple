@@ -6,7 +6,7 @@ from src.common.bot_config import BotConfig
 #########################
 #       Constants       #
 #########################
-RESOURCES_DIR = 'resources'
+RESOURCES_DIR = "resources"
 
 
 #################################
@@ -63,9 +63,7 @@ arduino_baudrate = 115200
 
 # Key remapping for game customization (e.g., {'a': 'rbracket', 'w': 'lbracket', 'e': 'p'})
 # Use Arduino key names. Set to None or {} to disable remapping.
-arduino_key_mapping = {
-    'e': 'p'  # Example: Press 'e' → outputs 'p'
-}
+arduino_key_mapping = {"e": "p"}  # Example: Press 'e' → outputs 'p'
 
 # Enable/disable key remapping (can be toggled at runtime)
 arduino_remapping_enabled = False

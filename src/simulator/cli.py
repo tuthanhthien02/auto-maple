@@ -15,7 +15,9 @@ log = get_logger(__name__)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Offline simulator for Auto-Maple routines.")
+    parser = argparse.ArgumentParser(
+        description="Offline simulator for Auto-Maple routines."
+    )
     parser.add_argument(
         "--descriptor",
         required=True,
@@ -60,5 +62,3 @@ def main(args: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-
-

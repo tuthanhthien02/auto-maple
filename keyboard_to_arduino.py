@@ -1,6 +1,7 @@
 """
 Keyboard Hook để nhận input từ Multiplicity và forward qua Arduino Pro Micro
 """
+
 import ctypes
 import ctypes.wintypes
 import serial
@@ -24,58 +25,120 @@ PM_REMOVE = 0x0001
 PM_NOYIELD = 0x0002
 
 # Compat: some Python builds lack wintypes.ULONG_PTR
-if not hasattr(wintypes, 'ULONG_PTR'):
+if not hasattr(wintypes, "ULONG_PTR"):
     wintypes.ULONG_PTR = wintypes.WPARAM
 
 # Ensure console can print UTF-8 without errors (Windows cp1252 consoles)
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 except Exception:
     pass
 
 # Virtual Key Codes mapping to Arduino key names
 VK_TO_KEY = {
-    0x08: 'backspace', 0x09: 'tab', 0x0D: 'enter',
-    0x10: 'shift', 0x11: 'ctrl', 0x12: 'alt',
-    0x14: 'caps', 0x1B: 'esc', 0x20: 'space',
-    0x21: 'pgup', 0x22: 'pgdn', 0x23: 'end',
-    0x24: 'home', 0x25: 'left', 0x26: 'up',
-    0x27: 'right', 0x28: 'down', 0x2D: 'insert',
-    0x2E: 'delete',
-    0x30: '0', 0x31: '1', 0x32: '2', 0x33: '3',
-    0x34: '4', 0x35: '5', 0x36: '6', 0x37: '7',
-    0x38: '8', 0x39: '9',
-    0x41: 'a', 0x42: 'b', 0x43: 'c', 0x44: 'd',
-    0x45: 'e', 0x46: 'f', 0x47: 'g', 0x48: 'h',
-    0x49: 'i', 0x4A: 'j', 0x4B: 'k', 0x4C: 'l',
-    0x4D: 'm', 0x4E: 'n', 0x4F: 'o', 0x50: 'p',
-    0x51: 'q', 0x52: 'r', 0x53: 's', 0x54: 't',
-    0x55: 'u', 0x56: 'v', 0x57: 'w', 0x58: 'x',
-    0x59: 'y', 0x5A: 'z',
-    0x70: 'f1', 0x71: 'f2', 0x72: 'f3', 0x73: 'f4',
-    0x74: 'f5', 0x75: 'f6', 0x76: 'f7', 0x77: 'f8',
-    0x78: 'f9', 0x79: 'f10', 0x7A: 'f11', 0x7B: 'f12',
-    
+    0x08: "backspace",
+    0x09: "tab",
+    0x0D: "enter",
+    0x10: "shift",
+    0x11: "ctrl",
+    0x12: "alt",
+    0x14: "caps",
+    0x1B: "esc",
+    0x20: "space",
+    0x21: "pgup",
+    0x22: "pgdn",
+    0x23: "end",
+    0x24: "home",
+    0x25: "left",
+    0x26: "up",
+    0x27: "right",
+    0x28: "down",
+    0x2D: "insert",
+    0x2E: "delete",
+    0x30: "0",
+    0x31: "1",
+    0x32: "2",
+    0x33: "3",
+    0x34: "4",
+    0x35: "5",
+    0x36: "6",
+    0x37: "7",
+    0x38: "8",
+    0x39: "9",
+    0x41: "a",
+    0x42: "b",
+    0x43: "c",
+    0x44: "d",
+    0x45: "e",
+    0x46: "f",
+    0x47: "g",
+    0x48: "h",
+    0x49: "i",
+    0x4A: "j",
+    0x4B: "k",
+    0x4C: "l",
+    0x4D: "m",
+    0x4E: "n",
+    0x4F: "o",
+    0x50: "p",
+    0x51: "q",
+    0x52: "r",
+    0x53: "s",
+    0x54: "t",
+    0x55: "u",
+    0x56: "v",
+    0x57: "w",
+    0x58: "x",
+    0x59: "y",
+    0x5A: "z",
+    0x70: "f1",
+    0x71: "f2",
+    0x72: "f3",
+    0x73: "f4",
+    0x74: "f5",
+    0x75: "f6",
+    0x76: "f7",
+    0x77: "f8",
+    0x78: "f9",
+    0x79: "f10",
+    0x7A: "f11",
+    0x7B: "f12",
     # System / modifiers
-    0x5B: 'l_gui',      # Left Windows (GUI)
-    0x5C: 'r_gui',      # Right Windows (GUI)
-    0x5D: 'menu',       # Application/Menu key
-    0x2C: 'printscreen',
-    0x91: 'scroll',
-    0x13: 'pause',
-    0x90: 'numlock',
-
+    0x5B: "l_gui",  # Left Windows (GUI)
+    0x5C: "r_gui",  # Right Windows (GUI)
+    0x5D: "menu",  # Application/Menu key
+    0x2C: "printscreen",
+    0x91: "scroll",
+    0x13: "pause",
+    0x90: "numlock",
     # Numpad (map name; Arduino có thể fallback sang hàng số)
-    0x60: 'np0', 0x61: 'np1', 0x62: 'np2', 0x63: 'np3',
-    0x64: 'np4', 0x65: 'np5', 0x66: 'np6', 0x67: 'np7',
-    0x68: 'np8', 0x69: 'np9',
-    0x6A: 'np_mul', 0x6B: 'np_add', 0x6D: 'np_sub',
-    0x6E: 'np_dec', 0x6F: 'np_div',
-    0xBA: 'semicolon', 0xBB: 'equals', 0xBC: 'comma',
-    0xBD: 'minus', 0xBE: 'period', 0xBF: 'slash',
-    0xC0: 'grave', 0xDB: 'lbracket', 0xDC: 'backslash',
-    0xDD: 'rbracket', 0xDE: 'quote'
+    0x60: "np0",
+    0x61: "np1",
+    0x62: "np2",
+    0x63: "np3",
+    0x64: "np4",
+    0x65: "np5",
+    0x66: "np6",
+    0x67: "np7",
+    0x68: "np8",
+    0x69: "np9",
+    0x6A: "np_mul",
+    0x6B: "np_add",
+    0x6D: "np_sub",
+    0x6E: "np_dec",
+    0x6F: "np_div",
+    0xBA: "semicolon",
+    0xBB: "equals",
+    0xBC: "comma",
+    0xBD: "minus",
+    0xBE: "period",
+    0xBF: "slash",
+    0xC0: "grave",
+    0xDB: "lbracket",
+    0xDC: "backslash",
+    0xDD: "rbracket",
+    0xDE: "quote",
 }
 
 
@@ -85,88 +148,110 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
         ("scanCode", wintypes.DWORD),
         ("flags", wintypes.DWORD),
         ("time", wintypes.DWORD),
-        ("dwExtraInfo", wintypes.ULONG_PTR)
+        ("dwExtraInfo", wintypes.ULONG_PTR),
     ]
 
 
 class KeyboardToArduino:
-    def __init__(self, com_port=None, baudrate=115200, block_original_input=True, 
-                 stuck_key_timeout=10.0, enable_logging=False):
+    def __init__(
+        self,
+        com_port=None,
+        baudrate=115200,
+        block_original_input=True,
+        stuck_key_timeout=10.0,
+        enable_logging=False,
+    ):
         self.serial = None
         self.hook = None
         self.running = False
         self.com_port = com_port
         self.baudrate = baudrate
-        self.block_original_input = block_original_input  # Block input gốc để chỉ forward qua Arduino
-        self.stuck_key_timeout = stuck_key_timeout  # Timeout để auto-release stuck keys (giây)
+        self.block_original_input = (
+            block_original_input  # Block input gốc để chỉ forward qua Arduino
+        )
+        self.stuck_key_timeout = (
+            stuck_key_timeout  # Timeout để auto-release stuck keys (giây)
+        )
         self.enable_logging = enable_logging  # Log key events để debug
-        
+
         # Key state tracking: {key_name: (is_down: bool, down_timestamp: float, last_repeat_time: float)}
         # last_repeat_time: timestamp of last repeat send (for key repeat when holding)
         self.key_states = {}
         self.key_states_lock = threading.Lock()  # Thread-safe access
-        
+
         # Stuck key monitor thread
         self.stuck_key_monitor_thread = None
-        
+
         # Key repeat thread for hold down keys
         self.key_repeat_thread = None
         self.key_repeat_enabled = True  # Enable key repeat when holding keys
-        self.key_repeat_initial_delay = 0.5  # Initial delay before repeat starts (seconds)
+        self.key_repeat_initial_delay = (
+            0.5  # Initial delay before repeat starts (seconds)
+        )
         self.key_repeat_interval = 0.05  # Repeat interval (50ms = ~20 keys/second)
 
         # Runtime toggles
         self.forwarding_enabled = True  # Toggle forward to Arduino on/off
-        
+
         # Ignore Arduino HID events to prevent loop
         # Track last command send time to ignore events from Arduino for a short period
         self.last_command_sent_time = {}  # {key_name: timestamp}
-        self.ignore_window_ms = 200  # Increased to 200ms to ensure Arduino events are detected
-        
+        self.ignore_window_ms = (
+            200  # Increased to 200ms to ensure Arduino events are detected
+        )
+
         # Track Arduino device handles (for Raw Input filtering)
         # Arduino HID device handles will be detected and stored here
         self.arduino_device_handles = set()  # Set of device handles from Arduino HID
-        
+
         # Statistics for mirroring reliability
         self.stats = {
-            'total_hardware_keys': 0,      # Total hardware key events captured
-            'total_forwarded': 0,          # Total keys forwarded to Arduino
-            'total_blocked': 0,            # Total keys blocked (original input)
-            'total_unmapped': 0,           # Total keys not mapped (unmapped keys)
-            'total_errors': 0,             # Total errors when sending to Arduino
-            'total_arduino_events_ignored': 0  # Total Arduino HID events ignored
+            "total_hardware_keys": 0,  # Total hardware key events captured
+            "total_forwarded": 0,  # Total keys forwarded to Arduino
+            "total_blocked": 0,  # Total keys blocked (original input)
+            "total_unmapped": 0,  # Total keys not mapped (unmapped keys)
+            "total_errors": 0,  # Total errors when sending to Arduino
+            "total_arduino_events_ignored": 0,  # Total Arduino HID events ignored
         }
 
         # Safety hotkeys (VK codes)
-        self.VK_PGDN = 0x22        # Page Down -> toggle blocking
-        self.VK_PGUP = 0x21        # Page Up   -> toggle forwarding
-        self.VK_END = 0x23         # End       -> exit
-        self.VK_HOME = 0x24        # Home      -> show statistics
-        
+        self.VK_PGDN = 0x22  # Page Down -> toggle blocking
+        self.VK_PGUP = 0x21  # Page Up   -> toggle forwarding
+        self.VK_END = 0x23  # End       -> exit
+        self.VK_HOME = 0x24  # Home      -> show statistics
+
         # Config persistence
-        self.CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'keyboard_to_arduino.config.json')
+        self.CONFIG_PATH = os.path.join(
+            os.path.dirname(__file__), "keyboard_to_arduino.config.json"
+        )
         self._load_config()
-        
+
         # Initialize Windows API (must be called before using user32/kernel32)
         self._init_windows_api()
 
     def _print_status(self):
         block_status = "ON (BLOCK)" if self.block_original_input else "OFF (PASS)"
         fwd_status = "ENABLED" if self.forwarding_enabled else "DISABLED"
-        print(f"[STATUS] Block original input: {block_status} | Forwarding: {fwd_status}")
-    
+        print(
+            f"[STATUS] Block original input: {block_status} | Forwarding: {fwd_status}"
+        )
+
     def _print_statistics(self):
         """Print mirroring statistics"""
         stats = self.stats
-        total = stats['total_hardware_keys']
+        total = stats["total_hardware_keys"]
         if total > 0:
-            forwarded_rate = (stats['total_forwarded'] / total * 100) if total > 0 else 0
-            error_rate = (stats['total_errors'] / total * 100) if total > 0 else 0
-            unmapped_rate = (stats['total_unmapped'] / total * 100) if total > 0 else 0
-            
+            forwarded_rate = (
+                (stats["total_forwarded"] / total * 100) if total > 0 else 0
+            )
+            error_rate = (stats["total_errors"] / total * 100) if total > 0 else 0
+            unmapped_rate = (stats["total_unmapped"] / total * 100) if total > 0 else 0
+
             print("\n=== MIRRORING STATISTICS ===")
             print(f"Total hardware keys captured: {total}")
-            print(f"Forwarded to Arduino: {stats['total_forwarded']} ({forwarded_rate:.1f}%)")
+            print(
+                f"Forwarded to Arduino: {stats['total_forwarded']} ({forwarded_rate:.1f}%)"
+            )
             print(f"Blocked (original input): {stats['total_blocked']}")
             print(f"Errors: {stats['total_errors']} ({error_rate:.1f}%)")
             print(f"Unmapped keys: {stats['total_unmapped']} ({unmapped_rate:.1f}%)")
@@ -178,81 +263,109 @@ class KeyboardToArduino:
     def _load_config(self):
         try:
             if os.path.exists(self.CONFIG_PATH):
-                with open(self.CONFIG_PATH, 'r', encoding='utf-8') as f:
+                with open(self.CONFIG_PATH, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
                 # Only set if provided (keep constructor defaults/CLI otherwise)
-                self.com_port = cfg.get('com_port', self.com_port)
-                self.baudrate = cfg.get('baudrate', self.baudrate)
-                self.block_original_input = cfg.get('block_original_input', self.block_original_input)
-                self.forwarding_enabled = cfg.get('forwarding_enabled', self.forwarding_enabled)
-                self.stuck_key_timeout = cfg.get('stuck_key_timeout', self.stuck_key_timeout)
-                self.enable_logging = cfg.get('enable_logging', self.enable_logging)
+                self.com_port = cfg.get("com_port", self.com_port)
+                self.baudrate = cfg.get("baudrate", self.baudrate)
+                self.block_original_input = cfg.get(
+                    "block_original_input", self.block_original_input
+                )
+                self.forwarding_enabled = cfg.get(
+                    "forwarding_enabled", self.forwarding_enabled
+                )
+                self.stuck_key_timeout = cfg.get(
+                    "stuck_key_timeout", self.stuck_key_timeout
+                )
+                self.enable_logging = cfg.get("enable_logging", self.enable_logging)
         except Exception as e:
             print(f"[CONFIG] Lỗi load cấu hình: {e}")
 
     def _init_windows_api(self):
         """Initialize Windows API libraries and function signatures"""
         # Load Windows API
-        self.user32 = ctypes.WinDLL('user32', use_last_error=True)
-        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-        
+        self.user32 = ctypes.WinDLL("user32", use_last_error=True)
+        self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
         # Define function signatures
         self.user32.SetWindowsHookExW.argtypes = [
-            ctypes.c_int, ctypes.c_void_p, wintypes.HINSTANCE, wintypes.DWORD
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.HINSTANCE,
+            wintypes.DWORD,
         ]
         self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
-        
+
         self.user32.CallNextHookEx.argtypes = [
-            wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+            wintypes.HHOOK,
+            ctypes.c_int,
+            wintypes.WPARAM,
+            wintypes.LPARAM,
         ]
         self.user32.CallNextHookEx.restype = ctypes.c_int
-        
+
         self.user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
         self.user32.UnhookWindowsHookEx.restype = wintypes.BOOL
-        
+
         self.user32.GetMessageW.argtypes = [
-            ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT
+            ctypes.POINTER(wintypes.MSG),
+            wintypes.HWND,
+            wintypes.UINT,
+            wintypes.UINT,
         ]
         self.user32.GetMessageW.restype = wintypes.BOOL
-        
+
         # PeekMessageW signature (for non-blocking message loop)
         self.user32.PeekMessageW.argtypes = [
-            ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT
+            ctypes.POINTER(wintypes.MSG),
+            wintypes.HWND,
+            wintypes.UINT,
+            wintypes.UINT,
+            wintypes.UINT,
         ]
         self.user32.PeekMessageW.restype = wintypes.BOOL
-        
+
         self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
         self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        
+
         # PostQuitMessage signature
         self.user32.PostQuitMessage.argtypes = [ctypes.c_int]
         self.user32.PostQuitMessage.restype = None
-        
+
         # GetModuleHandleW signature
         self.kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
         self.kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
-        
+
         # GetLastError signature
         self.kernel32.GetLastError.argtypes = []
         self.kernel32.GetLastError.restype = wintypes.DWORD
-        
+
         # FormatMessageW signature for error message formatting
         self.kernel32.FormatMessageW.argtypes = [
-            wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
-            ctypes.POINTER(wintypes.LPWSTR), wintypes.DWORD, ctypes.c_void_p
+            wintypes.DWORD,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.LPWSTR),
+            wintypes.DWORD,
+            ctypes.c_void_p,
         ]
         self.kernel32.FormatMessageW.restype = wintypes.DWORD
-        
+
         # LocalFree signature
         self.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
         self.kernel32.LocalFree.restype = ctypes.c_void_p
-        
+
         # GetRawInputData for parsing Raw Input to get device handle
         self.user32.GetRawInputData.argtypes = [
-            wintypes.HRAWINPUT, wintypes.UINT, ctypes.c_void_p, ctypes.POINTER(wintypes.UINT), wintypes.UINT
+            wintypes.HRAWINPUT,
+            wintypes.UINT,
+            ctypes.c_void_p,
+            ctypes.POINTER(wintypes.UINT),
+            wintypes.UINT,
         ]
         self.user32.GetRawInputData.restype = wintypes.UINT
-        
+
         # RAWINPUTHEADER structure
         class RAWINPUTHEADER(ctypes.Structure):
             _fields_ = [
@@ -261,22 +374,28 @@ class KeyboardToArduino:
                 ("hDevice", wintypes.HANDLE),
                 ("wParam", wintypes.WPARAM),
             ]
+
         self.RAWINPUTHEADER = RAWINPUTHEADER
-        
+
         # GetRawInputDeviceList to enumerate devices
         self.user32.GetRawInputDeviceList.argtypes = [
-            ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.UINT), wintypes.UINT
+            ctypes.POINTER(ctypes.c_void_p),
+            ctypes.POINTER(wintypes.UINT),
+            wintypes.UINT,
         ]
         self.user32.GetRawInputDeviceList.restype = wintypes.UINT
-        
+
         # GetRawInputDeviceInfoW to get device info
-        RIDI_DEVICENAME = 0x20000007
-        RIDI_DEVICEINFO = 0x2000000B
+        _RIDI_DEVICENAME = 0x20000007
+        _RIDI_DEVICEINFO = 0x2000000B
         self.user32.GetRawInputDeviceInfoW.argtypes = [
-            wintypes.HANDLE, wintypes.UINT, ctypes.c_void_p, ctypes.POINTER(wintypes.UINT)
+            wintypes.HANDLE,
+            wintypes.UINT,
+            ctypes.c_void_p,
+            ctypes.POINTER(wintypes.UINT),
         ]
         self.user32.GetRawInputDeviceInfoW.restype = wintypes.UINT
-        
+
         # RegisterRawInputDevices to filter devices at system level
         class RAWINPUTDEVICE(ctypes.Structure):
             _fields_ = [
@@ -285,75 +404,82 @@ class KeyboardToArduino:
                 ("dwFlags", wintypes.DWORD),
                 ("hwndTarget", wintypes.HWND),
             ]
+
         self.RAWINPUTDEVICE = RAWINPUTDEVICE
-        
+
         self.user32.RegisterRawInputDevices.argtypes = [
-            ctypes.POINTER(RAWINPUTDEVICE), wintypes.UINT, wintypes.UINT
+            ctypes.POINTER(RAWINPUTDEVICE),
+            wintypes.UINT,
+            wintypes.UINT,
         ]
         self.user32.RegisterRawInputDevices.restype = wintypes.BOOL
-        
+
         # Hook callback type
         HOOKPROC = ctypes.WINFUNCTYPE(
             ctypes.c_int, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
         )
         self.hook_proc = HOOKPROC(self.low_level_keyboard_proc)
-    
+
     def _save_config(self):
         try:
             cfg = {
-                'com_port': self.com_port,
-                'baudrate': self.baudrate,
-                'block_original_input': self.block_original_input,
-                'forwarding_enabled': self.forwarding_enabled,
-                'stuck_key_timeout': self.stuck_key_timeout,
-                'enable_logging': self.enable_logging,
+                "com_port": self.com_port,
+                "baudrate": self.baudrate,
+                "block_original_input": self.block_original_input,
+                "forwarding_enabled": self.forwarding_enabled,
+                "stuck_key_timeout": self.stuck_key_timeout,
+                "enable_logging": self.enable_logging,
             }
-            with open(self.CONFIG_PATH, 'w', encoding='utf-8') as f:
+            with open(self.CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"[CONFIG] Lỗi lưu cấu hình: {e}")
-    
+
     def find_arduino_port(self):
         """Tự động tìm Arduino Pro Micro port"""
         ports = serial.tools.list_ports.comports()
         for port in ports:
             # Arduino Pro Micro thường có VID:PID hoặc description
-            if 'arduino' in port.description.lower() or \
-               'pro micro' in port.description.lower() or \
-               'USB Serial' in port.description:
+            if (
+                "arduino" in port.description.lower()
+                or "pro micro" in port.description.lower()
+                or "USB Serial" in port.description
+            ):
                 return port.device
         # Nếu không tìm thấy, list tất cả ports
         print("Không tìm thấy Arduino tự động. Các COM ports có sẵn:")
         for port in ports:
             print(f"  - {port.device}: {port.description}")
         return None
-    
+
     def connect_arduino(self):
         """Kết nối với Arduino"""
         if not self.com_port:
             self.com_port = self.find_arduino_port()
-        
+
         if not self.com_port:
             raise RuntimeError("Không tìm thấy Arduino. Vui lòng chỉ định COM port.")
-        
+
         try:
             # Use lower timeout for faster response, write_timeout to prevent blocking
             self.serial = serial.Serial(
-                self.com_port, 
-                self.baudrate, 
+                self.com_port,
+                self.baudrate,
                 timeout=0.1,  # Reduced from 1s to 100ms for faster response
                 write_timeout=0.1,  # Prevent write blocking
-                inter_byte_timeout=0.01  # Fast byte timeout
+                inter_byte_timeout=0.01,  # Fast byte timeout
             )
             time.sleep(0.5)  # Reduced from 2s to 0.5s
-            print(f"Đã kết nối với Arduino tại {self.com_port} (baudrate: {self.baudrate})")
+            print(
+                f"Đã kết nối với Arduino tại {self.com_port} (baudrate: {self.baudrate})"
+            )
             # Đồng bộ trạng thái: release tất cả keys trên Arduino
             self.send_all_up()
             return True
         except Exception as e:
             print(f"Lỗi kết nối Arduino: {e}")
             return False
-    
+
     def send_key_to_arduino(self, key_name, action):
         """
         Gửi command đến Arduino
@@ -366,22 +492,22 @@ class KeyboardToArduino:
             if self.enable_logging:
                 print(f"[ERROR] Serial not connected: {action}:{key_name}")
             return False
-        
+
         try:
             command = f"{action}:{key_name}\n"
-            bytes_written = self.serial.write(command.encode('utf-8'))
+            bytes_written = self.serial.write(command.encode("utf-8"))
             self.serial.flush()  # Force immediate send, don't wait for buffer
-            
+
             if bytes_written == 0:
                 if self.enable_logging:
                     print(f"[ERROR] Failed to write: {action}:{key_name}")
                 return False
-            
+
             # Record timestamp to ignore Arduino HID events (prevent loop)
             # Use perf_counter for more accurate timing
             current_time_ms = int(time.perf_counter() * 1000)
             self.last_command_sent_time[key_name] = current_time_ms
-            
+
             if self.enable_logging:
                 print(f"[LOG] Sent: {action}:{key_name} ({bytes_written} bytes)")
             return True
@@ -416,7 +542,7 @@ class KeyboardToArduino:
         except Exception:
             pass
         self.serial = None
-        
+
         while self.running and self.serial is None:
             try:
                 # Giữ nguyên self.com_port, self.baudrate; nếu com_port None, thử auto-detect
@@ -426,7 +552,7 @@ class KeyboardToArduino:
                     print("[RECONNECT] Chưa tìm thấy COM port, sẽ thử lại...")
                     time.sleep(retry_delay)
                     continue
-                
+
                 self.serial = serial.Serial(self.com_port, self.baudrate, timeout=1)
                 time.sleep(2)
                 print(f"[RECONNECT] Đã kết nối lại Arduino tại {self.com_port}")
@@ -437,14 +563,18 @@ class KeyboardToArduino:
                 print(f"[RECONNECT] Lỗi reconnect: {e}. Thử lại sau {retry_delay}s...")
                 self.serial = None
                 time.sleep(retry_delay)
-    
+
     def _update_key_state(self, key_name, is_down):
         """Update key state và timestamp (thread-safe)"""
         with self.key_states_lock:
             current_time = time.time()
             if is_down:
                 # Key down: check duplicate prevention
-                if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
+                if (
+                    key_name in self.key_states
+                    and len(self.key_states[key_name]) >= 1
+                    and self.key_states[key_name][0]
+                ):
                     # Key đã đang down, skip duplicate
                     if self.enable_logging:
                         print(f"[LOG] Duplicate key down ignored: {key_name}")
@@ -454,7 +584,11 @@ class KeyboardToArduino:
                 return True
             else:
                 # Key up: check nếu key đang down
-                if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
+                if (
+                    key_name in self.key_states
+                    and len(self.key_states[key_name]) >= 1
+                    and self.key_states[key_name][0]
+                ):
                     self.key_states[key_name] = (False, current_time, 0.0)
                     return True
                 else:
@@ -462,28 +596,32 @@ class KeyboardToArduino:
                     if self.enable_logging:
                         print(f"[LOG] Duplicate key up ignored: {key_name}")
                     return False
-    
+
     def _release_key_safe(self, key_name):
         """Release key an toàn (thread-safe)"""
         with self.key_states_lock:
-            if key_name in self.key_states and len(self.key_states[key_name]) >= 1 and self.key_states[key_name][0]:
+            if (
+                key_name in self.key_states
+                and len(self.key_states[key_name]) >= 1
+                and self.key_states[key_name][0]
+            ):
                 self.key_states[key_name] = (False, time.time(), 0.0)
                 try:
                     if self.serial and self.serial.is_open:
                         command = f"up:{key_name}\n"
-                        self.serial.write(command.encode('utf-8'))
+                        self.serial.write(command.encode("utf-8"))
                         if self.enable_logging:
                             print(f"[LOG] Force released: {key_name}")
                 except Exception:
                     pass
-    
+
     def low_level_keyboard_proc(self, nCode, wParam, lParam):
         """Low-level keyboard hook callback"""
         if nCode >= HC_ACTION:
             # Extract keyboard data
             kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
             vk_code = kb_data.vkCode
-            
+
             # Safety hotkeys (handle immediately, do NOT forward to Arduino)
             if wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 if vk_code == self.VK_PGDN:
@@ -516,180 +654,206 @@ class KeyboardToArduino:
 
             # Map VK code to key name
             key_name = VK_TO_KEY.get(vk_code)
-            
+
             # Track all hardware keyboard events (for statistics)
             if wParam in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
-                self.stats['total_hardware_keys'] += 1
-            
+                self.stats["total_hardware_keys"] += 1
+
             # CRITICAL: Detect Arduino HID events (simulate input)
             # Arduino events MUST ALWAYS pass through - never block
             is_arduino_event = False
             if key_name:
                 current_time_ms = int(time.perf_counter() * 1000)
                 if key_name in self.last_command_sent_time:
-                    time_since_command = current_time_ms - self.last_command_sent_time[key_name]
+                    time_since_command = (
+                        current_time_ms - self.last_command_sent_time[key_name]
+                    )
                     # Check if this event is from Arduino (within ignore window)
                     # Use longer window and also check if time is close (even if slightly over)
                     # This ensures we catch Arduino events even with slight timing variations
-                    if time_since_command < self.ignore_window_ms or (time_since_command < self.ignore_window_ms * 1.5 and key_name in self.key_states):
+                    if time_since_command < self.ignore_window_ms or (
+                        time_since_command < self.ignore_window_ms * 1.5
+                        and key_name in self.key_states
+                    ):
                         # This event is from Arduino HID - MUST allow to pass through
                         is_arduino_event = True
-                        self.stats['total_arduino_events_ignored'] += 1
+                        self.stats["total_arduino_events_ignored"] += 1
                         if self.enable_logging:
-                            print(f"[ARDUINO EVENT] Detected Arduino input: {key_name} (sent {time_since_command}ms ago) - ALLOWING")
+                            print(
+                                f"[ARDUINO EVENT] Detected Arduino input: {key_name} (sent {time_since_command}ms ago) - ALLOWING"
+                            )
                     # Fallback: If key was recently in key_states and we sent command recently
                     # This catches Arduino events that might have slight timing drift
                     elif time_since_command < self.ignore_window_ms * 2:
                         with self.key_states_lock:
-                            if key_name in self.key_states and len(self.key_states[key_name]) >= 2:
+                            if (
+                                key_name in self.key_states
+                                and len(self.key_states[key_name]) >= 2
+                            ):
                                 state = self.key_states[key_name]
                                 is_down, down_timestamp = state[0], state[1]
                                 # If key was recently pressed (within last 500ms) and we sent command recently
                                 current_time_sec = current_time_ms / 1000.0
-                                if is_down and (current_time_sec - down_timestamp) < 0.5:
+                                if (
+                                    is_down
+                                    and (current_time_sec - down_timestamp) < 0.5
+                                ):
                                     is_arduino_event = True
-                                    self.stats['total_arduino_events_ignored'] += 1
+                                    self.stats["total_arduino_events_ignored"] += 1
                                     if self.enable_logging:
-                                        print(f"[ARDUINO EVENT] Fallback detected: {key_name} - ALLOWING")
-            
+                                        print(
+                                            f"[ARDUINO EVENT] Fallback detected: {key_name} - ALLOWING"
+                                        )
+
             # Process hardware input (not from Arduino)
             if not is_arduino_event:
                 if key_name:
                     # This is hardware input - forward to Arduino
                     if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
                         # Key down event - check duplicate và update state
-                        if self._update_key_state(key_name, True) and self.forwarding_enabled:
+                        if (
+                            self._update_key_state(key_name, True)
+                            and self.forwarding_enabled
+                        ):
                             # Chỉ gửi nếu không phải duplicate
-                            success = self.send_key_to_arduino(key_name, 'down')
+                            success = self.send_key_to_arduino(key_name, "down")
                             if success:
-                                self.stats['total_forwarded'] += 1
+                                self.stats["total_forwarded"] += 1
                             else:
-                                self.stats['total_errors'] += 1
+                                self.stats["total_errors"] += 1
                     elif wParam == WM_KEYUP or wParam == WM_SYSKEYUP:
                         # Key up event - update state và gửi
-                        if self._update_key_state(key_name, False) and self.forwarding_enabled:
+                        if (
+                            self._update_key_state(key_name, False)
+                            and self.forwarding_enabled
+                        ):
                             # Chỉ gửi nếu key đang down
-                            success = self.send_key_to_arduino(key_name, 'up')
+                            success = self.send_key_to_arduino(key_name, "up")
                             if success:
-                                self.stats['total_forwarded'] += 1
+                                self.stats["total_forwarded"] += 1
                             else:
-                                self.stats['total_errors'] += 1
+                                self.stats["total_errors"] += 1
                 else:
                     # Key not mapped - cannot forward
-                    self.stats['total_unmapped'] += 1
+                    self.stats["total_unmapped"] += 1
                     if self.enable_logging:
                         print(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
-            
+
             # CRITICAL: Block original hardware input, but Arduino input MUST ALWAYS pass through
             if self.block_original_input:
                 if is_arduino_event:
                     # Arduino event (simulate input) - ALWAYS allow to pass through
                     # This is simulate input from Arduino, must NEVER be blocked
                     if self.enable_logging:
-                        print(f"[ARDUINO PASS] Allowing Arduino input: {key_name} - NEVER BLOCK")
+                        print(
+                            f"[ARDUINO PASS] Allowing Arduino input: {key_name} - NEVER BLOCK"
+                        )
                     return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
                 else:
                     # Hardware input - BLOCK completely (only forward via Arduino)
-                    self.stats['total_blocked'] += 1
+                    self.stats["total_blocked"] += 1
                     return 1  # Block input gốc - game sẽ chỉ nhận từ Arduino
             else:
                 # Not blocking - allow all
                 return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
-        
+
         # Default behavior based on blocking setting
         if not self.block_original_input:
             return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         else:
             # Block all unmapped keys when blocking is enabled (but Arduino events already handled above)
             return 1
-    
+
     def _detect_arduino_devices(self):
         """Enumerate Raw Input devices to detect Arduino HID devices by name"""
         try:
             # Get device count
             device_count = wintypes.UINT(0)
-            result = self.user32.GetRawInputDeviceList(None, ctypes.byref(device_count), ctypes.sizeof(wintypes.UINT))
-            
+            result = self.user32.GetRawInputDeviceList(
+                None, ctypes.byref(device_count), ctypes.sizeof(wintypes.UINT)
+            )
+
             if result == 0xFFFFFFFF:  # Error
                 return
-            
+
             if device_count.value == 0:
                 return
-            
+
             # Allocate buffer for device list
             class RAWINPUTDEVICELIST(ctypes.Structure):
                 _fields_ = [
                     ("hDevice", wintypes.HANDLE),
                     ("dwType", wintypes.DWORD),
                 ]
-            
-            device_list_size = device_count.value * ctypes.sizeof(RAWINPUTDEVICELIST)
+
+            _device_list_size = device_count.value * ctypes.sizeof(RAWINPUTDEVICELIST)
             device_buffer = (RAWINPUTDEVICELIST * device_count.value)()
-            
+
             result = self.user32.GetRawInputDeviceList(
                 ctypes.cast(device_buffer, ctypes.POINTER(ctypes.c_void_p)),
                 ctypes.byref(device_count),
-                ctypes.sizeof(wintypes.UINT)
+                ctypes.sizeof(wintypes.UINT),
             )
-            
+
             if result == 0xFFFFFFFF:
                 return
-            
+
             # Enumerate devices
             RIDI_DEVICENAME = 0x20000007
             RIM_TYPEKEYBOARD = 1
-            
+
             for i in range(device_count.value):
                 device = device_buffer[i]
                 if device.dwType == RIM_TYPEKEYBOARD:
                     # Get device name
                     name_size = wintypes.UINT(0)
                     self.user32.GetRawInputDeviceInfoW(
-                        device.hDevice,
-                        RIDI_DEVICENAME,
-                        None,
-                        ctypes.byref(name_size)
+                        device.hDevice, RIDI_DEVICENAME, None, ctypes.byref(name_size)
                     )
-                    
+
                     if name_size.value > 0:
                         name_buffer = ctypes.create_unicode_buffer(name_size.value)
                         result = self.user32.GetRawInputDeviceInfoW(
                             device.hDevice,
                             RIDI_DEVICENAME,
                             name_buffer,
-                            ctypes.byref(name_size)
+                            ctypes.byref(name_size),
                         )
-                        
+
                         if result > 0:
                             device_name = name_buffer.value if name_buffer.value else ""
                             # Check if this is Arduino (common Arduino HID identifiers)
-                            if device_name and any(keyword in device_name.lower() for keyword in ['arduino', 'micro', 'leonardo', 'hid']):
+                            if device_name and any(
+                                keyword in device_name.lower()
+                                for keyword in ["arduino", "micro", "leonardo", "hid"]
+                            ):
                                 self.arduino_device_handles.add(device.hDevice)
                                 if self.enable_logging:
-                                    print(f"[DETECTED] Arduino device: {device_name} (handle: 0x{device.hDevice:016X})")
+                                    print(
+                                        f"[DETECTED] Arduino device: {device_name} (handle: 0x{device.hDevice:016X})"
+                                    )
         except Exception as e:
             if self.enable_logging:
                 print(f"[ERROR] Failed to detect Arduino devices: {e}")
-    
+
     def install_hook(self):
         """Cài đặt keyboard hook"""
         # Get module handle
         module_handle = self.kernel32.GetModuleHandleW(None)
         if not module_handle:
             error_code = self.kernel32.GetLastError()
-            raise RuntimeError(f"Không thể lấy module handle. Mã lỗi Windows: {error_code}")
-        
+            raise RuntimeError(
+                f"Không thể lấy module handle. Mã lỗi Windows: {error_code}"
+            )
+
         # Detect Arduino devices first (for Raw Input filtering)
         self._detect_arduino_devices()
-        
+
         # Install hook
         self.hook = self.user32.SetWindowsHookExW(
-            WH_KEYBOARD_LL,
-            self.hook_proc,
-            module_handle,
-            0
+            WH_KEYBOARD_LL, self.hook_proc, module_handle, 0
         )
-        
+
         if not self.hook:
             error_code = self.kernel32.GetLastError()
             error_msg = self._get_windows_error_message(error_code)
@@ -699,23 +863,25 @@ class KeyboardToArduino:
                 f"Chi tiết: {error_msg}\n"
                 f"Lưu ý: Keyboard hook yêu cầu quyền Administrator."
             )
-        
+
         print("Keyboard hook đã được cài đặt")
         if self.arduino_device_handles:
-            print(f"[INFO] Đã detect {len(self.arduino_device_handles)} Arduino device(s) - Raw Input sẽ allow cho Arduino")
-    
+            print(
+                f"[INFO] Đã detect {len(self.arduino_device_handles)} Arduino device(s) - Raw Input sẽ allow cho Arduino"
+            )
+
     def _get_windows_error_message(self, error_code):
         """Lấy thông báo lỗi Windows bằng FormatMessageW"""
         FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000
         FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200
-        FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100
-        
+        _FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100
+
         # Try using FormatMessageW với buffer tự cấp phát
         buffer_size = 256
         buffer = ctypes.create_unicode_buffer(buffer_size)
-        
+
         flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
-        
+
         result = self.kernel32.FormatMessageW(
             flags,
             None,
@@ -723,14 +889,14 @@ class KeyboardToArduino:
             0,  # Language ID (0 = system default)
             buffer,
             buffer_size,
-            None
+            None,
         )
-        
+
         if result:
             message = buffer.value.strip()
             if message:
                 return message
-        
+
         # Fallback: Common error codes mapping
         error_messages = {
             5: "Access Denied - Cần chạy với quyền Administrator",
@@ -738,93 +904,110 @@ class KeyboardToArduino:
             142: "Cannot set nonlocal hook without a module handle",
             0: "No error (success)",
         }
-        
+
         return error_messages.get(error_code, "Unknown error {}".format(error_code))
-    
+
     def _monitor_stuck_keys(self):
         """Monitor thread để phát hiện và auto-release stuck keys"""
         while self.running:
             try:
                 current_time = time.time()
                 stuck_keys = []
-                
+
                 with self.key_states_lock:
                     for key_name, state in self.key_states.items():
                         if len(state) >= 2 and state[0]:  # is_down
-                            is_down, down_timestamp = state[0], state[1]
+                            _is_down, down_timestamp = state[0], state[1]
                             # Key đang down, check timeout
                             elapsed = current_time - down_timestamp
                             if elapsed > self.stuck_key_timeout:
                                 stuck_keys.append(key_name)
-                
+
                 # Release stuck keys
                 for key_name in stuck_keys:
-                    print(f"[WARNING] Auto-releasing stuck key: {key_name} (held for {self.stuck_key_timeout}s)")
+                    print(
+                        f"[WARNING] Auto-releasing stuck key: {key_name} (held for {self.stuck_key_timeout}s)"
+                    )
                     self._release_key_safe(key_name)
-                
+
                 # Sleep 1 giây trước khi check lại
                 time.sleep(1.0)
-                
+
             except Exception as e:
                 if self.enable_logging:
                     print(f"[ERROR] Stuck key monitor error: {e}")
                 time.sleep(1.0)
-    
+
     def _key_repeat_loop(self):
         """Key repeat thread - sends key down repeatedly while key is held"""
         while self.running:
             try:
                 current_time = time.time()
                 keys_to_repeat = []
-                
+
                 with self.key_states_lock:
                     for key_name, state in self.key_states.items():
-                        if len(state) >= 3 and state[0] and self.forwarding_enabled:  # is_down
-                            is_down, down_timestamp, last_repeat_time = state[0], state[1], state[2]
+                        if (
+                            len(state) >= 3 and state[0] and self.forwarding_enabled
+                        ):  # is_down
+                            is_down, down_timestamp, last_repeat_time = (
+                                state[0],
+                                state[1],
+                                state[2],
+                            )
                             elapsed = current_time - down_timestamp
-                            
+
                             # Only repeat if past initial delay
                             if elapsed > self.key_repeat_initial_delay:
                                 # Check if it's time to repeat (based on interval)
-                                last_repeat = last_repeat_time if last_repeat_time > 0 else down_timestamp + self.key_repeat_initial_delay
+                                last_repeat = (
+                                    last_repeat_time
+                                    if last_repeat_time > 0
+                                    else down_timestamp + self.key_repeat_initial_delay
+                                )
                                 time_since_last_repeat = current_time - last_repeat
                                 if time_since_last_repeat >= self.key_repeat_interval:
                                     keys_to_repeat.append(key_name)
-                
+
                 # Send repeat commands for held keys
                 for key_name in keys_to_repeat:
                     if self.key_repeat_enabled:
                         # Send key down again to simulate key repeat
-                        success = self.send_key_to_arduino(key_name, 'down')
+                        success = self.send_key_to_arduino(key_name, "down")
                         if success:
                             # Update last_repeat_time
                             with self.key_states_lock:
-                                if key_name in self.key_states and len(self.key_states[key_name]) >= 3:
-                                    is_down, down_timestamp, _ = self.key_states[key_name]
-                                    self.key_states[key_name] = (is_down, down_timestamp, current_time)
-                
+                                if (
+                                    key_name in self.key_states
+                                    and len(self.key_states[key_name]) >= 3
+                                ):
+                                    is_down, down_timestamp, _ = self.key_states[
+                                        key_name
+                                    ]
+                                    self.key_states[key_name] = (
+                                        is_down,
+                                        down_timestamp,
+                                        current_time,
+                                    )
+
                 # Sleep for repeat interval
                 time.sleep(self.key_repeat_interval)
-                
+
             except Exception as e:
                 if self.enable_logging:
                     print(f"[ERROR] Key repeat error: {e}")
                 time.sleep(0.05)
-    
+
     def message_loop(self):
         """Windows message loop - optimized for low latency with Raw Input blocking"""
         msg = wintypes.MSG()
-        
+
         while self.running:
             # PeekMessage with PM_REMOVE to get messages without blocking
             ret = self.user32.PeekMessageW(
-                ctypes.byref(msg),
-                None,
-                0,
-                0,
-                PM_REMOVE | PM_NOYIELD
+                ctypes.byref(msg), None, 0, 0, PM_REMOVE | PM_NOYIELD
             )
-            
+
             if ret:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
@@ -836,10 +1019,10 @@ class KeyboardToArduino:
                         # Get header size first
                         header_size = ctypes.sizeof(self.RAWINPUTHEADER)
                         size = wintypes.UINT(header_size)
-                        
+
                         # Allocate buffer for header
                         header_buffer = ctypes.create_string_buffer(header_size)
-                        
+
                         # Get Raw Input header to get device handle
                         RID_HEADER = 0x10000005
                         result = self.user32.GetRawInputData(
@@ -847,23 +1030,27 @@ class KeyboardToArduino:
                             RID_HEADER,
                             header_buffer,
                             ctypes.byref(size),
-                            ctypes.sizeof(wintypes.UINT)
+                            ctypes.sizeof(wintypes.UINT),
                         )
-                        
+
                         if result == header_size:
                             # Parse header to get device handle and type
-                            header = ctypes.cast(header_buffer, ctypes.POINTER(self.RAWINPUTHEADER)).contents
+                            header = ctypes.cast(
+                                header_buffer, ctypes.POINTER(self.RAWINPUTHEADER)
+                            ).contents
                             device_handle = header.hDevice
                             device_type = header.dwType
-                            
+
                             # Logging only - allow all Raw Input
                             if device_type == 1:  # Keyboard device
                                 if device_handle in self.arduino_device_handles:
                                     if self.enable_logging:
-                                        print(f"[RAW INPUT] Arduino device: 0x{device_handle:016X}")
+                                        print(
+                                            f"[RAW INPUT] Arduino device: 0x{device_handle:016X}"
+                                        )
                     except Exception:
                         pass  # Ignore parse errors - allow Raw Input anyway
-                    
+
                     # CRITICAL: Always allow Raw Input to pass through (user accepts interleaving)
                     self.user32.TranslateMessage(ctypes.byref(msg))
                     self.user32.DispatchMessageW(ctypes.byref(msg))
@@ -875,7 +1062,7 @@ class KeyboardToArduino:
                 # No message available, minimal sleep to prevent CPU spinning while maintaining low latency
                 # Reduced from 1ms to 0ms (yield only) for maximum responsiveness
                 time.sleep(0)  # Yield to other threads without delay
-    
+
     def start(self):
         """Bắt đầu hook và forward input"""
         # Kết nối Arduino (retry vô hạn cho đến khi thành công hoặc user thoát)
@@ -887,45 +1074,50 @@ class KeyboardToArduino:
                 break
             print("[START] Kết nối Arduino thất bại. Thử lại sau 2s...")
             time.sleep(2.0)
-        
+
         try:
             self.install_hook()
             self.running = True
-            
+
             # Start stuck key monitor thread
             self.stuck_key_monitor_thread = threading.Thread(
-                target=self._monitor_stuck_keys,
-                daemon=True
+                target=self._monitor_stuck_keys, daemon=True
             )
             self.stuck_key_monitor_thread.start()
-            
+
             # Start key repeat thread for hold down keys
             self.key_repeat_thread = threading.Thread(
-                target=self._key_repeat_loop,
-                daemon=True
+                target=self._key_repeat_loop, daemon=True
             )
             self.key_repeat_thread.start()
-            
+
             if self.block_original_input:
                 print("Đã bắt đầu nhận input từ Multiplicity và forward qua Arduino...")
-                print("[WARNING] Input gốc đã bị BLOCK - Game chỉ nhận input từ Arduino")
+                print(
+                    "[WARNING] Input gốc đã bị BLOCK - Game chỉ nhận input từ Arduino"
+                )
                 print("[WARNING] Bàn phím thật của máy này cũng sẽ bị block")
             else:
                 print("Đã bắt đầu nhận input từ Multiplicity và forward qua Arduino...")
                 print("[INFO] Input gốc vẫn được forward - Game có thể nhận cả 2 nguồn")
             print(f"[INFO] Stuck key auto-release: {self.stuck_key_timeout}s timeout")
-            print(f"[INFO] Key repeat: {'ENABLED' if self.key_repeat_enabled else 'DISABLED'} (delay: {self.key_repeat_initial_delay}s, interval: {self.key_repeat_interval}s)")
+            print(
+                f"[INFO] Key repeat: {'ENABLED' if self.key_repeat_enabled else 'DISABLED'} (delay: {self.key_repeat_initial_delay}s, interval: {self.key_repeat_interval}s)"
+            )
             self._print_status()
-            print("[HOTKEYS] PageDown: Toggle blocking | PageUp: Toggle forwarding | Home: Show stats | End: Exit")
+            print(
+                "[HOTKEYS] PageDown: Toggle blocking | PageUp: Toggle forwarding | Home: Show stats | End: Exit"
+            )
             print("Nhấn Ctrl+C để dừng")
-            
+
             # Run message loop in main thread
             self.message_loop()
-            
+
         except KeyboardInterrupt:
             print("\nĐang dừng...")
         except Exception as e:
             import traceback
+
             print(f"Lỗi: {e}")
             print("\n=== Chi tiết lỗi ===")
             traceback.print_exc()
@@ -934,47 +1126,48 @@ class KeyboardToArduino:
             input("Nhấn Enter để đóng...")
         finally:
             self.stop()
-    
+
     def stop(self):
         """Dừng hook và đóng kết nối"""
         self.running = False
-        
+
         # Cleanup: Release tất cả keys đang down (và trên Arduino)
         print("Đang cleanup và release tất cả keys...")
         with self.key_states_lock:
             keys_to_release = [
-                key_name for key_name, state in self.key_states.items()
+                key_name
+                for key_name, state in self.key_states.items()
                 if len(state) >= 1 and state[0]  # is_down
             ]
-        
+
         for key_name in keys_to_release:
             self._release_key_safe(key_name)
             if self.enable_logging:
                 print(f"[CLEANUP] Released: {key_name}")
-        
+
         if keys_to_release:
             print(f"Đã release {len(keys_to_release)} key(s) đang down")
 
         # Gửi all_up xuống Arduino lần cuối
         self.send_all_up()
-        
+
         # Đợi stuck key monitor thread dừng
         if self.stuck_key_monitor_thread and self.stuck_key_monitor_thread.is_alive():
             self.stuck_key_monitor_thread.join(timeout=2.0)
-        
+
         if self.hook:
             self.user32.UnhookWindowsHookEx(self.hook)
             self.hook = None
             print("Keyboard hook đã được gỡ bỏ")
-        
+
         if self.serial and self.serial.is_open:
             self.serial.close()
             print("Đã đóng kết nối Arduino")
-        
+
         # Clear key states
         with self.key_states_lock:
             self.key_states.clear()
-        
+
         # Print final statistics
         print("\n=== FINAL MIRRORING STATISTICS ===")
         self._print_statistics()
@@ -982,49 +1175,49 @@ class KeyboardToArduino:
 
 if __name__ == "__main__":
     import sys
-    
+
     # Parse command line arguments
     # Usage: python keyboard_to_arduino.py [COM_PORT] [BAUDRATE] [BLOCK_INPUT] [STUCK_KEY_TIMEOUT] [ENABLE_LOGGING]
     com_port = None
     if len(sys.argv) > 1:
         com_port = sys.argv[1]
-    
+
     baudrate = 115200
     if len(sys.argv) > 2:
         baudrate = int(sys.argv[2])
-    
+
     # Block original input by default (để game chỉ nhận từ Arduino)
     block_input = True
     if len(sys.argv) > 3:
-        block_input = sys.argv[3].lower() in ['true', '1', 'yes', 'on']
-    
+        block_input = sys.argv[3].lower() in ["true", "1", "yes", "on"]
+
     # Stuck key timeout (giây)
     stuck_key_timeout = 10.0
     if len(sys.argv) > 4:
         stuck_key_timeout = float(sys.argv[4])
-    
+
     # Enable logging
     enable_logging = False
     if len(sys.argv) > 5:
-        enable_logging = sys.argv[5].lower() in ['true', '1', 'yes', 'on']
-    
+        enable_logging = sys.argv[5].lower() in ["true", "1", "yes", "on"]
+
     # Create and start
     try:
         handler = KeyboardToArduino(
-            com_port=com_port, 
+            com_port=com_port,
             baudrate=baudrate,
             block_original_input=block_input,
             stuck_key_timeout=stuck_key_timeout,
-            enable_logging=enable_logging
+            enable_logging=enable_logging,
         )
         handler.start()
     except Exception as e:
         import traceback
-        print(f"\n=== LỖI KHỞI TẠO ===")
+
+        print("\n=== LỖI KHỞI TẠO ===")
         print(f"Lỗi: {e}")
         print("\n=== Chi tiết lỗi ===")
         traceback.print_exc()
         print("\n=== Kết thúc chi tiết lỗi ===\n")
         # Pause để người dùng có thể xem lỗi
         input("Nhấn Enter để đóng...")
-

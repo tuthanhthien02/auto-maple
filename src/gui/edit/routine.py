@@ -1,4 +1,5 @@
 import tkinter as tk
+from src.common import config
 from src.gui.edit.commands import Commands
 from src.gui.edit.components import Components
 from src.gui.edit.controls import Controls
@@ -7,12 +8,12 @@ from src.gui.interfaces import LabelFrame, Frame
 
 class Routine(LabelFrame):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, 'Routine', **kwargs)
-        
+        super().__init__(parent, "Routine", **kwargs)
+
         # Get edit_instance from parent (scroll_content) or config.gui
-        if hasattr(parent, 'edit_instance'):
+        if hasattr(parent, "edit_instance"):
             self.edit_instance = parent.edit_instance
-        elif hasattr(config, 'gui') and hasattr(config.gui, 'edit'):
+        elif hasattr(config, "gui") and hasattr(config.gui, "edit"):
             self.edit_instance = config.gui.edit
         else:
             self.edit_instance = parent
