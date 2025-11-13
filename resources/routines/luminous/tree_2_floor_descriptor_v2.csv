@@ -1,0 +1,125 @@
+# Routine: Tree 2-Floor Training Path (12-Point Variant)
+# Derived from tree_2_floor_descriptor.csv with expanded positions on each floor.
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y ≈ 0.097)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.097) ===
+
+*,0.143,0.097,adjust=False,frequency=1
+Label,f1_pos_0
+buff
+buff_secondary
+face_right
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.181,0.097,adjust=False,frequency=1
+Label,f1_pos_1
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.221,0.097,adjust=False,frequency=1
+Label,f1_pos_2
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.259,0.097,adjust=False,frequency=1
+Label,f1_pos_3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.297,0.097,adjust=False,frequency=1
+Label,f1_pos_4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.325,0.097,adjust=False,frequency=1
+Label,f1_pos_5
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# TRANSITION: FLOOR 1 → FLOOR 2
+# ========================================
+Comment,=== TRANSITION: Jump Teleport Up to Floor 2 at (0.325,0.043) ===
+*,0.325,0.097,adjust=True,frequency=1
+Label,jump_up
+jump_teleport_up,1
+wait_random,0.8,1.5
+
+# ========================================
+# FLOOR 2: RIGHT → LEFT (y ≈ 0.043)
+# ========================================
+Comment,=== FLOOR 2 START: Move Right → Left (y ≈ 0.043) ===
+
+*,0.325,0.043,adjust=False,frequency=1
+Label,f2_pos_0
+face_left
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.283,0.043,adjust=False,frequency=1
+Label,f2_pos_1
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.252,0.043,adjust=False,frequency=1
+Label,f2_pos_2
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.211,0.043,adjust=False,frequency=1
+Label,f2_pos_3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.171,0.043,adjust=False,frequency=1
+Label,f2_pos_4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.140,0.043,adjust=False,frequency=1
+Label,f2_pos_5
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# TRANSITION: FLOOR 2 → FLOOR 1
+# ========================================
+Comment,=== TRANSITION: Drop Back to Floor 1 at (0.143,0.097) ===
+*,0.143,0.043,adjust=True,frequency=1
+Label,jump_down
+wait_random,0.25,0.40
+jump_down,1
+wait_random,1.0,1.8
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
+
+
