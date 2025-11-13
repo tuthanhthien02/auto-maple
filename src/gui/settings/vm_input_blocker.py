@@ -171,10 +171,21 @@ class VMInputBlocker(LabelFrame):
                 # Disable
                 if config.vm_input_blocker:
                     log.info("[VM_INPUT_BLOCKER_GUI] Stopping VM Input Blocker...")
-                    config.vm_input_blocker.stop_blocking()
-                    config.vm_input_blocker.uninstall_hook()
-                    config.vm_input_blocker = None
+                    try:
+                        config.vm_input_blocker.stop_blocking()
+                        config.vm_input_blocker.uninstall_hook()
+                    except Exception as cleanup_error:
+                        log.warning(f"[VM_INPUT_BLOCKER_GUI] Error during cleanup: {cleanup_error}")
+                    finally:
+                        # Always set to None to ensure cleanup
+                        config.vm_input_blocker = None
+                        config.block_vm_input = False
+                        config.force_arduino_output = False
                     log.info("[VM_INPUT_BLOCKER_GUI] ✅ VM Input Blocker stopped")
+                else:
+                    # Ensure config is synced even if blocker doesn't exist
+                    config.block_vm_input = False
+                    config.force_arduino_output = False
             
             self._update_status()
             
