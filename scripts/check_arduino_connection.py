@@ -67,17 +67,7 @@ def check_arduino_connection():
     except Exception as e:
         print(f"   ❌ Error: {e}")
     
-    # 4. Check VM Input Blocker (if enabled)
-    print("\n4. VM Input Blocker:")
-    print(f"   config.block_vm_input = {getattr(config, 'block_vm_input', 'NOT SET')}")
-    print(f"   config.force_arduino_output = {getattr(config, 'force_arduino_output', 'NOT SET')}")
-    if hasattr(config, 'vm_input_blocker') and config.vm_input_blocker:
-        print(f"   VM Input Blocker instance: ✅")
-        print(f"   Is blocking: {config.vm_input_blocker.is_blocking()}")
-    else:
-        print(f"   VM Input Blocker: Not initialized")
-    
-    # 5. Summary
+    # 4. Summary
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)

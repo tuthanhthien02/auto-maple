@@ -113,12 +113,6 @@ class GUI:
                             except Exception as e:
                                 # Ignore errors during refresh (widget might be destroyed)
                                 pass
-                        if hasattr(config.gui.settings, 'vm_input_blocker') and config.gui.settings.vm_input_blocker:
-                            try:
-                                config.gui.settings.vm_input_blocker.refresh_status()
-                            except Exception as e:
-                                # Ignore errors during refresh (widget might be destroyed)
-                                pass
             except Exception as e:
                 # Silently ignore errors to avoid spamming logs
                 pass

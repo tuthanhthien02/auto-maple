@@ -92,12 +92,3 @@ vmware_receiver_hotkey_hook = False
 
 # VMware Receiver instance (set by main.py)
 vmware_receiver = None
-
-#################################
-#  VM Input Blocker + Force Arduino  #
-#################################
-# Block input từ VM hardware và force dùng Arduino
-# Khi enabled: block tất cả input từ VM, chỉ cho phép input từ Arduino
-block_vm_input = False  # Block input từ VM hardware
-force_arduino_output = False  # Force dùng Arduino (no SendInput fallback)
-vm_input_blocker = None  # VMInputBlocker instance (set by main.py)

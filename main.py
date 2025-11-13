@@ -81,15 +81,6 @@ def cleanup():
     """Cleanup on exit"""
     log.info("🛑 Shutting down...")
     
-    # Stop VM Input Blocker
-    if hasattr(config, 'vm_input_blocker') and config.vm_input_blocker:
-        try:
-            config.vm_input_blocker.stop_blocking()
-            config.vm_input_blocker.uninstall_hook()
-            log.info("✅ VM Input Blocker stopped")
-        except Exception as e:
-            log.warning(f"⚠️  Error stopping VM Input Blocker: {e}")
-    
     # Stop VMware Receiver
     if config.vmware_receiver:
         try:
