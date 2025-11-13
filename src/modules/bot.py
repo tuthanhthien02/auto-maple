@@ -125,87 +125,87 @@ class Bot(Configurable):
                 if metrics.should_log_summary():
                     metrics.log_summary()
                 
-            if config.enabled and len(config.routine) > 0:
+                if config.enabled and len(config.routine) > 0:
                     # Track loop start time
                     loop_start_time = time.time()
                     
-                # Update activity for anti-detect
-                current_time = time.time()
-                if current_time - last_activity_update > 1.0:  # Update every second
-                    update_activity()
-                    last_activity_update = current_time
-                
-                # Buff and feed pets
-                # self.command_book.buff.main()  # Disabled: auto buff turned off
-                # Auto feed pet - Disabled
-                # pet_settings = config.gui.settings.pets
-                # auto_feed = pet_settings.auto_feed.get()
-                # num_pets = pet_settings.num_pets.get()
-                # now = time.time()
-                # if auto_feed and now - last_fed > 1200 / num_pets:
-                #     press(self.config['Feed pet'], 1)
-                #     last_fed = now
+                    # Update activity for anti-detect
+                    current_time = time.time()
+                    if current_time - last_activity_update > 1.0:  # Update every second
+                        update_activity()
+                        last_activity_update = current_time
+                    
+                    # Buff and feed pets
+                    # self.command_book.buff.main()  # Disabled: auto buff turned off
+                    # Auto feed pet - Disabled
+                    # pet_settings = config.gui.settings.pets
+                    # auto_feed = pet_settings.auto_feed.get()
+                    # num_pets = pet_settings.num_pets.get()
+                    # now = time.time()
+                    # if auto_feed and now - last_fed > 1200 / num_pets:
+                    #     press(self.config['Feed pet'], 1)
+                    #     last_fed = now
 
-                # Highlight the current Point
+                    # Highlight the current Point
                     try:
-                config.gui.view.routine.select(config.routine.index)
-                config.gui.view.details.display_info(config.routine.index)
+                        config.gui.view.routine.select(config.routine.index)
+                        config.gui.view.details.display_info(config.routine.index)
                     except Exception as gui_error:
                         log.debug("GUI update error (non-critical): %s", gui_error)
 
-                # Random Move Backward: Check if we should backward BEFORE any command execution
-                should_backward, backward_steps = config.routine.should_backward()
-                if should_backward:
-                    # Apply backward movement
-                    config.routine.apply_backward(backward_steps)
+                    # Random Move Backward: Check if we should backward BEFORE any command execution
+                    should_backward, backward_steps = config.routine.should_backward()
+                    if should_backward:
+                        # Apply backward movement
+                        config.routine.apply_backward(backward_steps)
                         metrics.record_backward_movement()
-                    # Get new element after backward
+                        # Get new element after backward
+                        element = config.routine[config.routine.index]
+                        element_type = element.__class__.__name__
+                        log.info("⏮️ Random Backward: Now at index %d, element type: %s", 
+                                config.routine.index, element_type)
+                    
                     element = config.routine[config.routine.index]
                     element_type = element.__class__.__name__
-                    log.info("⏮️ Random Backward: Now at index %d, element type: %s", 
-                            config.routine.index, element_type)
-                
-                element = config.routine[config.routine.index]
-                element_type = element.__class__.__name__
-                
-                # Log current routine state
-                log.debug("📍 Routine Execution: Index %d/%d - %s", 
-                         config.routine.index, len(config.routine.sequence) - 1, element_type)
-                
-                # Check if we should skip this point
-                should_skip = config.routine.should_skip_current_point()
-                
-                if should_skip:
-                    # Skip this point - log and move to next
-                    from src.routine.components import Point
-                    if isinstance(element, Point):
-                        log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d", 
-                                config.routine.index)
+                    
+                    # Log current routine state
+                    log.debug("📍 Routine Execution: Index %d/%d - %s", 
+                             config.routine.index, len(config.routine.sequence) - 1, element_type)
+                    
+                    # Check if we should skip this point
+                    should_skip = config.routine.should_skip_current_point()
+                    
+                    if should_skip:
+                        # Skip this point - log and move to next
+                        from src.routine.components import Point
+                        if isinstance(element, Point):
+                            log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d", 
+                                    config.routine.index)
                             metrics.record_point_skip()
-                        # Set skip context for next point (so Move command can teleport if distance is far)
-                        config.routine.is_skipping_context = True
-                    # Step to next point (skip current)
-                    config.routine.step()
-                else:
-                    # Don't skip - execute normally
-                    from src.routine.components import Point
-                    if isinstance(element, Point):
-                        log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)", 
-                                config.routine.index, element.location[0], element.location[1])
+                            # Set skip context for next point (so Move command can teleport if distance is far)
+                            config.routine.is_skipping_context = True
+                        # Step to next point (skip current)
+                        config.routine.step()
+                    else:
+                        # Don't skip - execute normally
+                        from src.routine.components import Point
+                        if isinstance(element, Point):
+                            log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)", 
+                                    config.routine.index, element.location[0], element.location[1])
                             metrics.record_point_execution()
                             # Update position for stuck detection
                             metrics.update_position(element.location)
-                    # Disabled: rune solving turned off
-                    # if self.rune_active and isinstance(element, Point) \
-                    #         and element.location == self.rune_closest_pos:
-                    #     self._solve_rune(model)
-                    element.execute()
-                    config.routine.step()
-                    # Reset skip context after executing (not skipping)
-                    config.routine.is_skipping_context = False
-                    # Reset backward context after executing
-                    config.routine.is_backwarding_context = False
-                    # Note: consecutive_skips is already reset in should_skip_current_point() when we don't skip
+                        # Disabled: rune solving turned off
+                        # if self.rune_active and isinstance(element, Point) \
+                        #         and element.location == self.rune_closest_pos:
+                        #     self._solve_rune(model)
+                        element.execute()
+                        config.routine.step()
+                        # Reset skip context after executing (not skipping)
+                        config.routine.is_skipping_context = False
+                        # Reset backward context after executing
+                        config.routine.is_backwarding_context = False
+                        # Note: consecutive_skips is already reset in should_skip_current_point() when we don't skip
                         
                         # Record loop completion
                         loop_duration = time.time() - loop_start_time
@@ -214,11 +214,11 @@ class Bot(Configurable):
                         # Reset error counter on successful execution
                         consecutive_errors = 0
                     
-                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
-                time.sleep(0.05)
-            else:
-                # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
-                time.sleep(0.2)
+                    # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
+                    time.sleep(0.05)
+                else:
+                    # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
+                    time.sleep(0.2)
                     
             except KeyboardInterrupt:
                 # Allow clean shutdown on Ctrl+C
