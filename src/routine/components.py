@@ -148,8 +148,6 @@ class Point(Component):
                                 config.routine.command_sequence_stats[
                                     "total_skips"
                                 ] += 1
-                                import time
-
                                 config.routine.command_sequence_stats[
                                     "last_skip_time"
                                 ] = time.time()
@@ -174,8 +172,6 @@ class Point(Component):
                             config.routine.command_sequence_stats[
                                 "total_extra_waits"
                             ] += 1
-                            import time
-
                             config.routine.command_sequence_stats[
                                 "last_extra_wait_time"
                             ] = time.time()
@@ -340,8 +336,6 @@ class Point(Component):
             # Update routine stats
             if hasattr(config, "routine") and config.routine:
                 config.routine.command_sequence_stats["total_shuffles"] += 1
-                import time
-
                 config.routine.command_sequence_stats["last_shuffle_time"] = time.time()
         except Exception:
             pass

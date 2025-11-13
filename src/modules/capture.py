@@ -389,7 +389,11 @@ class Capture:
                                     if name.endswith("player_template_new.png"):
                                         thr = 0.55
                                     player = utils.multi_match(
-                                        minimap_gray, tpl, threshold=thr, is_gray=True
+                                        minimap_gray,
+                                        tpl,
+                                        threshold=thr,
+                                        is_gray=True,
+                                        max_results=1,
                                     )
                                     if player:
                                         break

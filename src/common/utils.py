@@ -98,7 +98,7 @@ def single_match(frame, template, is_gray=False):
     return top_left, bottom_right
 
 
-def multi_match(frame, template, threshold=0.95, is_gray=False):
+def multi_match(frame, template, threshold=0.95, is_gray=False, max_results=None):
     """
     Finds all matches in FRAME that are similar to TEMPLATE by at least THRESHOLD.
     :param frame:       The image in which to search.
@@ -116,14 +116,23 @@ def multi_match(frame, template, threshold=0.95, is_gray=False):
     else:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
-    locations = np.where(result >= threshold)
-    locations = list(zip(*locations[::-1]))
-    results = []
-    for p in locations:
-        x = int(round(p[0] + template.shape[1] / 2))
-        y = int(round(p[1] + template.shape[0] / 2))
-        results.append((x, y))
-    return results
+    matches = []
+    while True:
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        if max_val < threshold:
+            break
+        x = int(round(max_loc[0] + template.shape[1] / 2))
+        y = int(round(max_loc[1] + template.shape[0] / 2))
+        matches.append((x, y))
+        if max_results and len(matches) >= max_results:
+            break
+        top_left = max_loc
+        bottom_right = (
+            top_left[0] + template.shape[1],
+            top_left[1] + template.shape[0],
+        )
+        cv2.rectangle(result, top_left, bottom_right, 0, thickness=-1)
+    return matches
 
 
 def _get_minimap_ratio(default=1.0):
