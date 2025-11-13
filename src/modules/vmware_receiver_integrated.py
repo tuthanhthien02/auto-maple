@@ -5,16 +5,17 @@ Tích hợp vào GUI để dùng chung serial connection, tránh "Access is deni
 KHÔNG tạo serial connection riêng - sử dụng SharedArduinoConnection
 """
 
-import socket
-import threading
-import json
-import os
-import sys
-import time
 import ctypes
 import ctypes.wintypes
+import json
+import os
+import socket
+import sys
+import threading
+import time
 import winsound
 from ctypes import wintypes
+
 from src.common.logger import get_logger
 
 log = get_logger(__name__)
@@ -375,7 +376,12 @@ class VMwareReceiverIntegrated:
                         self.process_command(line)
 
         except Exception as e:
-            log.error(f"[ERROR] Client handler error: {e}")
+            if self.running:
+                log.error(f"[ERROR] Client handler error: {e}")
+            else:
+                log.debug(
+                    f"[CLIENT] Connection closed while shutting down: {client_address} ({e})"
+                )
         finally:
             log.info(
                 f"[CLIENT] ✗ Disconnected from {client_address[0]}:{client_address[1]}"
@@ -468,7 +474,8 @@ class VMwareReceiverIntegrated:
 
             traceback.print_exc()
         finally:
-            self.stop()
+            # Ensure resources are cleaned up if the loop exits unexpectedly
+            self.stop_tcp_server()
 
     def start_tcp_server(self):
         """Start TCP server in background thread"""
