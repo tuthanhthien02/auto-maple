@@ -74,11 +74,12 @@ class VMInputBlocker:
         # Periodic pause settings (REMOVED - không cần vì không ảnh hưởng blocking)
         # NOTE: Periodic pauses đã được remove vì không cần thiết cho 100% blocking
         
-        # Stats
+        # Stats (thread-safe with lock)
         self.stats = {
             'total_blocked': 0,
             'total_passed': 0,  # Only whitelist keys pass through
         }
+        self._stats_lock = threading.Lock()  # Lock for stats updates
         
         # Initialize Windows API
         self._init_windows_api()
@@ -152,57 +153,92 @@ class VMInputBlocker:
         
         Anti-detect: Timing variation (0-0.5ms) trong hook processing
         NOTE: Timing variation không ảnh hưởng blocking - vẫn block 100%
+        
+        IMPORTANT: This callback runs in a low-level hook context and must be
+        extremely fast and safe. Any exception here can crash the entire process.
         """
-        # Fast path: if not action code, pass through immediately
-        if nCode < HC_ACTION:
-            if self.hook is not None:
-                return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
-            return 0  # Safe fallback if hook is None
-        
-        # Anti-detect: Timing variation trong hook processing (0-0.5ms)
-        # NOTE: Delay này rất nhỏ và không ảnh hưởng đến blocking behavior
-        if self.enable_timing_variation and self.blocking:
-            time.sleep(random.uniform(0, 0.0005))
-        
-        # Parse structure to get vkCode (with error handling)
         try:
-            if lParam is None:
-                # Invalid lParam, pass through
+            # Fast path: if not action code, pass through immediately
+            if nCode < HC_ACTION:
+                if self.hook is not None:
+                    return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                return 0  # Safe fallback if hook is None
+            
+            # Anti-detect: Timing variation trong hook processing (0-0.5ms)
+            # NOTE: Delay này rất nhỏ và không ảnh hưởng đến blocking behavior
+            if self.enable_timing_variation and self.blocking:
+                try:
+                    time.sleep(random.uniform(0, 0.0005))
+                except Exception:
+                    pass  # Ignore timing errors
+            
+            # Parse structure to get vkCode (with error handling)
+            try:
+                if lParam is None:
+                    # Invalid lParam, pass through
+                    if self.hook is not None:
+                        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                    return 0
+                
+                kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+                vk_code = kb_data.vkCode
+            except (ValueError, TypeError, AttributeError, OSError) as e:
+                # Invalid pointer or structure, pass through
+                # Don't log in hook callback to avoid performance issues
                 if self.hook is not None:
                     return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
                 return 0
             
-            kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            vk_code = kb_data.vkCode
-        except (ValueError, TypeError, AttributeError) as e:
-            # Invalid pointer or structure, pass through
-            if self.enable_logging:
-                log.debug(f"[VM_INPUT_BLOCKER] Error parsing keyboard data: {e}")
+            # Whitelist check: allow emergency keys ONLY
+            if vk_code in self.whitelist_vk_codes:
+                try:
+                    with self._stats_lock:
+                        self.stats['total_passed'] += 1
+                except Exception:
+                    pass  # Ignore stats update errors
+                if self.hook is not None:
+                    return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                return 0
+            
+            # Block 100% all other keys from VM hardware
+            if self.blocking:
+                try:
+                    with self._stats_lock:
+                        self.stats['total_blocked'] += 1
+                except Exception:
+                    pass  # Ignore stats update errors
+                # Return 1 to block the key - 100% blocking
+                # This prevents the key from reaching the system
+                return 1
+            
+            # If not blocking, pass through
+            try:
+                with self._stats_lock:
+                    self.stats['total_passed'] += 1
+            except Exception:
+                pass  # Ignore stats update errors
             if self.hook is not None:
                 return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
             return 0
-        
-        # Whitelist check: allow emergency keys ONLY
-        if vk_code in self.whitelist_vk_codes:
-            self.stats['total_passed'] += 1
+            
+        except Exception as e:
+            # CRITICAL: Catch ALL exceptions to prevent crash
+            # In hook callback, any uncaught exception can crash the entire process
+            # Log error but don't block - pass through to avoid system instability
+            try:
+                log.error(f"[VM_INPUT_BLOCKER] CRITICAL: Exception in hook callback: {e}")
+                import traceback
+                log.error(f"[VM_INPUT_BLOCKER] Traceback: {traceback.format_exc()}")
+            except Exception:
+                pass  # Even logging can fail, so ignore
+            
+            # Safe fallback: pass through the key
             if self.hook is not None:
-                return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                try:
+                    return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+                except Exception:
+                    return 0
             return 0
-        
-        # Block 100% all other keys from VM hardware
-        if self.blocking:
-            self.stats['total_blocked'] += 1
-            if self.enable_logging:
-                log.debug(f"[VM_INPUT_BLOCKER] Blocked key: VK={vk_code:02X}")
-            # Return 1 to block the key - 100% blocking
-            # This prevents the key from reaching the system
-            return 1
-        
-        # If not blocking, pass through
-        self.stats['total_passed'] += 1
-        if self.hook is not None:
-            return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
-        return 0
     
     def install_hook(self):
         """Install low-level keyboard hook"""
@@ -320,6 +356,7 @@ class VMInputBlocker:
         return self.blocking
     
     def get_stats(self):
-        """Get blocking statistics"""
-        return self.stats.copy()
+        """Get blocking statistics (thread-safe)"""
+        with self._stats_lock:
+            return self.stats.copy()
 
