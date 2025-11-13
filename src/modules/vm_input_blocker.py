@@ -115,7 +115,7 @@ class VMInputBlocker:
         
         # Define UnhookWindowsHookEx
         self.user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
-        self.user32.UnhookWindowsHookEx.restype = ctypes.BOOL
+        self.user32.UnhookWindowsHookEx.restype = wintypes.BOOL
         
         # Define GetModuleHandleW
         self.kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
@@ -129,11 +129,11 @@ class VMInputBlocker:
             wintypes.UINT,
             wintypes.UINT
         ]
-        self.user32.PeekMessageW.restype = ctypes.BOOL
+        self.user32.PeekMessageW.restype = wintypes.BOOL
         
         # Define TranslateMessage and DispatchMessageW
         self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        self.user32.TranslateMessage.restype = ctypes.BOOL
+        self.user32.TranslateMessage.restype = wintypes.BOOL
         
         self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
         
@@ -194,7 +194,9 @@ class VMInputBlocker:
             self.stats['total_blocked'] += 1
             if self.enable_logging:
                 log.debug(f"[VM_INPUT_BLOCKER] Blocked key: VK={vk_code:02X}")
-            return 1  # Block the key - 100% blocking
+            # Return 1 to block the key - 100% blocking
+            # This prevents the key from reaching the system
+            return 1
         
         # If not blocking, pass through
         self.stats['total_passed'] += 1
@@ -207,6 +209,8 @@ class VMInputBlocker:
         if self.hook is not None:
             log.warning("[VM_INPUT_BLOCKER] Hook already installed")
             return False
+        
+        log.info("[VM_INPUT_BLOCKER] Installing keyboard hook...")
         
         try:
             HOOKPROC = ctypes.WINFUNCTYPE(

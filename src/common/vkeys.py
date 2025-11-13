@@ -183,7 +183,7 @@ user32.SendInput.argtypes = (wintypes.UINT, LPINPUT, ctypes.c_int)
 _arduino_output = None
 
 def _get_arduino_output():
-    """Get or create Arduino output instance"""
+    """Get or create Arduino output instance using SharedArduinoConnection"""
     global _arduino_output
     if _arduino_output is None:
         # Check if Arduino is enabled in config
@@ -191,22 +191,36 @@ def _get_arduino_output():
             from src.common import config
             if hasattr(config, 'use_arduino') and config.use_arduino:
                 try:
-                    from src.common.output_arduino import ArduinoSerialOutput
-                    com_port = getattr(config, 'arduino_com_port', None)
-                    baudrate = getattr(config, 'arduino_baudrate', 115200)
-                    key_mapping = getattr(config, 'arduino_key_mapping', None)
-                    remapping_enabled = getattr(config, 'arduino_remapping_enabled', True)
-                    _arduino_output = ArduinoSerialOutput(
-                        com_port=com_port,
-                        baudrate=baudrate,
-                        key_mapping=key_mapping,
-                        remapping_enabled=remapping_enabled
-                    )
-                    if not _arduino_output.connected:
+                    from src.common.shared_arduino_connection import SharedArduinoConnection
+                    # Use SharedArduinoConnection singleton
+                    shared_conn = SharedArduinoConnection()
+                    if not shared_conn.connected:
                         log.warning("Arduino output enabled but connection failed, falling back to SendInput")
                         _arduino_output = False  # Mark as unavailable
                     else:
-                        log.info("Arduino output initialized successfully")
+                        # Create wrapper object with ArduinoSerialOutput-like interface
+                        class ArduinoOutputWrapper:
+                            def __init__(self, shared_conn):
+                                self.shared_conn = shared_conn
+                                self.connected = shared_conn.connected
+                            
+                            def key_down(self, key):
+                                return self.shared_conn.send_command('down', key)
+                            
+                            def key_up(self, key):
+                                return self.shared_conn.send_command('up', key)
+                            
+                            def press(self, key, n, down_time=0.05, up_time=0.1):
+                                import time
+                                for i in range(n):
+                                    self.key_down(key)
+                                    time.sleep(down_time)
+                                    self.key_up(key)
+                                    if i < n - 1:
+                                        time.sleep(up_time)
+                        
+                        _arduino_output = ArduinoOutputWrapper(shared_conn)
+                        log.info("Arduino output initialized successfully (using SharedArduinoConnection)")
                 except Exception as e:
                     log.warning(f"Failed to initialize Arduino output: {e}, falling back to SendInput")
                     _arduino_output = False  # Mark as unavailable
