@@ -6,6 +6,12 @@ from src.gui.interfaces import Frame
 class Controls(Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
+        
+        # Get edit_instance from kwargs if provided (for scrollbar support)
+        self.edit_instance = kwargs.pop('edit_instance', None)
+        if self.edit_instance is None:
+            # Fallback: try to get from parent chain
+            self.edit_instance = parent
 
         self.up_arrow = tk.Button(self, text='▲', width=6, command=self.move('up'))
         self.up_arrow.grid(row=0, column=0)
@@ -28,8 +34,17 @@ class Controls(Frame):
         assert direction in {'up', 'down'}, f"'{direction}' is an invalid direction."
 
         def callback():
-            components = self.parent.components.listbox.curselection()
-            commands = self.parent.commands.listbox.curselection()
+            # Use edit_instance to access Edit tab attributes
+            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+                routine = self.edit_instance.routine
+                edit = self.edit_instance
+            else:
+                # Fallback to parent chain
+                routine = self.parent
+                edit = self.parent.parent
+            
+            components = routine.components.listbox.curselection()
+            commands = routine.commands.listbox.curselection()
             if len(components) > 0:
                 p_index = int(components[0])
                 if len(commands) > 0:
@@ -41,7 +56,6 @@ class Controls(Frame):
                         new_index = config.routine.move_command_down(p_index, c_index)
 
                     if new_index != c_index:
-                        edit = self.parent.parent
                         commands = edit.routine.commands
                         commands.update_display()
                         commands.select(new_index)
@@ -54,7 +68,6 @@ class Controls(Frame):
                         new_index = config.routine.move_component_down(p_index)
 
                     if new_index != p_index:
-                        edit = self.parent.parent
                         components = edit.routine.components
                         components.select(new_index)
                         edit.editor.create_edit_ui(config.routine.sequence, new_index,
@@ -62,15 +75,23 @@ class Controls(Frame):
         return callback
 
     def delete(self):
-        components = self.parent.components.listbox.curselection()
-        commands = self.parent.commands.listbox.curselection()
+        # Use edit_instance to access Edit tab attributes
+        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            routine = self.edit_instance.routine
+            edit = self.edit_instance
+        else:
+            # Fallback to parent chain
+            routine = self.parent
+            edit = self.parent.parent
+        
+        components = routine.components.listbox.curselection()
+        commands = routine.commands.listbox.curselection()
         if len(components) > 0:
             p_index = int(components[0])
             if len(commands) > 0:
                 c_index = int(commands[0])
                 config.routine.delete_command(p_index, c_index)
 
-                edit = self.parent.parent
                 edit.routine.commands.update_display()
                 edit.routine.commands.clear_selection()
                 edit.editor.create_edit_ui(config.routine.sequence, p_index,
@@ -78,11 +99,16 @@ class Controls(Frame):
             else:
                 config.routine.delete_component(p_index)
 
-                edit = self.parent.parent
                 edit.minimap.redraw()
                 edit.routine.components.clear_selection()
                 edit.routine.commands_var.set([])
                 edit.editor.reset()
 
     def new(self):
-        self.parent.parent.editor.create_add_prompt()
+        # Use edit_instance to access Edit tab attributes
+        if self.edit_instance and hasattr(self.edit_instance, 'editor'):
+            edit = self.edit_instance
+        else:
+            # Fallback to parent chain
+            edit = self.parent.parent
+        edit.editor.create_add_prompt()

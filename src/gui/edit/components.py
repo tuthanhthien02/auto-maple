@@ -7,6 +7,12 @@ from src.gui.interfaces import Frame
 class Components(Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
+        
+        # Get edit_instance from kwargs if provided (for scrollbar support)
+        self.edit_instance = kwargs.pop('edit_instance', None)
+        if self.edit_instance is None:
+            # Fallback: try to get from parent chain
+            self.edit_instance = parent
 
         self.label = tk.Label(self, text='Components')
         self.label.pack(fill='x', padx=5)
@@ -41,8 +47,14 @@ class Components(Frame):
         """
 
         def callback(e):
-            routine = self.parent.parent
-            edit = self.parent.parent.parent
+            # Use edit_instance to access Edit tab attributes
+            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+                routine = self.edit_instance.routine
+                edit = self.edit_instance
+            else:
+                # Fallback to parent chain
+                routine = self.parent.parent
+                edit = self.parent.parent.parent
 
             routine.commands.clear_selection()
             selections = e.widget.curselection()
@@ -67,7 +79,12 @@ class Components(Frame):
             new_kwargs = {k: v.get() for k, v in stringvars.items()}
             config.routine.update_component(i, new_kwargs)
 
-            edit = self.parent.parent.parent
+            # Use edit_instance to access Edit tab attributes
+            if self.edit_instance and hasattr(self.edit_instance, 'minimap'):
+                edit = self.edit_instance
+            else:
+                # Fallback to parent chain
+                edit = self.parent.parent.parent
             edit.minimap.redraw()
             edit.editor.create_edit_ui(arr, i, self.update_obj)
         return f

@@ -21,19 +21,21 @@ class Edit(Tab):
         self._scroll_content.columnconfigure(0, weight=1)
         self._scroll_content.columnconfigure(4, weight=1)
 
-        self.record = Record(self._scroll_content)
+        # Pass self (Edit) as edit_instance so widgets can access parent attributes
+        self.record = Record(self._scroll_content, edit_instance=self)
         self.record.grid(row=2, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.minimap = Minimap(self._scroll_content)
+        self.minimap = Minimap(self._scroll_content, edit_instance=self)
         self.minimap.grid(row=0, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.status = Status(self._scroll_content)
+        self.status = Status(self._scroll_content, edit_instance=self)
         self.status.grid(row=1, column=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.routine = Routine(self._scroll_content)
+        # Pass self (Edit) as edit_instance so widgets can access parent attributes
+        self.routine = Routine(self._scroll_content, edit_instance=self)
         self.routine.grid(row=0, column=1, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
 
-        self.editor = Editor(self._scroll_content)
+        self.editor = Editor(self._scroll_content, edit_instance=self)
         self.editor.grid(row=0, column=2, rowspan=3, sticky=tk.NSEW, padx=10, pady=10)
     
     def _create_scrollable_frame(self):
@@ -83,6 +85,12 @@ class Edit(Tab):
 class Editor(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Editor', **kwargs)
+        
+        # Get edit_instance from kwargs if provided (for scrollbar support)
+        self.edit_instance = kwargs.pop('edit_instance', None)
+        if self.edit_instance is None:
+            # Fallback: try to get from parent chain
+            self.edit_instance = parent
 
         self.columnconfigure(0, minsize=350)
 
@@ -258,7 +266,12 @@ class Editor(LabelFrame):
 
         # Prevent Components and Commands from overwriting this UI
         if sticky:
-            routine = self.parent.routine
+            # Use edit_instance to access Edit tab attributes
+            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+                routine = self.edit_instance.routine
+            else:
+                # Fallback to parent chain
+                routine = self.parent.routine
             routine.components.unbind_select()
             routine.commands.unbind_select()
 
@@ -310,7 +323,12 @@ class Editor(LabelFrame):
     def cancel(self):
         """Button callback that exits the current Component creation UI."""
 
-        routine = self.parent.routine
+        # Use edit_instance to access Edit tab attributes
+        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            routine = self.edit_instance.routine
+        else:
+            # Fallback to parent chain
+            routine = self.parent.routine
         routine.components.bind_select()
         routine.commands.bind_select()
         self.update_display()
@@ -320,7 +338,13 @@ class Editor(LabelFrame):
 
         def f():
             new_kwargs = {k: v.get() for k, v in self.vars.items()}
-            selects = self.parent.routine.components.listbox.curselection()
+            # Use edit_instance to access Edit tab attributes
+            if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+                routine = self.edit_instance.routine
+            else:
+                # Fallback to parent chain
+                routine = self.parent.routine
+            selects = routine.components.listbox.curselection()
 
             try:
                 obj = component(**new_kwargs)
@@ -329,7 +353,7 @@ class Editor(LabelFrame):
                         index = int(selects[0])
                         if isinstance(config.routine[index], Point):
                             config.routine.append_command(index, obj)
-                            self.parent.routine.commands.update_display()
+                            routine.commands.update_display()
                             self.cancel()
                         else:
                             print(f"\n[!] Error while adding Command: currently selected Component is not a Point.")
@@ -350,7 +374,12 @@ class Editor(LabelFrame):
         default UI.
         """
 
-        routine = self.parent.routine
+        # Use edit_instance to access Edit tab attributes
+        if self.edit_instance and hasattr(self.edit_instance, 'routine'):
+            routine = self.edit_instance.routine
+        else:
+            # Fallback to parent chain
+            routine = self.parent.routine
         components = routine.components.listbox.curselection()
         commands = routine.commands.listbox.curselection()
         if len(components) > 0:

@@ -8,6 +8,12 @@ class Record(LabelFrame):
 
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Recorded Positions', **kwargs)
+        
+        # Get edit_instance from kwargs if provided (for scrollbar support)
+        self.edit_instance = kwargs.pop('edit_instance', None)
+        if self.edit_instance is None:
+            # Fallback: try to get from parent chain
+            self.edit_instance = parent
 
         self.entries = []
         self.display_var = tk.StringVar()
@@ -46,15 +52,18 @@ class Record(LabelFrame):
         if len(selects) > 0:
             index = int(selects[0])
             pos = self.entries[index][1]
-            self.parent.minimap.draw_point(tuple(float(x) for x in pos))
+            if hasattr(self.edit_instance, 'minimap'):
+                self.edit_instance.minimap.draw_point(tuple(float(x) for x in pos))
 
-            routine = self.parent.routine
-            routine.components.clear_selection()
-            routine.commands.clear_selection()
-            routine.commands.clear_contents()
+            if hasattr(self.edit_instance, 'routine'):
+                routine = self.edit_instance.routine
+                routine.components.clear_selection()
+                routine.commands.clear_selection()
+                routine.commands.clear_contents()
 
             kwargs = {'x': pos[0], 'y': pos[1]}
-            self.parent.editor.create_add_ui(Point, kwargs=kwargs)
+            if hasattr(self.edit_instance, 'editor'):
+                self.edit_instance.editor.create_add_ui(Point, kwargs=kwargs)
 
     def clear_selection(self):
         self.listbox.selection_clear(0, 'end')

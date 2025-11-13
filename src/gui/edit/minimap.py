@@ -9,6 +9,12 @@ from src.gui.interfaces import LabelFrame
 class Minimap(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Minimap', **kwargs)
+        
+        # Get edit_instance from kwargs if provided (for scrollbar support)
+        self.edit_instance = kwargs.pop('edit_instance', None)
+        if self.edit_instance is None:
+            # Fallback: try to get from parent chain
+            self.edit_instance = parent
 
         self.WIDTH = 400
         self.HEIGHT = 300
@@ -40,13 +46,17 @@ class Minimap(LabelFrame):
     def redraw(self):
         """Re-draws the current point if it exists, otherwise resets to the default state."""
 
-        selects = self.parent.routine.components.listbox.curselection()
-        if len(selects) > 0:
-            index = int(selects[0])
-            obj = config.routine[index]
-            if isinstance(obj, Point):
-                self.draw_point(obj.location)
-                self.parent.record.clear_selection()
+        if hasattr(self.edit_instance, 'routine'):
+            selects = self.edit_instance.routine.components.listbox.curselection()
+            if len(selects) > 0:
+                index = int(selects[0])
+                obj = config.routine[index]
+                if isinstance(obj, Point):
+                    self.draw_point(obj.location)
+                    if hasattr(self.edit_instance, 'record'):
+                        self.edit_instance.record.clear_selection()
+                else:
+                    self.draw_default()
             else:
                 self.draw_default()
         else:

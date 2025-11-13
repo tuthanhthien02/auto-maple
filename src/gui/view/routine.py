@@ -6,6 +6,12 @@ from src.common import config
 class Routine(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Routine', **kwargs)
+        
+        # Get view_instance from kwargs if provided (for scrollbar support)
+        self.view_instance = kwargs.pop('view_instance', None)
+        if self.view_instance is None:
+            # Fallback: try to get from parent chain
+            self.view_instance = parent
 
         self.scroll = tk.Scrollbar(self)
         self.scroll.pack(side=tk.RIGHT, fill='both', pady=5)
@@ -19,7 +25,9 @@ class Routine(LabelFrame):
         self.listbox.bind('<Down>', lambda e: 'break')
         self.listbox.bind('<Left>', lambda e: 'break')
         self.listbox.bind('<Right>', lambda e: 'break')
-        self.listbox.bind('<<ListboxSelect>>', parent.details.show_details)
+        # Use view_instance to access details
+        if hasattr(self.view_instance, 'details'):
+            self.listbox.bind('<<ListboxSelect>>', self.view_instance.details.show_details)
         self.listbox.pack(side=tk.LEFT, expand=True, fill='both', padx=(5, 0), pady=5)
 
         self.scroll.config(command=self.listbox.yview)
