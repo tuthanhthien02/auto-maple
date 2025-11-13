@@ -1,6 +1,7 @@
 import tkinter as tk
+
 from src.gui.interfaces import LabelFrame
-from src.common import config
+from src.common import config, utils
 from src.routine.components import Point
 
 
@@ -75,10 +76,25 @@ class Status(LabelFrame):
         self.recalibrate_btn.grid(
             row=5, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW
         )
+        self.toggle_btn = tk.Button(
+            self,
+            text="▶ Toggle Bot (Start/Stop)",
+            command=self._on_toggle_bot_click,
+            bg="#2196F3",
+            fg="white",
+            activebackground="#1976D2",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2",
+        )
+        self.toggle_btn.grid(
+            row=6, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+        )
 
         # Status label for recalibration feedback
         self.recalibrate_status = tk.Label(self, text="", fg="green", font=("Arial", 8))
-        self.recalibrate_status.grid(row=6, column=1, columnspan=2, padx=5, pady=(0, 5))
+        self.recalibrate_status.grid(row=7, column=1, columnspan=2, padx=5, pady=(0, 5))
 
     def set_cb(self, string):
         self.curr_cb.set(string)
@@ -259,6 +275,22 @@ class Status(LabelFrame):
                 status = "Unknown"
 
             self.input_method_var.set(status)
+            if not config.enable_keyboard_listener:
+                self.toggle_btn.config(
+                    text="▶ Toggle Bot (Hook Off)",
+                    bg="#FF9800",
+                    fg="white",
+                    activebackground="#F57C00",
+                    activeforeground="white",
+                )
+            else:
+                self.toggle_btn.config(
+                    text="▶ Toggle Bot (Start/Stop)",
+                    bg="#2196F3",
+                    fg="white",
+                    activebackground="#1976D2",
+                    activeforeground="white",
+                )
         except Exception:
             # Silently handle errors to avoid spamming
             pass
@@ -281,9 +313,7 @@ class Status(LabelFrame):
 
         # Disable button during recalibration
         self.recalibrate_btn.config(state=tk.DISABLED, text="⏳ Recalibrating...")
-        self.recalibrate_status.config(
-            text="🔄 Recalibrating minimap location...", fg="blue"
-        )
+        self._set_status_message("🔄 Recalibrating minimap location...", "blue", 0)
 
         # Request recalibration
         success = config.capture.recalibrate_minimap()
@@ -300,20 +330,35 @@ class Status(LabelFrame):
             self.after(5000, self._recalibrate_complete)
         else:
             self.recalibrate_btn.config(state=tk.NORMAL, text="📍 Recalibrate Minimap")
-            self.recalibrate_status.config(
-                text="❌ Failed to start recalibration", fg="red"
-            )
-            self.after(3000, lambda: self.recalibrate_status.config(text=""))
+            self._set_status_message("❌ Failed to start recalibration", "red")
 
     def _recalibrate_complete(self):
         """Re-enable button after recalibration completes."""
         self.recalibrate_btn.config(state=tk.NORMAL, text="📍 Recalibrate Minimap")
         if hasattr(config, "capture") and config.capture and config.capture.calibrated:
-            self.recalibrate_status.config(
-                text="✅ Recalibration complete!", fg="green"
-            )
-            self.after(3000, lambda: self.recalibrate_status.config(text=""))
+            self._set_status_message("✅ Recalibration complete!", "green")
         else:
-            self.recalibrate_status.config(text="⏳ Still calibrating...", fg="orange")
-            # Check again after 2 seconds
+            self._set_status_message("⏳ Still calibrating...", "orange", 0)
             self.after(2000, self._recalibrate_complete)
+
+    def _on_toggle_bot_click(self):
+        """Toggle bot enabled state without relying on keyboard hook."""
+        try:
+            if hasattr(config, "listener") and config.listener:
+                from src.modules.listener import Listener  # Local import to avoid cycle
+
+                Listener.toggle_enabled()
+            else:
+                config.enabled = not config.enabled
+                utils.print_state()
+            state_text = "▶ Bot enabled" if config.enabled else "⏸️ Bot paused"
+            color = "green" if config.enabled else "orange"
+            self._set_status_message(state_text, color)
+        except Exception as exc:
+            self._set_status_message(f"❌ Toggle failed: {exc}", "red")
+
+    def _set_status_message(self, text, color, duration=3000):
+        """Utility to update status label with auto-clear."""
+        self.recalibrate_status.config(text=text, fg=color)
+        if duration:
+            self.after(duration, lambda: self.recalibrate_status.config(text=""))

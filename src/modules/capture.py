@@ -49,6 +49,7 @@ class Capture:
         self.frame = None
         self.sct = None
         self.minimap_sample = None
+        self.minimap_display = None
         self.minimap_ratio = 0
         self.calibrated = False
         self.minimap = None
@@ -90,6 +91,52 @@ class Capture:
             )
             return False
         return True
+
+    @staticmethod
+    def _extract_minimap_content(image):
+        """
+        Trim header/border from minimap capture to focus on playable area.
+
+        Args:
+            image: Minimap image in BGR format.
+
+        Returns:
+            Cropped minimap content in BGR format.
+        """
+
+        if image is None or image.size == 0:
+            return image
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        height, width = gray.shape
+
+        # Detect bright horizontal borders (header/footer separators)
+        threshold = 235
+        max_scan = min(height, 80)
+
+        top = 0
+        for row in range(max_scan):
+            row_vals = gray[row]
+            if (row_vals > threshold).sum() / width > 0.55:
+                top = row + 1
+            else:
+                break
+
+        bottom = height
+        for row in range(height - 1, max(height - max_scan, -1), -1):
+            row_vals = gray[row]
+            if (row_vals > threshold).sum() / width > 0.55:
+                bottom = row
+            else:
+                break
+
+        if bottom - top < 60:
+            # Fallback: ensure we still have enough content
+            top = max(top - 2, 0)
+            bottom = min(height, bottom + 2)
+
+        content = image[top:bottom, :]
+        return content if content.size else image
 
     def recalibrate_minimap(self):
         """Request minimap recalibration without restarting the module.
@@ -302,12 +349,17 @@ class Capture:
                         )
                     continue
 
-                self.minimap_sample = self.frame[
-                    mm_tl[1] : mm_br[1], mm_tl[0] : mm_br[0]
-                ]
-                if self.minimap_sample.size == 0:
+                raw_minimap = self.frame[mm_tl[1] : mm_br[1], mm_tl[0] : mm_br[0]]
+                if raw_minimap.size == 0:
                     if DEBUG:
                         log.debug("Minimap sample is empty")
+                    continue
+
+                minimap_full_bgr = cv2.cvtColor(raw_minimap, cv2.COLOR_BGRA2BGR)
+                minimap_content = self._extract_minimap_content(minimap_full_bgr)
+                if minimap_content.size == 0:
+                    if DEBUG:
+                        log.debug("Processed minimap content is empty")
                     continue
 
                 if DEBUG:
@@ -319,6 +371,8 @@ class Capture:
 
                 self.mm_tl = mm_tl
                 self.mm_br = mm_br
+                self.minimap_display = minimap_full_bgr
+                self.minimap_sample = minimap_content
                 self.calibrated = True
                 self._recalibrate_requested = False
                 consecutive_calibration_errors = 0
@@ -353,10 +407,26 @@ class Capture:
                                 time.sleep(frame_delay)
                                 continue
 
-                            minimap = self.frame[
+                            minimap_raw = self.frame[
                                 self.mm_tl[1] : self.mm_br[1],
                                 self.mm_tl[0] : self.mm_br[0],
                             ]
+                            if minimap_raw.size == 0:
+                                time.sleep(frame_delay)
+                                continue
+
+                            minimap_full_bgr = cv2.cvtColor(
+                                minimap_raw, cv2.COLOR_BGRA2BGR
+                            )
+                            minimap_bgr = self._extract_minimap_content(
+                                minimap_full_bgr
+                            )
+                            if minimap_bgr.size == 0:
+                                time.sleep(frame_delay)
+                                continue
+
+                            self.minimap_display = minimap_full_bgr
+                            self.minimap_sample = minimap_bgr
 
                             should_match = True
                             time_since_last_update = (
@@ -371,10 +441,7 @@ class Capture:
                             elif time_since_last_update >= self.pos_update_interval:
                                 should_match = True
 
-                            minimap_bgr = None
-
                             if should_match:
-                                minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
                                 minimap_gray = cv2.cvtColor(
                                     minimap_bgr, cv2.COLOR_BGR2GRAY
                                 )
@@ -392,7 +459,7 @@ class Capture:
 
                                 if player:
                                     new_pos = utils.convert_to_relative(
-                                        player[0], minimap
+                                        player[0], minimap_bgr
                                     )
                                     if (
                                         new_pos != self.last_player_pos
@@ -403,8 +470,6 @@ class Capture:
                                         self.last_player_pos = new_pos
                                         self.last_pos_update_time = current_time
 
-                            if minimap_bgr is None:
-                                minimap_bgr = cv2.cvtColor(minimap, cv2.COLOR_BGRA2BGR)
                             self.minimap = {
                                 "minimap": minimap_bgr,
                                 "rune_active": config.bot.rune_active,

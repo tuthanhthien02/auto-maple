@@ -2,7 +2,6 @@
 
 from src.common.bot_config import BotConfig
 
-
 #########################
 #       Constants       #
 #########################

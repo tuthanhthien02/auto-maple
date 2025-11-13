@@ -1,7 +1,7 @@
 """Displays Auto Maple's current settings and allows the user to edit them."""
 
 import tkinter as tk
-from src.gui.interfaces import KeyBindings
+from src.gui.interfaces import KeyBindings, LabelFrame
 from src.gui.settings.pets import Pets
 from src.gui.settings.routine_randomization import RoutineRandomization
 from src.gui.settings.vmware_receiver import VMwareReceiver
@@ -26,6 +26,30 @@ class Settings(Tab):
             self.column1, "Auto Maple Controls", config.listener
         )
         self.controls.pack(side=tk.TOP, fill="x", expand=True)
+        self.listener_settings = LabelFrame(
+            self.column1, "Keyboard Listener", padding=(5, 5, 5, 5)
+        )
+        self.listener_settings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+        self.listener_toggle_var = tk.BooleanVar(
+            value=getattr(config, "enable_keyboard_listener", True)
+        )
+        self.listener_toggle = tk.Checkbutton(
+            self.listener_settings,
+            text="Bật hook bàn phím (Insert / F6 / F7)",
+            variable=self.listener_toggle_var,
+            command=self._on_listener_toggle,
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        self.listener_toggle.pack(side=tk.TOP, anchor="w")
+        self.listener_hint = tk.Label(
+            self.listener_settings,
+            text="Tắt hook để hạn chế detection. Khi tắt, sử dụng nút 'Toggle Bot' ở tab View.",
+            wraplength=260,
+            justify=tk.LEFT,
+            fg="gray",
+        )
+        self.listener_hint.pack(side=tk.TOP, fill="x", pady=(4, 0))
         self.common_bindings = KeyBindings(
             self.column1, "In-game Keybindings", config.bot
         )
@@ -115,3 +139,17 @@ class Settings(Tab):
             self.column2, f"{class_name} Keybindings", config.bot.command_book
         )
         self.class_bindings.pack(side=tk.TOP, fill="x", expand=True)
+
+    def _on_listener_toggle(self):
+        enabled = bool(self.listener_toggle_var.get())
+        config.enable_keyboard_listener = enabled
+        listener = getattr(config, "listener", None)
+        if listener is not None:
+            listener.enabled = enabled
+        # Refresh status display if GUI view available
+        try:
+            if hasattr(config, "gui") and config.gui:
+                if hasattr(config.gui, "view") and config.gui.view:
+                    config.gui.view.status.update_input_method_status()
+        except Exception:
+            pass

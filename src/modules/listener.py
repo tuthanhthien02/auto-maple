@@ -35,7 +35,7 @@ class Listener(Configurable):
         self.block_time = 0
         self.thread = threading.Thread(target=self._main)
         self.thread.daemon = True
-        self.hook_enabled = config.enable_keyboard_listener and kb is not None
+        self.keyboard_available = kb is not None
 
     def start(self):
         """
@@ -43,14 +43,19 @@ class Listener(Configurable):
         :return:    None
         """
 
-        if not self.hook_enabled:
+        if not self.keyboard_available:
             self.ready = True
-            log.info(
-                "Keyboard listener disabled via config; use GUI or VMware Receiver controls."
+            log.warning(
+                "Keyboard module unavailable; keyboard hotkeys are disabled. Use GUI controls instead."
             )
             return
 
-        log.info("Started keyboard listener")
+        if config.enable_keyboard_listener:
+            log.info("Started keyboard listener")
+        else:
+            log.info(
+                "Keyboard listener thread running (hook disabled via configuration)."
+            )
         self.thread.start()
 
     def _main(self):
@@ -59,7 +64,8 @@ class Listener(Configurable):
         :return:    None
         """
 
-        if not self.hook_enabled:
+        if not self.keyboard_available:
+            self.ready = True
             return
 
         self.ready = True
@@ -68,6 +74,12 @@ class Listener(Configurable):
 
         while True:
             try:
+                if not config.enable_keyboard_listener:
+                    self.enabled = False
+                    time.sleep(0.1)
+                    consecutive_errors = 0
+                    continue
+
                 if self.enabled:
                     if kb is None:
                         time.sleep(0.05)
@@ -112,7 +124,11 @@ class Listener(Configurable):
     def restricted_pressed(self, action):
         """Returns whether the key bound to ACTION is pressed only if the bot is disabled."""
 
-        if not self.hook_enabled or kb is None:
+        if (
+            not self.keyboard_available
+            or not config.enable_keyboard_listener
+            or kb is None
+        ):
             return False
 
         if kb.is_pressed(self.config[action]):

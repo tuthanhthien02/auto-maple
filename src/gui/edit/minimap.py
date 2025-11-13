@@ -1,9 +1,11 @@
 import tkinter as tk
+
 import cv2
-from PIL import ImageTk, Image
+from PIL import Image, ImageTk
+
 from src.common import config, utils
-from src.routine.components import Point
 from src.gui.interfaces import LabelFrame
+from src.routine.components import Point
 
 
 class Minimap(LabelFrame):
@@ -36,11 +38,15 @@ class Minimap(LabelFrame):
     def _get_current_minimap(self):
         """Return current minimap sample if available."""
         capture = getattr(config, "capture", None)
-        if capture and getattr(capture, "minimap_sample", None) is not None:
-            try:
-                return cv2.cvtColor(capture.minimap_sample, cv2.COLOR_BGR2RGB)
-            except Exception:
-                pass
+        if capture:
+            source = getattr(capture, "minimap_display", None)
+            if source is None:
+                source = getattr(capture, "minimap_sample", None)
+            if source is not None:
+                try:
+                    return cv2.cvtColor(source, cv2.COLOR_BGR2RGB)
+                except Exception:
+                    return None
         return None
 
     def draw_point(self, location):
