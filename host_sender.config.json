@@ -4,5 +4,5 @@
     "reconnect_interval": 1.0,
     "enable_logging": false,
     "block_original_input": false,
-    "forwarding_enabled": true
+    "forwarding_enabled": false
 }
