@@ -81,11 +81,18 @@ class Point(Component):
         self.adjust = settings.validate_boolean(adjust)
         if not hasattr(self, 'commands'):       # Updating Point should not clear commands
             self.commands = []
+        # Store shuffled command order for accurate display
+        self._shuffled_command_order = None  # List of command names in shuffled order
+        self._shuffled_skip_flags = None  # List of skip flags for each command
 
     def main(self):
         """Executes the set of actions associated with this Point."""
 
         if self.counter == 0:
+            # Reset shuffled command order when starting new execution cycle
+            self._shuffled_command_order = None
+            self._shuffled_skip_flags = None
+            
             # Update activity for anti-detect
             update_activity()
 
@@ -158,6 +165,45 @@ class Point(Component):
 
         self.counter = (self.counter + 1) % self.frequency
 
+    def _is_command_blacklisted(self, command_name, blacklist):
+        """Check if a command name matches any entry in the blacklist (prefix matching, case-insensitive)."""
+        if not blacklist:
+            return False
+        name_lower = command_name.lower()
+        for blacklist_entry in blacklist:
+            if name_lower.startswith(blacklist_entry.lower()):
+                return True
+        return False
+
+    def get_command_order_preview(self, is_reverse_variant=False, is_floor_reverse=False):
+        """Get actual command order after shuffle (returns stored order from last execution).
+        
+        Args:
+            is_reverse_variant: Unused, kept for compatibility
+            is_floor_reverse: Unused, kept for compatibility
+        """
+        # If we have stored shuffled order, return it (this is the actual order that will be executed)
+        if self._shuffled_command_order is not None and self._shuffled_skip_flags is not None:
+            command_order = []
+            for name, will_skip in zip(self._shuffled_command_order, self._shuffled_skip_flags):
+                if will_skip:
+                    # Mark skipped commands with [SKIP]
+                    command_order.append(f"{name}[SKIP]")
+                else:
+                    command_order.append(name)
+            return command_order
+        
+        # Fallback: if no stored order, return original order (command_sequence not executed yet)
+        rand_cfg = getattr(config.routine, 'command_randomization', None) or {}
+        enabled = rand_cfg.get('enabled', False)
+        
+        if not enabled:
+            # Return original order if command_sequence is disabled
+            return [cmd.__class__.__name__ for cmd in self.commands]
+        
+        # If enabled but not executed yet, return original order
+        return [cmd.__class__.__name__ for cmd in self.commands]
+
     def _iter_commands(self, is_reverse_variant, is_floor_reverse):
         """Yield commands with randomization metadata applied."""
         commands = list(self.commands)
@@ -172,6 +218,10 @@ class Point(Component):
         skip_probability = rand_cfg.get('skip_probability', 0.0)
         wait_range = rand_cfg.get('extra_wait_range', (0.05, 0.12))
 
+        # Store command order and skip flags for accurate display
+        command_order = []
+        skip_flags = []
+
         for command in commands:
             skip_reason = None
             wait_duration = None
@@ -182,7 +232,7 @@ class Point(Component):
                     skip_reason = "teleport disabled in reverse movement"
 
             if enabled and skip_reason is None:
-                if name not in skip_blacklist and random.random() < skip_probability:
+                if not self._is_command_blacklisted(name, skip_blacklist) and random.random() < skip_probability:
                     skip_reason = "probabilistic skip"
                     log.debug("🔀 Command Sequence: Probabilistic skip triggered for '%s' (probability: %.1f%%)",
                              name, skip_probability * 100)
@@ -192,7 +242,15 @@ class Point(Component):
                     log.debug("🔀 Command Sequence: Extra wait triggered for '%s' (probability: %.1f%%, duration: %.3fs)",
                              name, extra_wait_probability * 100, wait_duration)
 
+            # Store command order and skip status
+            command_order.append(name)
+            skip_flags.append(skip_reason is not None)
+
             yield CommandDecision(command, skip_reason, wait_duration)
+        
+        # Save shuffled command order for display
+        self._shuffled_command_order = command_order
+        self._shuffled_skip_flags = skip_flags
 
     def _shuffle_commands(self, commands, settings):
         """Shuffle commands while respecting blacklist and probability."""
@@ -207,7 +265,7 @@ class Point(Component):
         blacklist = set(settings.get('shuffle_blacklist', []))
         randomizable_indices = [
             idx for idx, cmd in enumerate(commands)
-            if cmd.__class__.__name__ not in blacklist
+            if not self._is_command_blacklisted(cmd.__class__.__name__, blacklist)
         ]
 
         if len(randomizable_indices) < 2:

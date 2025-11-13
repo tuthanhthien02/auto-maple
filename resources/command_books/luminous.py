@@ -281,28 +281,37 @@ class Teleport_Up(Command):
     
     def main(self):
         # Teleport Up combo with fixed timing (150ms total)
+        log.debug("🚀 Teleport_Up: Starting %d teleport(s)", self.times)
         for i in range(self.times):
             try:
                 # Step 1: Hold UP key (minimal delay for key registration)
+                log.debug("🚀 Teleport_Up [%d/%d]: Holding UP key", i + 1, self.times)
                 key_down(Key.up)
                 time.sleep(0.01)  # 10ms - just enough for key registration
                 
                 # Step 2: Press ALT (instant but with micro-pause)
+                log.debug("🚀 Teleport_Up [%d/%d]: Pressing ALT (jump)", i + 1, self.times)
                 key_down(Key.jump)
                 key_up(Key.jump)
                 time.sleep(0.005)  # 5ms micro-pause
                 
                 # Step 3: Press W (instant but with micro-pause)
+                log.debug("🚀 Teleport_Up [%d/%d]: Pressing W (teleport)", i + 1, self.times)
                 key_down(Key.teleport)
                 key_up(Key.teleport)
                 time.sleep(0.005)  # 5ms micro-pause
                 
+                log.debug("🚀 Teleport_Up [%d/%d]: Completed successfully", i + 1, self.times)
+            except Exception as e:
+                log.error("🚀 Teleport_Up [%d/%d]: Error during execution: %s", i + 1, self.times, e, exc_info=True)
+                raise
             finally:
                 # Step 4: Release UP key
                 key_up(Key.up)
                 # Small delay between combos
                 if i < self.times - 1:
                     time.sleep(0.01)  # 10ms between combos
+        log.debug("🚀 Teleport_Up: Completed all %d teleport(s)", self.times)
 
 
 
@@ -365,26 +374,40 @@ class Jump_Teleport_Up(Command):
     
     def main(self):
         # Jump + Teleport Up combo with configurable random timing
+        log.debug("🚀 Jump_Teleport_Up: Starting %d combo(s)", self.times)
         for i in range(self.times):
             try:
                 # Step 1: Press ALT (jump) with random timing
+                log.debug("🚀 Jump_Teleport_Up [%d/%d]: Pressing ALT (jump)", i + 1, self.times)
                 press(Key.jump, 1, down_time=0.1, up_time=0.1)
-                time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP['jump_delay']))
+                jump_delay = random.uniform(*TimingConfig.JUMP_TELEPORT_UP['jump_delay'])
+                time.sleep(jump_delay)
                 
                 # Step 2: Hold UP key
+                log.debug("🚀 Jump_Teleport_Up [%d/%d]: Holding UP key", i + 1, self.times)
                 key_down(Key.up)
-                time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP['up_hold']))
+                up_hold = random.uniform(*TimingConfig.JUMP_TELEPORT_UP['up_hold'])
+                time.sleep(up_hold)
                 
                 # Step 3: Press W (teleport) with random timing
+                log.debug("🚀 Jump_Teleport_Up [%d/%d]: Pressing W (teleport)", i + 1, self.times)
                 press(Key.teleport, 1, down_time=0.1, up_time=0.1)
-                time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP['teleport_delay']))
+                teleport_delay = random.uniform(*TimingConfig.JUMP_TELEPORT_UP['teleport_delay'])
+                time.sleep(teleport_delay)
                 
+                log.debug("🚀 Jump_Teleport_Up [%d/%d]: Completed successfully (jump_delay=%.3fs, up_hold=%.3fs, teleport_delay=%.3fs)",
+                         i + 1, self.times, jump_delay, up_hold, teleport_delay)
+            except Exception as e:
+                log.error("🚀 Jump_Teleport_Up [%d/%d]: Error during execution: %s", i + 1, self.times, e, exc_info=True)
+                raise
             finally:
                 # Step 4: Release UP key
                 key_up(Key.up)
                 # Random delay between combos
                 if i < self.times - 1:
-                    time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP['combo_delay']))
+                    combo_delay = random.uniform(*TimingConfig.JUMP_TELEPORT_UP['combo_delay'])
+                    time.sleep(combo_delay)
+        log.debug("🚀 Jump_Teleport_Up: Completed all %d combo(s)", self.times)
 
 
 class Jump_Down(Command):

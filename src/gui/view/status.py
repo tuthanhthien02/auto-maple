@@ -1,6 +1,7 @@
 import tkinter as tk
 from src.gui.interfaces import LabelFrame
 from src.common import config
+from src.routine.components import Point
 
 
 class Status(LabelFrame):
@@ -30,11 +31,11 @@ class Status(LabelFrame):
         self.dynamic_paths_entry = tk.Entry(self, textvariable=self.dynamic_paths_var, state=tk.DISABLED, width=30)
         self.dynamic_paths_entry.grid(row=2, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW)
 
-        # Command Sequence Status
-        self.command_sequence_label = tk.Label(self, text='Command Sequence:')
+        # Command Sequence Status (shows command order after shuffle)
+        self.command_sequence_label = tk.Label(self, text='Command Order:')
         self.command_sequence_label.grid(row=3, column=1, padx=5, pady=(0, 5), sticky=tk.E)
         self.command_sequence_var = tk.StringVar(value='Disabled')
-        self.command_sequence_entry = tk.Entry(self, textvariable=self.command_sequence_var, state=tk.DISABLED, width=30)
+        self.command_sequence_entry = tk.Entry(self, textvariable=self.command_sequence_var, state=tk.DISABLED, width=50)
         self.command_sequence_entry.grid(row=3, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW)
 
         # Recalibrate Minimap button
@@ -89,20 +90,34 @@ class Status(LabelFrame):
                 self.dynamic_paths_var.set(f'Enabled ({routine.current_path_id} - not found)')
                 return
             
-            # Build status string
-            path_count = len(routine.dynamic_paths)
+            # Calculate path number (1-based) and total paths
+            total_paths = len(routine.dynamic_paths)
+            path_number = next((i for i, p in enumerate(routine.dynamic_paths) if p['id'] == routine.current_path_id), 0) + 1
+            
+            # Get current position in path
             current_path_points = len(current_path['indices'])
+            current_index = getattr(routine, 'index', 0)
+            try:
+                current_position_in_path = current_path['indices'].index(current_index) + 1
+            except (ValueError, AttributeError):
+                current_position_in_path = 0
+            
+            # Build status string with clear "Path X/Y" format
             switch_info = f"{routine.path_switch_counter}/{routine.path_switch_interval}"
             loops_remaining = routine.path_switch_interval - routine.path_switch_counter
             
-            status = f"{routine.current_path_id} ({current_path_points} pts) | {switch_info} loops | {loops_remaining} remaining"
+            if current_position_in_path > 0:
+                status = f"Path {path_number}/{total_paths} | Point {current_position_in_path}/{current_path_points} | Loop {switch_info} | {loops_remaining} remaining"
+            else:
+                status = f"Path {path_number}/{total_paths} | {current_path_points} points | Loop {switch_info} | {loops_remaining} remaining"
+            
             self.dynamic_paths_var.set(status)
         except Exception as e:
             # Silently handle errors to avoid spamming
             pass
     
     def update_command_sequence_status(self):
-        """Update Command Sequence status display."""
+        """Update Command Sequence status display - shows command order after shuffle."""
         try:
             if not hasattr(config, 'routine') or config.routine is None:
                 self.command_sequence_var.set('No routine loaded')
@@ -115,27 +130,42 @@ class Status(LabelFrame):
                 self.command_sequence_var.set('Disabled')
                 return
             
-            # Get statistics
-            stats = routine.command_sequence_stats
-            shuffle_prob = cmd_cfg.get('shuffle_probability', 0.0) * 100
-            skip_prob = cmd_cfg.get('skip_probability', 0.0) * 100
-            wait_prob = cmd_cfg.get('extra_wait_probability', 0.0) * 100
-            
-            # Build status string
-            status_parts = []
-            if shuffle_prob > 0:
-                status_parts.append(f"Shuffle: {shuffle_prob:.0f}%")
-            if skip_prob > 0:
-                status_parts.append(f"Skip: {skip_prob:.0f}%")
-            if wait_prob > 0:
-                status_parts.append(f"Wait: {wait_prob:.0f}%")
-            
-            if stats['total_shuffles'] > 0 or stats['total_skips'] > 0 or stats['total_extra_waits'] > 0:
-                stats_str = f" | Stats: {stats['total_shuffles']}S/{stats['total_skips']}K/{stats['total_extra_waits']}W"
-                status_parts.append(stats_str)
-            
-            status = ' | '.join(status_parts) if status_parts else 'Enabled (no activity)'
-            self.command_sequence_var.set(status)
+            # Get current point
+            try:
+                current_index = getattr(routine, 'index', 0)
+                if current_index < 0 or current_index >= len(routine.sequence):
+                    self.command_sequence_var.set('No point selected')
+                    return
+                
+                current_item = routine.sequence[current_index]
+                if not isinstance(current_item, Point):
+                    self.command_sequence_var.set('Not a Point')
+                    return
+                
+                # Get variant info for command order preview
+                current_variant = getattr(routine, 'current_variant', 'normal')
+                is_reverse = current_variant == 'reverse'
+                is_floor_only = current_variant in ['floor1_only', 'floor2_only']
+                floor_direction = getattr(routine, 'floor_direction', 'forward')
+                is_floor_reverse = is_floor_only and floor_direction == 'reverse'
+                
+                # Get command order preview
+                command_order = current_item.get_command_order_preview(is_reverse, is_floor_reverse)
+                
+                if not command_order:
+                    self.command_sequence_var.set('No commands')
+                    return
+                
+                # Build display string (limit length to fit in entry)
+                order_str = ' → '.join(command_order)
+                if len(order_str) > 80:
+                    # Truncate if too long
+                    order_str = order_str[:77] + '...'
+                
+                self.command_sequence_var.set(order_str)
+            except (AttributeError, IndexError, TypeError) as e:
+                # If we can't get command order, show enabled status
+                self.command_sequence_var.set('Enabled (preview unavailable)')
         except Exception as e:
             # Silently handle errors to avoid spamming
             pass

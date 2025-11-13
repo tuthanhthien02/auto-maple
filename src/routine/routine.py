@@ -1054,14 +1054,20 @@ class Routine:
                     if current_path_idx < len(path_indices) - 1:
                         # Not at end of path, step to next point in path
                         next_idx = path_indices[current_path_idx + 1]
-                        log.debug("🛤️ Dynamic Paths: Stepping in %s (point %d/%d: index %d → %d)",
-                                 self.current_path_id, current_path_idx + 1, len(path_indices), current_index, next_idx)
+                        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                        # Log every 5 steps to avoid spam, but always log important transitions
+                        if (current_path_idx + 1) % 5 == 0 or current_path_idx == 0:
+                            log.debug("🛤️ Dynamic Paths: Stepping in path %d/%d (%s) - point %d/%d (index %d → %d)",
+                                     path_number, len(self.dynamic_paths), self.current_path_id,
+                                     current_path_idx + 1, len(path_indices), current_index, next_idx)
                         return next_idx
                     else:
                         # At end of path, loop back to start of path
                         next_idx = path_indices[0]
-                        log.info("🛤️ Dynamic Paths: Reached end of %s, looping back to start (index %d → %d)",
-                                self.current_path_id, current_index, next_idx)
+                        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                        log.info("🛤️ Dynamic Paths: Reached end of path %d/%d (%s, %d points), looping back to start (index %d → %d)",
+                                path_number, len(self.dynamic_paths), self.current_path_id,
+                                len(path_indices), current_index, next_idx)
                         return next_idx
                 except ValueError:
                     # Current index not in path, fallback to first point in path
@@ -1254,11 +1260,20 @@ class Routine:
             self.path_switch_counter += 1
             if self.path_switch_counter >= self.path_switch_interval:
                 # Time to switch path
+                current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+                path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                total_paths = len(self.dynamic_paths)
+                log.info("🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s, %d points) - switching path...",
+                        self.path_switch_counter, path_number, total_paths, self.current_path_id,
+                        len(current_path['indices']) if current_path else 0)
                 self._select_next_path()
             else:
                 loops_remaining = self.path_switch_interval - self.path_switch_counter
-                log.info("🛤️ Dynamic Paths: Loop completed on %s (%d/%d loops, %d remaining before switch)",
-                        self.current_path_id, self.path_switch_counter, self.path_switch_interval, loops_remaining)
+                path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+                total_paths = len(self.dynamic_paths)
+                log.info("🛤️ Dynamic Paths: Loop %d completed on path %d/%d (%s) - %d/%d loops, %d remaining before switch",
+                        self.path_switch_counter, path_number, total_paths, self.current_path_id,
+                        self.path_switch_counter, self.path_switch_interval, loops_remaining)
         
         loops_remaining = self.variant_switch_interval - self.variant_switch_counter
         log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
@@ -1542,6 +1557,7 @@ class Routine:
             'description': 'Full path (100% points)'
         }
         self.dynamic_paths.append(full_path)
+        log.info("🛤️ Dynamic Paths: Generated path1 (full path: %d points)", len(point_indices))
         
         # Generate additional paths based on strategy
         for path_num in range(2, path_count + 1):
@@ -1556,12 +1572,21 @@ class Routine:
                     'description': f'Generated path {path_num} ({len(path_indices)}/{len(point_indices)} points)'
                 }
                 self.dynamic_paths.append(path)
+                log.info("🛤️ Dynamic Paths: Generated %s (%d/%d points, %.1f%%) - strategy: %s",
+                        path_id, len(path_indices), len(point_indices),
+                        (len(path_indices) / len(point_indices)) * 100, strategy)
+            else:
+                log.warning("🛤️ Dynamic Paths: Failed to generate %s (got %d indices, need at least 2)",
+                           path_id, len(path_indices) if path_indices else 0)
         
         # Normalize weights
         total_weight = sum(p['weight'] for p in self.dynamic_paths)
         if total_weight > 0:
             for path in self.dynamic_paths:
                 path['weight'] /= total_weight
+        
+        log.info("🛤️ Dynamic Paths: Generated %d total paths from %d points (strategy: %s)",
+                len(self.dynamic_paths), len(point_indices), strategy)
     
     def _generate_single_path(self, point_indices, strategy, skip_range, path_num):
         """Generate a single path based on strategy."""
@@ -1646,6 +1671,7 @@ class Routine:
         
         if selection_mode == 'random':
             self.current_path_id = random.choice(self.dynamic_paths)['id']
+            log.debug("🛤️ Dynamic Paths: Initial selection (random): %s", self.current_path_id)
         elif selection_mode == 'weighted':
             # Weighted random selection
             weights = [p['weight'] for p in self.dynamic_paths]
@@ -1653,15 +1679,21 @@ class Routine:
                 [p['id'] for p in self.dynamic_paths],
                 weights=weights
             )[0]
+            selected_weight = next((p['weight'] for p in self.dynamic_paths if p['id'] == self.current_path_id), 0.0)
+            log.debug("🛤️ Dynamic Paths: Initial selection (weighted, weight=%.3f): %s",
+                     selected_weight, self.current_path_id)
         elif selection_mode == 'transition_matrix':
             # For initial selection, use equal probability
             self.current_path_id = random.choice(self.dynamic_paths)['id']
+            log.debug("🛤️ Dynamic Paths: Initial selection (transition_matrix, equal prob): %s", self.current_path_id)
         elif selection_mode == 'sequential':
             # Start with first path
             self.current_path_id = self.dynamic_paths[0]['id']
+            log.debug("🛤️ Dynamic Paths: Initial selection (sequential): %s", self.current_path_id)
         else:
             # Fallback to random
             self.current_path_id = random.choice(self.dynamic_paths)['id']
+            log.debug("🛤️ Dynamic Paths: Initial selection (fallback random): %s", self.current_path_id)
         
         # Set initial index based on current path
         self._apply_path_to_index()
@@ -1670,21 +1702,35 @@ class Routine:
             self.dynamic_paths_config['switch_interval']['max_loops']
         )
         self.path_switch_counter = 0
+        
+        # Log initial path selection details
+        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+        if current_path:
+            path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+            log.info("🛤️ Dynamic Paths: Starting with %s (path %d/%d, %d points, switch interval: %d loops)",
+                    self.current_path_id, path_number, len(self.dynamic_paths),
+                    len(current_path['indices']), self.path_switch_interval)
     
     def _select_next_path(self):
         """Select next path based on selection mode and transition matrix."""
         if not self.dynamic_paths or not self.current_path_id:
+            log.warning("🛤️ Dynamic Paths: Cannot select next path - no paths or current_path_id is None")
             return
         
         selection_mode = self.dynamic_paths_config['selection_mode']
+        old_path_id = self.current_path_id
         
         if selection_mode == 'random':
             # Random selection
             available_paths = [p['id'] for p in self.dynamic_paths if p['id'] != self.current_path_id]
             if available_paths:
                 self.current_path_id = random.choice(available_paths)
+                log.debug("🛤️ Dynamic Paths: Next path selection (random, excluding current): %s → %s",
+                         old_path_id, self.current_path_id)
             else:
                 self.current_path_id = random.choice(self.dynamic_paths)['id']
+                log.debug("🛤️ Dynamic Paths: Next path selection (random, no alternatives): %s → %s",
+                         old_path_id, self.current_path_id)
         
         elif selection_mode == 'weighted':
             # Weighted random (excluding current path)
@@ -1695,8 +1741,13 @@ class Routine:
                     [p['id'] for p in available_paths],
                     weights=weights
                 )[0]
+                selected_weight = next((p['weight'] for p in available_paths if p['id'] == self.current_path_id), 0.0)
+                log.debug("🛤️ Dynamic Paths: Next path selection (weighted, weight=%.3f): %s → %s",
+                         selected_weight, old_path_id, self.current_path_id)
             else:
                 self.current_path_id = random.choice(self.dynamic_paths)['id']
+                log.debug("🛤️ Dynamic Paths: Next path selection (weighted, no alternatives): %s → %s",
+                         old_path_id, self.current_path_id)
         
         elif selection_mode == 'transition_matrix':
             # Use transition matrix
@@ -1706,15 +1757,22 @@ class Routine:
                 path_ids = list(transitions.keys())
                 probabilities = list(transitions.values())
                 self.current_path_id = random.choices(path_ids, weights=probabilities)[0]
+                selected_prob = transitions.get(self.current_path_id, 0.0)
+                log.debug("🛤️ Dynamic Paths: Next path selection (transition_matrix, prob=%.3f): %s → %s",
+                         selected_prob, old_path_id, self.current_path_id)
             else:
                 # Fallback to random
                 self.current_path_id = random.choice(self.dynamic_paths)['id']
+                log.debug("🛤️ Dynamic Paths: Next path selection (transition_matrix, fallback): %s → %s",
+                         old_path_id, self.current_path_id)
         
         elif selection_mode == 'sequential':
             # Sequential: path1 -> path2 -> ... -> path1
             current_idx = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0)
             next_idx = (current_idx + 1) % len(self.dynamic_paths)
             self.current_path_id = self.dynamic_paths[next_idx]['id']
+            log.debug("🛤️ Dynamic Paths: Next path selection (sequential): %s → %s (path %d → %d)",
+                     old_path_id, self.current_path_id, current_idx + 1, next_idx + 1)
         
         # Apply new path to index
         self._apply_path_to_index()
@@ -1730,8 +1788,22 @@ class Routine:
         total_paths = len(self.dynamic_paths)
         path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
         
-        log.info("🛤️ Dynamic Paths: Switched to %s (%d points, path %d/%d) - next switch in %d loops", 
-                self.current_path_id, path_points, path_number, total_paths, self.path_switch_interval)
+        # Get previous path info for context
+        previous_path_id = getattr(self, '_previous_path_id', None)
+        previous_path_number = None
+        if previous_path_id:
+            previous_path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == previous_path_id), 0) + 1
+        
+        if previous_path_id and previous_path_number:
+            log.info("🛤️ Dynamic Paths: Switched from path %d/%d (%s) to path %d/%d (%s) - %d points, next switch in %d loops", 
+                    previous_path_number, total_paths, previous_path_id,
+                    path_number, total_paths, self.current_path_id, path_points, self.path_switch_interval)
+        else:
+            log.info("🛤️ Dynamic Paths: Switched to path %d/%d (%s) - %d points, next switch in %d loops", 
+                    path_number, total_paths, self.current_path_id, path_points, self.path_switch_interval)
+        
+        # Store current path as previous for next switch
+        self._previous_path_id = self.current_path_id
         
         # Record path switch in metrics
         try:
@@ -1742,13 +1814,20 @@ class Routine:
     def _apply_path_to_index(self):
         """Apply current path to routine index (set index to first point in path)."""
         if not self.current_path_id or not self.dynamic_paths:
+            log.debug("🛤️ Dynamic Paths: Cannot apply path to index - no current_path_id or paths")
             return
         
         current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
         if current_path and current_path['indices']:
             # Set index to first point in path
+            old_index = getattr(self, 'index', 0)
             self.index = current_path['indices'][0]
             self.last_index = -1  # Reset last_index to allow loop detection
+            log.debug("🛤️ Dynamic Paths: Applied %s to index (index %d → %d, first point in path)",
+                     self.current_path_id, old_index, self.index)
+        else:
+            log.warning("🛤️ Dynamic Paths: Cannot apply path %s - path not found or has no indices",
+                       self.current_path_id)
     
     def _get_current_path_indices(self):
         """Get indices for current path."""
