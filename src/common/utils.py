@@ -123,7 +123,7 @@ def multi_match(frame, template, threshold=0.95, is_gray=False, max_results=None
             break
         x = int(round(max_loc[0] + template.shape[1] / 2))
         y = int(round(max_loc[1] + template.shape[0] / 2))
-        matches.append((x, y))
+        matches.append((x, y, float(max_val)))
         if max_results and len(matches) >= max_results:
             break
         top_left = max_loc
