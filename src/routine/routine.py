@@ -97,6 +97,15 @@ class Routine:
             'skip_blacklist': {'Teleport', 'Adjust'},
             'shuffle_blacklist': {'Teleport', 'Adjust'}
         }
+        # Statistics for command sequence randomization
+        self.command_sequence_stats = {
+            'total_shuffles': 0,
+            'total_skips': 0,
+            'total_extra_waits': 0,
+            'last_shuffle_time': None,
+            'last_skip_time': None,
+            'last_extra_wait_time': None
+        }
         self.position_offset_config = {
             'enabled': False,
             'range': 0.0,
@@ -1044,13 +1053,22 @@ class Routine:
                     current_path_idx = path_indices.index(current_index)
                     if current_path_idx < len(path_indices) - 1:
                         # Not at end of path, step to next point in path
-                        return path_indices[current_path_idx + 1]
+                        next_idx = path_indices[current_path_idx + 1]
+                        log.debug("🛤️ Dynamic Paths: Stepping in %s (point %d/%d: index %d → %d)",
+                                 self.current_path_id, current_path_idx + 1, len(path_indices), current_index, next_idx)
+                        return next_idx
                     else:
                         # At end of path, loop back to start of path
-                        return path_indices[0]
+                        next_idx = path_indices[0]
+                        log.info("🛤️ Dynamic Paths: Reached end of %s, looping back to start (index %d → %d)",
+                                self.current_path_id, current_index, next_idx)
+                        return next_idx
                 except ValueError:
                     # Current index not in path, fallback to first point in path
-                    return path_indices[0] if path_indices else current_index
+                    next_idx = path_indices[0] if path_indices else current_index
+                    log.warning("🛤️ Dynamic Paths: Current index %d not in %s, falling back to first point (index %d)",
+                               current_index, self.current_path_id, next_idx)
+                    return next_idx
         
         # Normal variant logic (when dynamic paths disabled or not in path)
         if self.current_variant == 'normal':
@@ -1313,6 +1331,15 @@ class Routine:
         self.path_switch_counter = 0
         self.path_switch_interval = random.randint(2, 5)
         self.original_sequence_indices = []
+        # Reset Command Sequence stats
+        self.command_sequence_stats = {
+            'total_shuffles': 0,
+            'total_skips': 0,
+            'total_extra_waits': 0,
+            'last_shuffle_time': None,
+            'last_skip_time': None,
+            'last_extra_wait_time': None
+        }
 
         config.gui.clear_routine_info()
 
@@ -1392,6 +1419,16 @@ class Routine:
                 skip_prob * 100, self.max_consecutive_skips)
         log.info("⏮️ Random Move Backward: Ready (%.1f%% backward probability, range %d-%d steps)", 
                 backward_prob * 100, self.backward_range[0], self.backward_range[1])
+        
+        # Log Command Sequence Randomization status
+        if self.command_randomization.get('enabled', False):
+            shuffle_prob = self.command_randomization.get('shuffle_probability', 0.0) * 100
+            skip_prob = self.command_randomization.get('skip_probability', 0.0) * 100
+            wait_prob = self.command_randomization.get('extra_wait_probability', 0.0) * 100
+            log.info("🔀 Command Sequence Randomization: Ready (Shuffle: %.1f%%, Skip: %.1f%%, Extra Wait: %.1f%%)",
+                    shuffle_prob, skip_prob, wait_prob)
+        else:
+            log.debug("🔀 Command Sequence Randomization: DISABLED")
         
         # Reload randomization settings when loading routine
         self._load_randomization_settings()
@@ -1687,8 +1724,14 @@ class Routine:
             self.dynamic_paths_config['switch_interval']['max_loops']
         )
         
-        log.info("🛤️ Dynamic Paths: Switched to %s (next switch in %d loops)", 
-                self.current_path_id, self.path_switch_interval)
+        # Get path info for logging
+        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+        path_points = len(current_path['indices']) if current_path else 0
+        total_paths = len(self.dynamic_paths)
+        path_number = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0) + 1
+        
+        log.info("🛤️ Dynamic Paths: Switched to %s (%d points, path %d/%d) - next switch in %d loops", 
+                self.current_path_id, path_points, path_number, total_paths, self.path_switch_interval)
         
         # Record path switch in metrics
         try:

@@ -116,19 +116,24 @@ class Point(Component):
             
             for decision in self._iter_commands(is_reverse, is_floor_reverse):
                 if decision.skip_reason:
-                    log.info("Point: Skipping command '%s' (%s)",
+                    log.info("🔀 Command Sequence: Skipping command '%s' (%s)",
                              decision.command.__class__.__name__, decision.skip_reason)
                     # Track command skip (only for probabilistic skips, not teleport skips)
                     if decision.skip_reason == "probabilistic skip":
                         try:
                             get_metrics_logger().record_command_skip()
+                            # Update routine stats
+                            if hasattr(config, 'routine') and config.routine:
+                                config.routine.command_sequence_stats['total_skips'] += 1
+                                import time
+                                config.routine.command_sequence_stats['last_skip_time'] = time.time()
                         except Exception:
                             pass
                     continue
 
                 if decision.wait_duration:
                     human_delay = get_human_delay(decision.wait_duration, 'thinking')
-                    action_log.debug("Point: Extra wait before '%s' (%.3fs humanized to %.3fs)",
+                    log.debug("🔀 Command Sequence: Extra wait before '%s' (%.3fs humanized to %.3fs)",
                                      decision.command.__class__.__name__,
                                      decision.wait_duration,
                                      human_delay)
@@ -136,6 +141,11 @@ class Point(Component):
                     # Track extra wait
                     try:
                         get_metrics_logger().record_extra_wait()
+                        # Update routine stats
+                        if hasattr(config, 'routine') and config.routine:
+                            config.routine.command_sequence_stats['total_extra_waits'] += 1
+                            import time
+                            config.routine.command_sequence_stats['last_extra_wait_time'] = time.time()
                     except Exception:
                         pass
 
@@ -174,9 +184,13 @@ class Point(Component):
             if enabled and skip_reason is None:
                 if name not in skip_blacklist and random.random() < skip_probability:
                     skip_reason = "probabilistic skip"
+                    log.debug("🔀 Command Sequence: Probabilistic skip triggered for '%s' (probability: %.1f%%)",
+                             name, skip_probability * 100)
                 elif random.random() < extra_wait_probability:
                     low, high = wait_range
                     wait_duration = random.uniform(low, high)
+                    log.debug("🔀 Command Sequence: Extra wait triggered for '%s' (probability: %.1f%%, duration: %.3fs)",
+                             name, extra_wait_probability * 100, wait_duration)
 
             yield CommandDecision(command, skip_reason, wait_duration)
 
@@ -200,13 +214,26 @@ class Point(Component):
             return commands
 
         subset = [commands[idx] for idx in randomizable_indices]
+        original_order = [cmd.__class__.__name__ for cmd in subset]
         random.shuffle(subset)
+        shuffled_order = [cmd.__class__.__name__ for cmd in subset]
+        
         for idx, command in zip(randomizable_indices, subset):
             commands[idx] = command
+        
+        # Log shuffle
+        log.info("🔀 Command Sequence: Shuffled %d commands (probability: %.1f%%) - %s → %s",
+                len(subset), shuffle_probability * 100, 
+                ' → '.join(original_order), ' → '.join(shuffled_order))
         
         # Track command shuffle
         try:
             get_metrics_logger().record_command_shuffle()
+            # Update routine stats
+            if hasattr(config, 'routine') and config.routine:
+                config.routine.command_sequence_stats['total_shuffles'] += 1
+                import time
+                config.routine.command_sequence_stats['last_shuffle_time'] = time.time()
         except Exception:
             pass
         

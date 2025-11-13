@@ -95,6 +95,16 @@ class GUI:
         vmware_status_thread = threading.Thread(target=self._refresh_vmware_status)
         vmware_status_thread.daemon = True
         vmware_status_thread.start()
+        
+        # Refresh Dynamic Paths status periodically
+        dynamic_paths_status_thread = threading.Thread(target=self._refresh_dynamic_paths_status)
+        dynamic_paths_status_thread.daemon = True
+        dynamic_paths_status_thread.start()
+        
+        # Refresh Command Sequence status periodically
+        command_sequence_status_thread = threading.Thread(target=self._refresh_command_sequence_status)
+        command_sequence_status_thread.daemon = True
+        command_sequence_status_thread.start()
 
         self.root.mainloop()
     
@@ -110,6 +120,44 @@ class GUI:
                         if hasattr(config.gui.settings, 'vmware_receiver') and config.gui.settings.vmware_receiver:
                             try:
                                 config.gui.settings.vmware_receiver.refresh_status()
+                            except Exception as e:
+                                # Ignore errors during refresh (widget might be destroyed)
+                                pass
+            except Exception as e:
+                # Silently ignore errors to avoid spamming logs
+                pass
+    
+    def _refresh_dynamic_paths_status(self):
+        """Periodically refresh Dynamic Paths status in GUI"""
+        import time
+        while True:
+            try:
+                # Refresh status every 1 second (more frequent for better UX)
+                time.sleep(1.0)
+                if hasattr(config, 'gui') and config.gui:
+                    if hasattr(config.gui, 'view') and config.gui.view:
+                        if hasattr(config.gui.view, 'status') and config.gui.view.status:
+                            try:
+                                config.gui.view.status.update_dynamic_paths_status()
+                            except Exception as e:
+                                # Ignore errors during refresh (widget might be destroyed)
+                                pass
+            except Exception as e:
+                # Silently ignore errors to avoid spamming logs
+                pass
+    
+    def _refresh_command_sequence_status(self):
+        """Periodically refresh Command Sequence status in GUI"""
+        import time
+        while True:
+            try:
+                # Refresh status every 1 second
+                time.sleep(1.0)
+                if hasattr(config, 'gui') and config.gui:
+                    if hasattr(config.gui, 'view') and config.gui.view:
+                        if hasattr(config.gui.view, 'status') and config.gui.view.status:
+                            try:
+                                config.gui.view.status.update_command_sequence_status()
                             except Exception as e:
                                 # Ignore errors during refresh (widget might be destroyed)
                                 pass

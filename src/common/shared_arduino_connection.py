@@ -429,7 +429,7 @@ class SharedArduinoConnection:
                         log.debug(f"Device stealth monitoring error: {e}")
                 
                 self.stats['total_sent'] += 1
-                log.debug(f"[SharedArduinoConnection] ✅ Sent command: {command.strip()}")
+                log.debug(f"[SharedArduinoConnection] ✅ Sent command: {action}:{arduino_key if arduino_key else 'all_up'}")
                 return True
                 
             except serial.SerialException as e:
