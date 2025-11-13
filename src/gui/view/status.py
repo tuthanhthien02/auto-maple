@@ -38,6 +38,13 @@ class Status(LabelFrame):
         self.command_sequence_entry = tk.Entry(self, textvariable=self.command_sequence_var, state=tk.DISABLED, width=50)
         self.command_sequence_entry.grid(row=3, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW)
 
+        # Input Method Status (Arduino/SendInput)
+        self.input_method_label = tk.Label(self, text='Input Method:')
+        self.input_method_label.grid(row=4, column=1, padx=5, pady=(0, 5), sticky=tk.E)
+        self.input_method_var = tk.StringVar(value='Checking...')
+        self.input_method_entry = tk.Entry(self, textvariable=self.input_method_var, state=tk.DISABLED, width=30)
+        self.input_method_entry.grid(row=4, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW)
+
         # Recalibrate Minimap button
         self.recalibrate_btn = tk.Button(
             self,
@@ -51,7 +58,7 @@ class Status(LabelFrame):
             bd=2,
             cursor='hand2'
         )
-        self.recalibrate_btn.grid(row=4, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW)
+        self.recalibrate_btn.grid(row=5, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW)
         
         # Status label for recalibration feedback
         self.recalibrate_status = tk.Label(
@@ -60,7 +67,7 @@ class Status(LabelFrame):
             fg='green',
             font=('Arial', 8)
         )
-        self.recalibrate_status.grid(row=5, column=1, columnspan=2, padx=5, pady=(0, 5))
+        self.recalibrate_status.grid(row=6, column=1, columnspan=2, padx=5, pady=(0, 5))
 
     def set_cb(self, string):
         self.curr_cb.set(string)
@@ -166,6 +173,43 @@ class Status(LabelFrame):
             except (AttributeError, IndexError, TypeError) as e:
                 # If we can't get command order, show enabled status
                 self.command_sequence_var.set('Enabled (preview unavailable)')
+        except Exception as e:
+            # Silently handle errors to avoid spamming
+            pass
+    
+    def update_input_method_status(self):
+        """Update Input Method status display - shows Arduino or SendInput."""
+        try:
+            # Check if Arduino is enabled in config
+            use_arduino = getattr(config, 'use_arduino', False)
+            
+            if not use_arduino:
+                self.input_method_var.set('SendInput')
+                return
+            
+            # Try to get Arduino connection status
+            try:
+                from src.common.vkeys import _get_arduino_output
+                arduino = _get_arduino_output()
+                
+                if arduino and hasattr(arduino, 'connected') and arduino.connected:
+                    # Get COM port if available
+                    try:
+                        from src.common.shared_arduino_connection import SharedArduinoConnection
+                        shared_conn = SharedArduinoConnection()
+                        com_port = getattr(shared_conn, 'com_port', None)
+                        if com_port:
+                            self.input_method_var.set(f'Arduino ({com_port})')
+                        else:
+                            self.input_method_var.set('Arduino (Connected)')
+                    except Exception:
+                        self.input_method_var.set('Arduino (Connected)')
+                else:
+                    # Arduino enabled but not connected - fallback to SendInput
+                    self.input_method_var.set('SendInput (Arduino failed)')
+            except Exception as e:
+                # If we can't check Arduino status, assume SendInput
+                self.input_method_var.set('SendInput')
         except Exception as e:
             # Silently handle errors to avoid spamming
             pass

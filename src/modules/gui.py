@@ -105,6 +105,11 @@ class GUI:
         command_sequence_status_thread = threading.Thread(target=self._refresh_command_sequence_status)
         command_sequence_status_thread.daemon = True
         command_sequence_status_thread.start()
+        
+        # Refresh Input Method status periodically
+        input_method_status_thread = threading.Thread(target=self._refresh_input_method_status)
+        input_method_status_thread.daemon = True
+        input_method_status_thread.start()
 
         self.root.mainloop()
     
@@ -158,6 +163,25 @@ class GUI:
                         if hasattr(config.gui.view, 'status') and config.gui.view.status:
                             try:
                                 config.gui.view.status.update_command_sequence_status()
+                            except Exception as e:
+                                # Ignore errors during refresh (widget might be destroyed)
+                                pass
+            except Exception as e:
+                # Silently ignore errors to avoid spamming logs
+                pass
+    
+    def _refresh_input_method_status(self):
+        """Periodically refresh Input Method status in GUI"""
+        import time
+        while True:
+            try:
+                # Refresh status every 2 seconds (less frequent since it doesn't change often)
+                time.sleep(2.0)
+                if hasattr(config, 'gui') and config.gui:
+                    if hasattr(config.gui, 'view') and config.gui.view:
+                        if hasattr(config.gui.view, 'status') and config.gui.view.status:
+                            try:
+                                config.gui.view.status.update_input_method_status()
                             except Exception as e:
                                 # Ignore errors during refresh (widget might be destroyed)
                                 pass
