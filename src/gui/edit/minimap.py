@@ -9,7 +9,7 @@ from src.gui.interfaces import LabelFrame
 class Minimap(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, 'Minimap', **kwargs)
-        
+
         # Get edit_instance from parent (scroll_content) or config.gui
         if hasattr(parent, 'edit_instance'):
             self.edit_instance = parent.edit_instance
@@ -60,11 +60,11 @@ class Minimap(LabelFrame):
 
         if hasattr(self.edit_instance, 'routine'):
             selects = self.edit_instance.routine.components.listbox.curselection()
-            if len(selects) > 0:
-                index = int(selects[0])
-                obj = config.routine[index]
-                if isinstance(obj, Point):
-                    self.draw_point(obj.location)
+        if len(selects) > 0:
+            index = int(selects[0])
+            obj = config.routine[index]
+            if isinstance(obj, Point):
+                self.draw_point(obj.location)
                     if hasattr(self.edit_instance, 'record'):
                         self.edit_instance.record.clear_selection()
                 else:

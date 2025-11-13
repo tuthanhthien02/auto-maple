@@ -125,73 +125,73 @@ class Bot(Configurable):
                 if metrics.should_log_summary():
                     metrics.log_summary()
 
-                if config.enabled and len(config.routine) > 0:
+            if config.enabled and len(config.routine) > 0:
                     # Track loop start time
                     loop_start_time = time.time()
 
-                    # Update activity for anti-detect
-                    current_time = time.time()
-                    if current_time - last_activity_update > 1.0:  # Update every second
-                        update_activity()
-                        last_activity_update = current_time
-
+                # Update activity for anti-detect
+                current_time = time.time()
+                if current_time - last_activity_update > 1.0:  # Update every second
+                    update_activity()
+                    last_activity_update = current_time
+                
                     # Highlight the current Point in GUI (if available)
                     try:
-                        config.gui.view.routine.select(config.routine.index)
-                        config.gui.view.details.display_info(config.routine.index)
+                config.gui.view.routine.select(config.routine.index)
+                config.gui.view.details.display_info(config.routine.index)
                     except Exception as gui_error:
                         log.debug("GUI update error (non-critical): %s", gui_error)
 
-                    # Random Move Backward: Check if we should backward BEFORE any command execution
-                    should_backward, backward_steps = config.routine.should_backward()
-                    if should_backward:
-                        config.routine.apply_backward(backward_steps)
+                # Random Move Backward: Check if we should backward BEFORE any command execution
+                should_backward, backward_steps = config.routine.should_backward()
+                if should_backward:
+                    config.routine.apply_backward(backward_steps)
                         metrics.record_backward_movement()
-                        element = config.routine[config.routine.index]
-                        element_type = element.__class__.__name__
-                        log.info("⏮️ Random Backward: Now at index %d, element type: %s",
-                                 config.routine.index, element_type)
-
                     element = config.routine[config.routine.index]
                     element_type = element.__class__.__name__
-
-                    # Log current routine state
-                    log.debug("📍 Routine Execution: Index %d/%d - %s",
-                              config.routine.index, len(config.routine.sequence) - 1, element_type)
-
-                    # Check if we should skip this point
-                    should_skip = config.routine.should_skip_current_point()
-
-                    if should_skip:
-                        if isinstance(element, Point):
-                            log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d",
-                                     config.routine.index)
+                    log.info("⏮️ Random Backward: Now at index %d, element type: %s", 
+                            config.routine.index, element_type)
+                
+                element = config.routine[config.routine.index]
+                element_type = element.__class__.__name__
+                
+                # Log current routine state
+                log.debug("📍 Routine Execution: Index %d/%d - %s", 
+                         config.routine.index, len(config.routine.sequence) - 1, element_type)
+                
+                # Check if we should skip this point
+                should_skip = config.routine.should_skip_current_point()
+                
+                if should_skip:
+                    if isinstance(element, Point):
+                        log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d", 
+                                config.routine.index)
                             metrics.record_point_skip()
-                            config.routine.is_skipping_context = True
-                        config.routine.step()
-                    else:
-                        if isinstance(element, Point):
-                            log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)",
-                                     config.routine.index, element.location[0], element.location[1])
+                        config.routine.is_skipping_context = True
+                    config.routine.step()
+                else:
+                    if isinstance(element, Point):
+                        log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)", 
+                                config.routine.index, element.location[0], element.location[1])
                             metrics.record_point_execution()
                             metrics.update_position(element.location)
 
-                        element.execute()
-                        config.routine.step()
+                    element.execute()
+                    config.routine.step()
 
-                        config.routine.is_skipping_context = False
-                        config.routine.is_backwarding_context = False
+                    config.routine.is_skipping_context = False
+                    config.routine.is_backwarding_context = False
 
                         loop_duration = time.time() - loop_start_time
                         metrics.record_loop_completion(loop_duration)
 
                         consecutive_errors = 0
 
-                    # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
-                    time.sleep(0.05)
-                else:
-                    # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
-                    time.sleep(0.2)
+                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
+                time.sleep(0.05)
+            else:
+                # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
+                time.sleep(0.2)
             except KeyboardInterrupt:
                 # Allow clean shutdown on Ctrl+C
                 log.info("Bot loop interrupted by user")
