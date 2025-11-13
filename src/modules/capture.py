@@ -15,8 +15,8 @@ DEBUG = False
 
 user32 = ctypes.windll.user32
 
-MM_TL_TEMPLATE = cv2.imread('assets/mm_tl_template.png', 0)
-MM_BR_TEMPLATE = cv2.imread('assets/mm_br_template.png', 0)
+MM_TL_TEMPLATE = cv2.imread('assets/minimap_tl_template.png', 0)
+MM_BR_TEMPLATE = cv2.imread('assets/minimap_br_template.png', 0)
 PLAYER_TEMPLATES = [
     ('player_template_new.png', cv2.imread('assets/player_template_new.png', 0)),
     ('player_template.png', cv2.imread('assets/player_template.png', 0))
