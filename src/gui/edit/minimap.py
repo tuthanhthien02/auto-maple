@@ -58,17 +58,17 @@ class Minimap(LabelFrame):
     def redraw(self):
         """Re-draws the current point if it exists, otherwise resets to the default state."""
 
+        selects = ()
         if hasattr(self.edit_instance, 'routine'):
             selects = self.edit_instance.routine.components.listbox.curselection()
+
         if len(selects) > 0:
             index = int(selects[0])
             obj = config.routine[index]
             if isinstance(obj, Point):
                 self.draw_point(obj.location)
-                    if hasattr(self.edit_instance, 'record'):
-                        self.edit_instance.record.clear_selection()
-                else:
-                    self.draw_default()
+                if hasattr(self.edit_instance, 'record'):
+                    self.edit_instance.record.clear_selection()
             else:
                 self.draw_default()
         else:
