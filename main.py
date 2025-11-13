@@ -81,6 +81,15 @@ def cleanup():
     """Cleanup on exit"""
     log.info("🛑 Shutting down...")
     
+    # Stop VM Input Blocker
+    if hasattr(config, 'vm_input_blocker') and config.vm_input_blocker:
+        try:
+            config.vm_input_blocker.stop_blocking()
+            config.vm_input_blocker.uninstall_hook()
+            log.info("✅ VM Input Blocker stopped")
+        except Exception as e:
+            log.warning(f"⚠️  Error stopping VM Input Blocker: {e}")
+    
     # Stop VMware Receiver
     if config.vmware_receiver:
         try:
@@ -103,4 +112,36 @@ def cleanup():
 import atexit
 atexit.register(cleanup)
 
-gui.start()
+# Main execution with crash handling
+try:
+    gui.start()
+except KeyboardInterrupt:
+    log.info("🛑 Interrupted by user")
+    cleanup()
+except Exception as e:
+    import traceback
+    log.error("=" * 80)
+    log.error("❌ CRITICAL ERROR - APPLICATION CRASHED")
+    log.error("=" * 80)
+    log.error(f"Error: {e}")
+    log.error("")
+    log.error("Full traceback:")
+    log.error(traceback.format_exc())
+    log.error("=" * 80)
+    
+    # Cleanup on crash
+    try:
+        cleanup()
+    except Exception as cleanup_error:
+        log.error(f"Error during cleanup: {cleanup_error}")
+    
+    # Pause console for debugging
+    print("\n" + "=" * 80)
+    print("❌ APPLICATION CRASHED - CONSOLE PAUSED FOR DEBUGGING")
+    print("=" * 80)
+    print(f"Error: {e}")
+    print("\nPress Enter to exit...")
+    try:
+        input()
+    except (EOFError, KeyboardInterrupt):
+        pass

@@ -124,18 +124,34 @@ class GUI:
                 pass
 
     def _display_minimap(self):
+        """Display minimap in loop with exception handling"""
         delay = 1 / GUI.DISPLAY_FRAME_RATE
         while True:
-            self.view.minimap.display_minimap()
-            time.sleep(delay)
+            try:
+                self.view.minimap.display_minimap()
+                time.sleep(delay)
+            except Exception as e:
+                from src.common.logger import get_logger
+                log = get_logger(__name__)
+                log.error(f"[GUI] Error in _display_minimap: {e}")
+                import traceback
+                log.error(traceback.format_exc())
+                time.sleep(1)  # Wait before retrying
 
     def _save_layout(self):
-        """Periodically saves the current Layout object."""
-
+        """Periodically saves the current Layout object with exception handling"""
         while True:
-            if config.layout is not None and settings.record_layout:
-                config.layout.save()
-            time.sleep(5)
+            try:
+                if config.layout is not None and settings.record_layout:
+                    config.layout.save()
+                time.sleep(5)
+            except Exception as e:
+                from src.common.logger import get_logger
+                log = get_logger(__name__)
+                log.error(f"[GUI] Error in _save_layout: {e}")
+                import traceback
+                log.error(traceback.format_exc())
+                time.sleep(5)  # Wait before retrying
 
 
 if __name__ == '__main__':

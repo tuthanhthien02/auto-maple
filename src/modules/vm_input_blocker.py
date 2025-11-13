@@ -297,9 +297,11 @@ class VMInputBlocker:
                     time.sleep(0.01)  # Small delay to prevent CPU spinning
                     
             except Exception as e:
-                if self.enable_logging:
-                    log.debug(f"[VM_INPUT_BLOCKER] Message loop error: {e}")
-                break
+                log.error(f"[VM_INPUT_BLOCKER] Error in message loop: {e}")
+                import traceback
+                log.error(f"[VM_INPUT_BLOCKER] Traceback: {traceback.format_exc()}")
+                time.sleep(0.1)  # Wait before retrying
+                # Don't exit on error - keep trying to process messages
     
     def start_blocking(self):
         """Start blocking VM input"""

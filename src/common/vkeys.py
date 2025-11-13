@@ -205,19 +205,36 @@ def _get_arduino_output():
                                 self.connected = shared_conn.connected
                             
                             def key_down(self, key):
-                                return self.shared_conn.send_command('down', key)
+                                try:
+                                    return self.shared_conn.send_command('down', key)
+                                except Exception as e:
+                                    log.error(f"[VKEYS] Error in ArduinoOutputWrapper.key_down: {e}")
+                                    import traceback
+                                    log.error(traceback.format_exc())
+                                    return False
                             
                             def key_up(self, key):
-                                return self.shared_conn.send_command('up', key)
+                                try:
+                                    return self.shared_conn.send_command('up', key)
+                                except Exception as e:
+                                    log.error(f"[VKEYS] Error in ArduinoOutputWrapper.key_up: {e}")
+                                    import traceback
+                                    log.error(traceback.format_exc())
+                                    return False
                             
                             def press(self, key, n, down_time=0.05, up_time=0.1):
                                 import time
-                                for i in range(n):
-                                    self.key_down(key)
-                                    time.sleep(down_time)
-                                    self.key_up(key)
-                                    if i < n - 1:
-                                        time.sleep(up_time)
+                                try:
+                                    for i in range(n):
+                                        self.key_down(key)
+                                        time.sleep(down_time)
+                                        self.key_up(key)
+                                        if i < n - 1:
+                                            time.sleep(up_time)
+                                except Exception as e:
+                                    log.error(f"[VKEYS] Error in ArduinoOutputWrapper.press: {e}")
+                                    import traceback
+                                    log.error(traceback.format_exc())
                         
                         _arduino_output = ArduinoOutputWrapper(shared_conn)
                         log.info("Arduino output initialized successfully (using SharedArduinoConnection)")
