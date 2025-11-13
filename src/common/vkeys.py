@@ -240,6 +240,17 @@ def key_down(key):
     :param key:     The key to press.
     :return:        None
     """
+    # Check if force Arduino mode is enabled (block VM input mode)
+    if hasattr(config, 'block_vm_input') and hasattr(config, 'force_arduino_output'):
+        if config.block_vm_input and config.force_arduino_output:
+            arduino = _get_arduino_output()
+            if arduino and arduino.connected:
+                arduino.key_down(key)
+                return
+            else:
+                log.error("[VKEYS] Force Arduino mode enabled but Arduino not connected! Skipping key_down('%s')", key)
+                return  # Don't fallback to SendInput
+    
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
@@ -268,6 +279,17 @@ def key_up(key):
     :param key:     The key to press.
     :return:        None
     """
+    # Check if force Arduino mode is enabled (block VM input mode)
+    if hasattr(config, 'block_vm_input') and hasattr(config, 'force_arduino_output'):
+        if config.block_vm_input and config.force_arduino_output:
+            arduino = _get_arduino_output()
+            if arduino and arduino.connected:
+                arduino.key_up(key)
+                return
+            else:
+                log.error("[VKEYS] Force Arduino mode enabled but Arduino not connected! Skipping key_up('%s')", key)
+                return  # Don't fallback to SendInput
+    
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
@@ -326,6 +348,18 @@ def press(key, n, down_time=0.05, up_time=0.1):
     :param up_time:     Duration of release (in seconds).
     :return:            None
     """
+    # Check if force Arduino mode is enabled (block VM input mode)
+    if hasattr(config, 'block_vm_input') and hasattr(config, 'force_arduino_output'):
+        if config.block_vm_input and config.force_arduino_output:
+            arduino = _get_arduino_output()
+            if arduino and arduino.connected:
+                # Use Arduino
+                arduino.press(key, n, down_time, up_time)
+                return
+            else:
+                log.error("[VKEYS] Force Arduino mode enabled but Arduino not connected! Skipping press('%s', %d)", key, n)
+                return  # Don't fallback to SendInput
+    
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:

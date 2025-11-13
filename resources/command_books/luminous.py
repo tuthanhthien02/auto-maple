@@ -3,9 +3,12 @@
 from src.routine.components import Command
 from src.common.vkeys import press, key_down, key_up
 from src.common import config, utils, settings
+from src.common.logger import get_logger
 import time
 import random
 import math
+
+log = get_logger(__name__)
 
 
 # Global timing configuration for random delays
@@ -54,6 +57,16 @@ class TimingConfig:
     NUDGE = {
         'x': (0.002, 0.006),   # 0.2~0.6% map width
         'y': (0.002, 0.005),   # 0.2~0.5% map height
+    }
+    
+    # Step movement configuration
+    STEP_MOVEMENT = {
+        'hold_threshold_multiplier': 3.0,  # Multiplier for move_tolerance to determine hold vs press
+        # Distance > (move_tolerance * multiplier) → hold key (xa)
+        # Distance ≤ (move_tolerance * multiplier) → press key (gần)
+        # Có thể chỉnh multiplier này nếu test thực tế không work:
+        # - Tăng multiplier (vd: 4.0, 5.0) → nhiều trường hợp dùng press key hơn
+        # - Giảm multiplier (vd: 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
     }
 
 
@@ -486,12 +499,8 @@ class Adjust(Command):
                         # Use Luminous teleport up
                         Teleport('up').main()
                     else:
-                        # Use Luminous jump down
-                        key_down('down')
-                        time.sleep(0.05)
-                        press(Key.jump, 3, down_time=0.1)
-                        key_up('down')
-                        time.sleep(0.05)
+                        # Use Luminous jump down - FIXED: Use Jump_Down class instead of manual press
+                        Jump_Down(1).main()  # Use existing Jump_Down class with proper timing
                     counter -= 1
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
@@ -503,13 +512,26 @@ class Adjust(Command):
         key_up('down')
 
 
-def step(direction, target):
+def step(direction, target, distance=None):
     """
     Performs one movement step in the given DIRECTION towards TARGET.
     Should not press any arrow keys, as those are handled by Auto Maple.
     Based on Kanna's intelligent step() with Luminous improvements.
+    
+    :param direction: Direction to move ('left', 'right', 'up', 'down')
+    :param target: Target location
+    :param distance: Optional distance to target. If None, will be calculated.
     """
-
+    
+    # Calculate distance if not provided
+    if distance is None:
+        distance = utils.distance(config.player_pos, target)
+    
+    # Threshold để quyết định hold vs press
+    # Distance > threshold → hold key (xa), ≤ threshold → press key (gần)
+    # Configurable via TimingConfig.STEP_MOVEMENT['hold_threshold_multiplier']
+    hold_threshold = settings.move_tolerance * TimingConfig.STEP_MOVEMENT['hold_threshold_multiplier']
+    
     # Anti-detect delay (from Kanna)
     if config.stage_fright and direction != 'up' and utils.bernoulli(0.75):
         time.sleep(utils.rand_float(0.1, 0.3))
@@ -524,17 +546,57 @@ def step(direction, target):
 
     # Handle different directions (hybrid approach)
     if direction in ('left', 'right'):
-        # Short walk for horizontal movement (from Luminous)
-        try:
-            key_down(getattr(Key, direction))
-            time.sleep(0.1)
-        finally:
-            key_up(getattr(Key, direction))
-        time.sleep(0.05)
+        # Horizontal movement - Distance-based: Hold (xa) vs Press (gần)
+        direction_key = getattr(Key, direction)
+        
+        if distance > hold_threshold:
+            # Distance xa → Hold key với random timing (human-like)
+            log.debug("🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s", 
+                     distance, hold_threshold, direction)
+            try:
+                key_down(direction_key)
+                time.sleep(random.uniform(0.08, 0.15))
+            finally:
+                key_up(direction_key)
+            time.sleep(random.uniform(0.03, 0.08))
+        else:
+            # Distance gần → Press key (tap ngắn, human-like)
+            log.debug("👆 Human-like: distance gần (%.3f ≤ %.3f) → press key %s", 
+                     distance, hold_threshold, direction)
+            press(direction_key, 1, down_time=random.uniform(0.05, 0.08), up_time=0.02)
+            time.sleep(random.uniform(0.02, 0.05))
     else:
-        # Teleport for vertical movement (from Kanna)
-        num_presses = 2 if direction in ('up', 'down') else 1
-        press(Key.teleport, num_presses)
+        # Teleport for vertical movement - FIXED: Hold direction key first
+        direction_key = getattr(Key, direction)
+        try:
+            # Hold direction key FIRST with random timing (like Teleport class)
+            key_down(direction_key)
+            time.sleep(random.uniform(*TimingConfig.TELEPORT['direction_delay']))
+            
+            if direction in ('up', 'down'):
+                # Vertical teleport: Hold direction + Press ALT + Press W
+                key_down(Key.jump)
+                time.sleep(random.uniform(*TimingConfig.TELEPORT['vertical_jump_hold']))
+                key_up(Key.jump)
+                time.sleep(random.uniform(*TimingConfig.TELEPORT['vertical_jump_release']))
+                
+                num_presses = 1  # Vertical = 1 press
+                for _ in range(num_presses):
+                    key_down(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT['teleport_hold']))
+                    key_up(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT['teleport_release']))
+            else:
+                # Horizontal teleport: Hold direction + Press W (NO ALT)
+                num_presses = 2
+                for _ in range(num_presses):
+                    key_down(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT['teleport_hold']))
+                    key_up(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT['teleport_release']))
+        finally:
+            # ALWAYS Release direction key
+            key_up(direction_key)
 
 
 # ==================== RANDOM ACTIONS ====================

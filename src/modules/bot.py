@@ -22,6 +22,7 @@ from src.routine.components import Point
 from src.common.vkeys import press, click, press_with_behavioral_pause
 from src.common.interfaces import Configurable
 from src.common.logger import get_logger
+from src.common.metrics_logger import get_metrics_logger
 
 
 # The rune's buff icon
@@ -109,14 +110,25 @@ class Bot(Configurable):
 
         self.ready = True
         config.listener.enabled = True
-        last_fed = time.time()
         last_activity_update = time.time()
         
         # Variant switching - DISABLED
         # Routine starts from index 0 (normal behavior)
         
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+        metrics = get_metrics_logger()
+        
         while True:
+            try:
+                # Check if we should log periodic summary
+                if metrics.should_log_summary():
+                    metrics.log_summary()
+                
             if config.enabled and len(config.routine) > 0:
+                    # Track loop start time
+                    loop_start_time = time.time()
+                    
                 # Update activity for anti-detect
                 current_time = time.time()
                 if current_time - last_activity_update > 1.0:  # Update every second
@@ -135,14 +147,18 @@ class Bot(Configurable):
                 #     last_fed = now
 
                 # Highlight the current Point
+                    try:
                 config.gui.view.routine.select(config.routine.index)
                 config.gui.view.details.display_info(config.routine.index)
+                    except Exception as gui_error:
+                        log.debug("GUI update error (non-critical): %s", gui_error)
 
                 # Random Move Backward: Check if we should backward BEFORE any command execution
                 should_backward, backward_steps = config.routine.should_backward()
                 if should_backward:
                     # Apply backward movement
                     config.routine.apply_backward(backward_steps)
+                        metrics.record_backward_movement()
                     # Get new element after backward
                     element = config.routine[config.routine.index]
                     element_type = element.__class__.__name__
@@ -166,6 +182,7 @@ class Bot(Configurable):
                     if isinstance(element, Point):
                         log.info("🚫 Point Selection Randomization: SKIPPING execution of point at index %d", 
                                 config.routine.index)
+                            metrics.record_point_skip()
                         # Set skip context for next point (so Move command can teleport if distance is far)
                         config.routine.is_skipping_context = True
                     # Step to next point (skip current)
@@ -176,6 +193,9 @@ class Bot(Configurable):
                     if isinstance(element, Point):
                         log.info("▶️ Point Selection Randomization: EXECUTING point at index %d (location: %.3f, %.3f)", 
                                 config.routine.index, element.location[0], element.location[1])
+                            metrics.record_point_execution()
+                            # Update position for stuck detection
+                            metrics.update_position(element.location)
                     # Disabled: rune solving turned off
                     # if self.rune_active and isinstance(element, Point) \
                     #         and element.location == self.rune_closest_pos:
@@ -187,11 +207,51 @@ class Bot(Configurable):
                     # Reset backward context after executing
                     config.routine.is_backwarding_context = False
                     # Note: consecutive_skips is already reset in should_skip_current_point() when we don't skip
+                    
+                    # Record loop completion
+                    loop_duration = time.time() - loop_start_time
+                    metrics.record_loop_completion(loop_duration)
+                    
+                    # Reset error counter on successful execution
+                    consecutive_errors = 0
+                    
                 # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
                 time.sleep(0.05)
             else:
                 # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
                 time.sleep(0.2)
+                    
+            except KeyboardInterrupt:
+                # Allow clean shutdown on Ctrl+C
+                log.info("Bot loop interrupted by user")
+                raise
+            except Exception as e:
+                consecutive_errors += 1
+                metrics.record_error()
+                log.error("Bot loop error (consecutive: %d/%d): %s", 
+                         consecutive_errors, max_consecutive_errors, e, exc_info=True)
+                
+                # If too many consecutive errors, disable bot to prevent infinite loop
+                if consecutive_errors >= max_consecutive_errors:
+                    log.critical("Too many consecutive errors (%d), disabling bot to prevent crash", 
+                                consecutive_errors)
+                    config.enabled = False
+                    consecutive_errors = 0  # Reset counter
+                    time.sleep(5)  # Wait before retrying
+                else:
+                    # Recovery: Skip current point and continue
+                    try:
+                        if len(config.routine) > 0 and config.routine.index < len(config.routine.sequence):
+                            log.warning("Recovering: Skipping current point and continuing")
+                            metrics.record_recovery()
+                            config.routine.step()
+                            config.routine.is_skipping_context = False
+                            config.routine.is_backwarding_context = False
+                    except Exception as recovery_error:
+                        log.error("Recovery failed: %s", recovery_error, exc_info=True)
+                    
+                    # Brief pause before retry
+                    time.sleep(0.5)
 
     @utils.run_if_enabled
     def _solve_rune(self, model):

@@ -67,6 +67,8 @@ class Notifier:
         self.ready = True
         prev_others = 0
         rune_start_time = time.time()
+        consecutive_errors = 0
+        max_consecutive_errors = 10
         
         # CPU Optimization: Throttle checks with different intervals
         last_black_check = time.time()
@@ -75,66 +77,86 @@ class Notifier:
         last_rune_check = time.time()
         
         while True:
-            if config.enabled:
-                current_time = time.time()
-                frame = config.capture.frame
-                height, width, _ = frame.shape
-                minimap = config.capture.minimap['minimap']
+            try:
+                if config.enabled:
+                    current_time = time.time()
+                    frame = config.capture.frame
+                    height, width, _ = frame.shape
+                    minimap = config.capture.minimap['minimap']
 
-                # CPU Optimization: Check black screen every 0.2s (5 Hz)
-                if current_time - last_black_check > 0.2:
-                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    if np.count_nonzero(gray < 15) / height / width > self.room_change_threshold:
-                        self._alert('siren')
-                    last_black_check = current_time
+                    # CPU Optimization: Check black screen every 0.2s (5 Hz)
+                    if current_time - last_black_check > 0.2:
+                        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        if np.count_nonzero(gray < 15) / height / width > self.room_change_threshold:
+                            self._alert('siren')
+                        last_black_check = current_time
 
-                # CPU Optimization: Check elite warning every 0.5s (2 Hz)
-                if current_time - last_elite_check > 0.5:
-                    elite_frame = frame[height // 4:3 * height // 4, width // 4:3 * width // 4]
-                    # CPU Optimization: Pre-convert to grayscale once
-                    elite_frame_gray = cv2.cvtColor(elite_frame, cv2.COLOR_BGR2GRAY)
-                    elite = utils.multi_match(elite_frame_gray, ELITE_TEMPLATE, threshold=0.9, is_gray=True)
-                    if len(elite) > 0:
-                        self._alert('siren')
-                    last_elite_check = current_time
+                    # CPU Optimization: Check elite warning every 0.5s (2 Hz)
+                    if current_time - last_elite_check > 0.5:
+                        elite_frame = frame[height // 4:3 * height // 4, width // 4:3 * width // 4]
+                        # CPU Optimization: Pre-convert to grayscale once
+                        elite_frame_gray = cv2.cvtColor(elite_frame, cv2.COLOR_BGR2GRAY)
+                        elite = utils.multi_match(elite_frame_gray, ELITE_TEMPLATE, threshold=0.9, is_gray=True)
+                        if len(elite) > 0:
+                            self._alert('siren')
+                        last_elite_check = current_time
 
-                # CPU Optimization: Check other players every 0.3s (~3.3 Hz)
-                if current_time - last_others_check > 0.3:
-                    filtered = utils.filter_color(minimap, OTHER_RANGES)
-                    # CPU Optimization: Pre-convert to grayscale once
-                    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
-                    others = len(utils.multi_match(filtered_gray, OTHER_TEMPLATE, threshold=0.5, is_gray=True))
-                    config.stage_fright = others > 0
-                    if others != prev_others:
-                        if others > prev_others:
-                            self._ping('ding')
-                        prev_others = others
-                    last_others_check = current_time
-
-                # CPU Optimization: Check rune every 0.5s (2 Hz)
-                now = time.time()
-                if current_time - last_rune_check > 0.5:
-                    if not config.bot.rune_active:
-                        filtered = utils.filter_color(minimap, RUNE_RANGES)
+                    # CPU Optimization: Check other players every 0.3s (~3.3 Hz)
+                    if current_time - last_others_check > 0.3:
+                        filtered = utils.filter_color(minimap, OTHER_RANGES)
                         # CPU Optimization: Pre-convert to grayscale once
                         filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
-                        matches = utils.multi_match(filtered_gray, RUNE_TEMPLATE, threshold=0.9, is_gray=True)
-                        rune_start_time = now
-                        if matches and config.routine.sequence:
-                            abs_rune_pos = (matches[0][0], matches[0][1])
-                            config.bot.rune_pos = utils.convert_to_relative(abs_rune_pos, minimap)
-                            distances = list(map(distance_to_rune, config.routine.sequence))
-                            index = np.argmin(distances)
-                            config.bot.rune_closest_pos = config.routine[index].location
-                            config.bot.rune_active = True
-                            self._ping('rune_appeared', volume=0.75)
-                    elif now - rune_start_time > self.rune_alert_delay:     # Alert if rune hasn't been solved
-                        config.bot.rune_active = False
-                        self._alert('siren')
-                    last_rune_check = current_time
-            
-            # CPU Optimization: 10 Hz instead of 20 Hz (sufficient for notifier)
-            time.sleep(0.1)
+                        others = len(utils.multi_match(filtered_gray, OTHER_TEMPLATE, threshold=0.5, is_gray=True))
+                        config.stage_fright = others > 0
+                        if others != prev_others:
+                            if others > prev_others:
+                                self._ping('ding')
+                            prev_others = others
+                        last_others_check = current_time
+
+                    # CPU Optimization: Check rune every 0.5s (2 Hz)
+                    now = time.time()
+                    if current_time - last_rune_check > 0.5:
+                        if not config.bot.rune_active:
+                            filtered = utils.filter_color(minimap, RUNE_RANGES)
+                            # CPU Optimization: Pre-convert to grayscale once
+                            filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+                            matches = utils.multi_match(filtered_gray, RUNE_TEMPLATE, threshold=0.9, is_gray=True)
+                            rune_start_time = now
+                            if matches and config.routine.sequence:
+                                abs_rune_pos = (matches[0][0], matches[0][1])
+                                config.bot.rune_pos = utils.convert_to_relative(abs_rune_pos, minimap)
+                                distances = list(map(distance_to_rune, config.routine.sequence))
+                                index = np.argmin(distances)
+                                config.bot.rune_closest_pos = config.routine[index].location
+                                config.bot.rune_active = True
+                                self._ping('rune_appeared', volume=0.75)
+                        elif now - rune_start_time > self.rune_alert_delay:     # Alert if rune hasn't been solved
+                            config.bot.rune_active = False
+                            self._alert('siren')
+                        last_rune_check = current_time
+                
+                # Reset error counter on successful iteration
+                consecutive_errors = 0
+                
+                # CPU Optimization: 10 Hz instead of 20 Hz (sufficient for notifier)
+                time.sleep(0.1)
+                
+            except KeyboardInterrupt:
+                log.info("Notifier loop interrupted by user")
+                raise
+            except Exception as e:
+                consecutive_errors += 1
+                log.error("Notifier error (consecutive: %d/%d): %s", 
+                         consecutive_errors, max_consecutive_errors, e, exc_info=True)
+                
+                # If too many errors, wait longer before retry
+                if consecutive_errors >= max_consecutive_errors:
+                    log.warning("Too many notifier errors, waiting 2 seconds before retry")
+                    consecutive_errors = 0
+                    time.sleep(2)
+                else:
+                    time.sleep(0.2)  # Brief pause before retry
 
     def _alert(self, name, volume=0.75):
         """

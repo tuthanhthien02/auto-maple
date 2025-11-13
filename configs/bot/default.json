@@ -59,6 +59,20 @@
                 "observability": {
                     "log_every_loops": 10
                 }
+            },
+            "dynamic_paths": {
+                "enabled": false,
+                "path_count": 4,
+                "generation_strategy": "random_skip",
+                "skip_percentage_range": [0.1, 0.3],
+                "selection_mode": "transition_matrix",
+                "switch_interval": {
+                    "min_loops": 2,
+                    "max_loops": 5
+                },
+                "transition_matrix": {
+                    "auto": true
+                }
             }
         }
     },

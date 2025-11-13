@@ -38,10 +38,20 @@ class VMwareReceiver(LabelFrame):
         
         self.settings = VMwareReceiverSettings('vmware_receiver')
         
-        # Load settings
+        # Load settings - ensure default is False (disabled)
         enabled = self.settings.get(VMWARE_RECEIVER_ENABLED_KEY)
         if not isinstance(enabled, bool):
             enabled = False
+        
+        # Force disable on first load if config says disabled (ensures default behavior)
+        # This prevents auto-enabling from saved settings on first run
+        if not hasattr(config, '_vmware_receiver_gui_loaded'):
+            # First time GUI loads - respect config.py default (False)
+            if config.enable_vmware_receiver is False:
+                enabled = False
+                self.settings.set(VMWARE_RECEIVER_ENABLED_KEY, False)
+                self.settings.save_config()
+            config._vmware_receiver_gui_loaded = True
         
         port = self.settings.get(VMWARE_RECEIVER_PORT_KEY)
         try:
@@ -110,8 +120,18 @@ class VMwareReceiver(LabelFrame):
         # Update UI state
         self._update_ui_state()
         
-        # Sync with config
+        # Sync with config (ensure config is updated from GUI settings)
         self._sync_to_config()
+        
+        # Ensure default is disabled on first load (override any saved settings if needed)
+        # This ensures VMware Receiver is disabled by default unless explicitly enabled by user
+        if not hasattr(config, '_vmware_receiver_initialized'):
+            # First time initialization - ensure disabled
+            if config.enable_vmware_receiver and not enabled:
+                # Config says enabled but GUI says disabled - sync to disabled
+                log.info("[VMWARE_RECEIVER_GUI] Ensuring VMware Receiver is disabled by default")
+                config.enable_vmware_receiver = False
+            config._vmware_receiver_initialized = True
     
     def _update_ui_state(self):
         """Update UI state based on enabled checkbox"""

@@ -102,6 +102,11 @@ class Capture:
         self.pos_update_interval = 0.5  # Force update every 0.5s even if position unchanged
         self.position_check_interval = 0.2  # Check position change every 0.2s
 
+        # Minimap calibration coordinates (stored for recalibration)
+        self.mm_tl = None
+        self.mm_br = None
+        self._recalibrate_requested = False
+
     def start(self):
         """Starts this Capture's thread."""
 
@@ -112,7 +117,11 @@ class Capture:
         """Constantly monitors the player's position and in-game events."""
 
         mss.windows.CAPTUREBLT = 0
+        consecutive_calibration_errors = 0
+        max_calibration_errors = 20
+        
         while True:
+            try:
             # Calibrate screen capture (try MapleStory N first, then MapleStory)
             handle = None
             for title in ['MapleStory N', 'MapleStory']:
@@ -248,11 +257,25 @@ class Capture:
             
             if DEBUG:
                 log.debug("Calibration successful! Minimap size: %sx%s", mm_br[0]-mm_tl[0], mm_br[1]-mm_tl[1])
+                
+                # Store calibration coordinates as instance variables
+                self.mm_tl = mm_tl
+                self.mm_br = mm_br
             self.calibrated = True
+                self._recalibrate_requested = False
+                consecutive_calibration_errors = 0  # Reset on success
 
             with mss.mss() as self.sct:
+                    consecutive_tracking_errors = 0
+                    max_tracking_errors = 10
+                    
                 while True:
-                    if not self.calibrated:
+                        try:
+                            if not self.calibrated or self._recalibrate_requested:
+                                if self._recalibrate_requested:
+                                    log.info("🔄 Recalibration requested, restarting calibration...")
+                                    self.calibrated = False
+                                    self._recalibrate_requested = False
                         break
 
                     # CPU Optimization: Adaptive frame rate based on bot state
@@ -275,8 +298,8 @@ class Capture:
                         time.sleep(frame_delay)
                         continue
 
-                    # Crop the frame to only show the minimap
-                    minimap = self.frame[mm_tl[1]:mm_br[1], mm_tl[0]:mm_br[0]]
+                            # Crop the frame to only show the minimap (use stored coordinates)
+                            minimap = self.frame[self.mm_tl[1]:self.mm_br[1], self.mm_tl[0]:self.mm_br[0]]
                     
                     # CPU Optimization: Skip template matching if position hasn't changed
                     # Only skip if:
@@ -338,8 +361,45 @@ class Capture:
                     if not self.ready:
                         self.ready = True
                     
+                            # Reset error counter on successful iteration
+                            consecutive_tracking_errors = 0
+                            
                     # CPU Optimization: Use adaptive delay instead of fixed 0.001s
                     time.sleep(frame_delay)
+                            
+                        except KeyboardInterrupt:
+                            log.info("Capture tracking loop interrupted by user")
+                            raise
+                        except Exception as e:
+                            consecutive_tracking_errors += 1
+                            log.error("Capture tracking error (consecutive: %d/%d): %s", 
+                                     consecutive_tracking_errors, max_tracking_errors, e, exc_info=True)
+                            
+                            # If too many errors, force recalibration
+                            if consecutive_tracking_errors >= max_tracking_errors:
+                                log.warning("Too many tracking errors, forcing recalibration")
+                                self.calibrated = False
+                                self._recalibrate_requested = False
+                                break
+                            
+                            # Brief pause before retry
+                            time.sleep(0.1)
+                            
+            except KeyboardInterrupt:
+                log.info("Capture calibration loop interrupted by user")
+                raise
+            except Exception as e:
+                consecutive_calibration_errors += 1
+                log.error("Capture calibration error (consecutive: %d/%d): %s", 
+                         consecutive_calibration_errors, max_calibration_errors, e, exc_info=True)
+                
+                # If too many consecutive calibration errors, wait longer before retry
+                if consecutive_calibration_errors >= max_calibration_errors:
+                    log.warning("Too many calibration errors, waiting 5 seconds before retry")
+                    time.sleep(5)
+                    consecutive_calibration_errors = 0  # Reset counter
+                else:
+                    time.sleep(0.5)  # Brief pause before retry
 
     def screenshot(self, delay=1):
         try:
@@ -348,3 +408,16 @@ class Capture:
             suffix = 's' if delay != 1 else ''
             log.warning("Error while taking screenshot, retrying in %s second%s", delay, suffix)
             time.sleep(delay)
+    
+    def recalibrate_minimap(self):
+        """
+        Request recalibration of minimap location.
+        This is useful when the player moves to a different map.
+        """
+        if not self.ready:
+            log.warning("Cannot recalibrate: Capture module not ready yet")
+            return False
+        
+        log.info("📍 Recalibration requested by user")
+        self._recalibrate_requested = True
+        return True

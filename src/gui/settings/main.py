@@ -28,6 +28,11 @@ class Settings(Tab):
         self.routine_randomization.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
         self.vmware_receiver = VMwareReceiver(self.column1)
         self.vmware_receiver.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
+        
+        # VM Input Blocker
+        from src.gui.settings.vm_input_blocker import VMInputBlocker
+        self.vm_input_blocker = VMInputBlocker(self.column1)
+        self.vm_input_blocker.pack(side=tk.TOP, fill='x', expand=True, pady=(10, 0))
 
         self.column2 = Frame(self)
         self.column2.grid(row=0, column=2, sticky=tk.N, padx=10, pady=10)

@@ -48,19 +48,43 @@ class Listener(Configurable):
         """
 
         self.ready = True
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+        
         while True:
-            if self.enabled:
-                if kb.is_pressed(self.config['Start/stop']):
-                    Listener.toggle_enabled()
-                elif kb.is_pressed(self.config['Reload routine']):
-                    Listener.reload_routine()
-                elif self.restricted_pressed('Record position'):
-                    Listener.record_position()
-                # CPU Optimization: 50 Hz when enabled (sufficient for keyboard responsiveness)
-                time.sleep(0.02)
-            else:
-                # CPU Optimization: 20 Hz when disabled (enough to detect enable)
-                time.sleep(0.05)
+            try:
+                if self.enabled:
+                    if kb.is_pressed(self.config['Start/stop']):
+                        Listener.toggle_enabled()
+                    elif kb.is_pressed(self.config['Reload routine']):
+                        Listener.reload_routine()
+                    elif self.restricted_pressed('Record position'):
+                        Listener.record_position()
+                    # CPU Optimization: 50 Hz when enabled (sufficient for keyboard responsiveness)
+                    time.sleep(0.02)
+                else:
+                    # CPU Optimization: 20 Hz when disabled (enough to detect enable)
+                    time.sleep(0.05)
+                
+                # Reset error counter on successful iteration
+                consecutive_errors = 0
+                
+            except KeyboardInterrupt:
+                log.info("Listener loop interrupted by user")
+                raise
+            except Exception as e:
+                consecutive_errors += 1
+                log.error("Listener error (consecutive: %d/%d): %s", 
+                         consecutive_errors, max_consecutive_errors, e, exc_info=True)
+                
+                # If too many errors, disable listener temporarily
+                if consecutive_errors >= max_consecutive_errors:
+                    log.warning("Too many listener errors, temporarily disabling")
+                    self.enabled = False
+                    consecutive_errors = 0
+                    time.sleep(2)
+                else:
+                    time.sleep(0.1)  # Brief pause before retry
 
     def restricted_pressed(self, action):
         """Returns whether the key bound to ACTION is pressed only if the bot is disabled."""

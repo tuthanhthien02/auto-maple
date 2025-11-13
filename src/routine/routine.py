@@ -11,6 +11,7 @@ from src.routine.components import Point, Label, Jump, Setting, Command, SYMBOLS
 from src.routine.layout import Layout
 from src.common.logger import get_logger
 from src.common.anti_detect_config import get_feature_value, is_feature_enabled
+from src.common.metrics_logger import get_metrics_logger
 
 log = get_logger(__name__)
 
@@ -114,6 +115,21 @@ class Routine:
             'micro_pauses': 0,
             'micro_gestures': 0
         }
+        # Dynamic Paths
+        self.dynamic_paths_enabled = False
+        self.dynamic_paths_config = {
+            'path_count': 4,
+            'generation_strategy': 'random_skip',  # 'random_skip', 'partial', 'mixed'
+            'skip_percentage_range': (0.1, 0.3),
+            'selection_mode': 'transition_matrix',  # 'random', 'weighted', 'transition_matrix', 'sequential'
+            'switch_interval': {'min_loops': 2, 'max_loops': 5},
+            'transition_matrix': {}  # Will be auto-generated or from config
+        }
+        self.dynamic_paths = []  # List of generated paths: [{'id': 'path1', 'indices': [0,1,2,...], 'weight': 1.0}, ...]
+        self.current_path_id = None  # Current active path ID
+        self.path_switch_counter = 0  # Counter for switch interval
+        self.path_switch_interval = random.randint(2, 5)  # Current switch interval
+        self.original_sequence_indices = []  # Original sequence indices before path generation
         
         # Load randomization settings from GUI
         self._load_randomization_settings()
@@ -148,6 +164,7 @@ class Routine:
         self._load_pattern_defaults()
         self._load_command_sequence_defaults()
         self._load_movement_defaults()
+        self._load_dynamic_paths_defaults()
         raw_floor_descriptors = get_feature_value('routine_randomization.floor_descriptors', None)
         self._load_floor_descriptor_config(raw_floor_descriptors)
 
@@ -217,6 +234,36 @@ class Routine:
             self.observability_config['log_every_loops'] = max(0, loops)
         except (TypeError, ValueError):
             pass
+
+    def _load_dynamic_paths_defaults(self):
+        """Load dynamic paths configuration from anti_detect_config."""
+        paths_cfg = get_feature_value('routine_randomization.dynamic_paths', {}) or {}
+        self.dynamic_paths_enabled = paths_cfg.get('enabled', False)
+        
+        if self.dynamic_paths_enabled:
+            self.dynamic_paths_config['path_count'] = max(2, min(10, paths_cfg.get('path_count', 4)))
+            self.dynamic_paths_config['generation_strategy'] = paths_cfg.get('generation_strategy', 'random_skip')
+            skip_range = paths_cfg.get('skip_percentage_range', [0.1, 0.3])
+            if isinstance(skip_range, (list, tuple)) and len(skip_range) == 2:
+                try:
+                    low = max(0.0, min(0.9, float(skip_range[0])))
+                    high = max(0.0, min(0.9, float(skip_range[1])))
+                    if high < low:
+                        low, high = high, low
+                    self.dynamic_paths_config['skip_percentage_range'] = (low, high)
+                except (TypeError, ValueError):
+                    pass
+            
+            self.dynamic_paths_config['selection_mode'] = paths_cfg.get('selection_mode', 'transition_matrix')
+            switch_interval = paths_cfg.get('switch_interval', {})
+            if isinstance(switch_interval, dict):
+                min_loops = max(1, switch_interval.get('min_loops', 2))
+                max_loops = max(min_loops, switch_interval.get('max_loops', 5))
+                self.dynamic_paths_config['switch_interval'] = {'min_loops': min_loops, 'max_loops': max_loops}
+            
+            transition_matrix = paths_cfg.get('transition_matrix', {})
+            if isinstance(transition_matrix, dict):
+                self.dynamic_paths_config['transition_matrix'] = transition_matrix
 
     def _load_variant_weights_from_config(self):
         """Load variant weights from anti_detect_config (used for normal/reverse/floor variants)."""
@@ -869,6 +916,11 @@ class Routine:
 
         log.info("🔄 Routine Pattern Variation: Switched to variant '%s' (switch every %d loops, %d loop(s) remaining before next switch)", 
                  self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
+        # Record variant switch in metrics
+        try:
+            get_metrics_logger().record_variant_switch(self.current_variant)
+        except Exception:
+            pass  # Metrics logger might not be initialized yet
 
     def _maybe_activate_floor_variant(self):
         """Randomly activate a floor-only variant after completing a loop."""
@@ -951,10 +1003,27 @@ class Routine:
         return 0
 
     def _get_variant_next_index(self, current_index):
-        """Get next index based on current variant."""
+        """Get next index based on current variant and dynamic paths."""
         if len(self.sequence) == 0:
             return 0
         
+        # If dynamic paths enabled, step within current path
+        if self.dynamic_paths_enabled and self.current_path_id:
+            path_indices = self._get_current_path_indices()
+            if path_indices and current_index in path_indices:
+                try:
+                    current_path_idx = path_indices.index(current_index)
+                    if current_path_idx < len(path_indices) - 1:
+                        # Not at end of path, step to next point in path
+                        return path_indices[current_path_idx + 1]
+                    else:
+                        # At end of path, loop back to start of path
+                        return path_indices[0]
+                except ValueError:
+                    # Current index not in path, fallback to first point in path
+                    return path_indices[0] if path_indices else current_index
+        
+        # Normal variant logic (when dynamic paths disabled or not in path)
         if self.current_variant == 'normal':
             # Normal: forward
             return (current_index + 1) % len(self.sequence)
@@ -1094,6 +1163,16 @@ class Routine:
     def _detect_loop_completion(self, old_index):
         if self.last_index == -1:
             return False
+        
+        # Check dynamic path loop completion first
+        if self.dynamic_paths_enabled and self.current_path_id:
+            path_indices = self._get_current_path_indices()
+            if path_indices:
+                # Loop completed when we're back at first point in path
+                first_path_idx = path_indices[0]
+                return old_index == path_indices[-1] and self.index == first_path_idx
+        
+        # Normal variant logic
         if self.current_variant == 'normal':
             return old_index == len(self.sequence) - 1 and self.index == 0
         if self.current_variant == 'reverse':
@@ -1122,6 +1201,18 @@ class Routine:
     def _on_loop_completed(self):
         self.loop_count += 1
         self.variant_switch_counter += 1
+        
+        # Handle dynamic path switching
+        if self.dynamic_paths_enabled and self.current_path_id:
+            self.path_switch_counter += 1
+            if self.path_switch_counter >= self.path_switch_interval:
+                # Time to switch path
+                self._select_next_path()
+            else:
+                loops_remaining = self.path_switch_interval - self.path_switch_counter
+                log.info("🛤️ Dynamic Paths: Loop completed on %s (%d/%d loops, %d remaining before switch)",
+                        self.current_path_id, self.path_switch_counter, self.path_switch_interval, loops_remaining)
+        
         loops_remaining = self.variant_switch_interval - self.variant_switch_counter
         log.info("🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
                  self.loop_count, self.current_variant,
@@ -1187,6 +1278,12 @@ class Routine:
             'micro_pauses': 0,
             'micro_gestures': 0
         }
+        # Reset Dynamic Paths
+        self.dynamic_paths = []
+        self.current_path_id = None
+        self.path_switch_counter = 0
+        self.path_switch_interval = random.randint(2, 5)
+        self.original_sequence_indices = []
 
         config.gui.clear_routine_info()
 
@@ -1253,6 +1350,19 @@ class Routine:
                     self.current_variant, self.variant_switch_interval, self.variant_switch_interval)
             log.info("🛗 Routine Pattern Variation: Floor-only activation chance %.0f%%, loop range %d-%d", 
                      self.floor_variant_chance * 100, self.floor_variant_loop_range[0], self.floor_variant_loop_range[1])
+        
+        # Initialize Dynamic Paths
+        if self.dynamic_paths_enabled:
+            self._generate_dynamic_paths()
+            if self.dynamic_paths:
+                self._generate_transition_matrix()
+                self._select_initial_path()
+                log.info("🛤️ Dynamic Paths: Generated %d paths, selection mode: %s", 
+                        len(self.dynamic_paths), self.dynamic_paths_config['selection_mode'])
+                log.info("🛤️ Dynamic Paths: Switch interval %d-%d loops, current path: %s", 
+                        self.dynamic_paths_config['switch_interval']['min_loops'],
+                        self.dynamic_paths_config['switch_interval']['max_loops'],
+                        self.current_path_id)
 
     def compile(self, file):
         self.labels = {}
@@ -1295,6 +1405,257 @@ class Routine:
             except (ValueError, TypeError) as e:
                 print(line_error + f"Found invalid arguments for '{c.__name__}':")
                 print(f"{' ' * 4} -  {e}")
+
+    def _generate_dynamic_paths(self):
+        """Generate dynamic paths from the routine sequence."""
+        if not self.sequence:
+            log.warning("🛤️ Dynamic Paths: Cannot generate paths - sequence is empty")
+            self.dynamic_paths = []
+            return
+        
+        # Get all Point indices (skip Labels, Jumps, Settings)
+        point_indices = [i for i, item in enumerate(self.sequence) if isinstance(item, Point)]
+        
+        if len(point_indices) < 2:
+            log.warning("🛤️ Dynamic Paths: Not enough points to generate paths (need at least 2, got %d)", len(point_indices))
+            self.dynamic_paths = []
+            return
+        
+        # Store original sequence indices
+        self.original_sequence_indices = list(range(len(self.sequence)))
+        
+        path_count = self.dynamic_paths_config['path_count']
+        strategy = self.dynamic_paths_config['generation_strategy']
+        skip_range = self.dynamic_paths_config['skip_percentage_range']
+        
+        self.dynamic_paths = []
+        
+        # Path 1: Full path (always include)
+        full_path = {
+            'id': 'path1',
+            'indices': point_indices.copy(),
+            'weight': 1.0,
+            'description': 'Full path (100% points)'
+        }
+        self.dynamic_paths.append(full_path)
+        
+        # Generate additional paths based on strategy
+        for path_num in range(2, path_count + 1):
+            path_id = f'path{path_num}'
+            path_indices = self._generate_single_path(point_indices, strategy, skip_range, path_num)
+            
+            if path_indices and len(path_indices) >= 2:
+                path = {
+                    'id': path_id,
+                    'indices': path_indices,
+                    'weight': 1.0,  # Equal weight by default
+                    'description': f'Generated path {path_num} ({len(path_indices)}/{len(point_indices)} points)'
+                }
+                self.dynamic_paths.append(path)
+        
+        # Normalize weights
+        total_weight = sum(p['weight'] for p in self.dynamic_paths)
+        if total_weight > 0:
+            for path in self.dynamic_paths:
+                path['weight'] /= total_weight
+    
+    def _generate_single_path(self, point_indices, strategy, skip_range, path_num):
+        """Generate a single path based on strategy."""
+        if strategy == 'random_skip':
+            # Random skip strategy: skip random percentage of points
+            skip_percentage = random.uniform(skip_range[0], skip_range[1])
+            num_to_keep = int(len(point_indices) * (1.0 - skip_percentage))
+            
+            # Ensure we keep at least 2 points
+            if num_to_keep < 2:
+                num_to_keep = 2
+            
+            # Randomly select points to keep
+            selected_indices = sorted(random.sample(point_indices, num_to_keep))
+            return selected_indices
+        
+        elif strategy == 'partial':
+            # Partial strategy: take first N% or last N%
+            skip_percentage = random.uniform(skip_range[0], skip_range[1])
+            keep_percentage = 1.0 - skip_percentage
+            num_to_keep = max(2, int(len(point_indices) * keep_percentage))
+            
+            # Randomly choose first N% or last N%
+            if random.random() < 0.5:
+                # First N%
+                return point_indices[:num_to_keep]
+            else:
+                # Last N%
+                return point_indices[-num_to_keep:]
+        
+        elif strategy == 'mixed':
+            # Mixed strategy: combine random_skip and partial
+            if random.random() < 0.5:
+                return self._generate_single_path(point_indices, 'random_skip', skip_range, path_num)
+            else:
+                return self._generate_single_path(point_indices, 'partial', skip_range, path_num)
+        
+        else:
+            # Fallback to random_skip
+            return self._generate_single_path(point_indices, 'random_skip', skip_range, path_num)
+    
+    def _generate_transition_matrix(self):
+        """Generate or load transition matrix for path selection."""
+        matrix_cfg = self.dynamic_paths_config.get('transition_matrix', {})
+        
+        # Check if auto-generate
+        if matrix_cfg.get('auto', True) or not matrix_cfg:
+            # Auto-generate balanced transition matrix
+            path_ids = [p['id'] for p in self.dynamic_paths]
+            num_paths = len(path_ids)
+            
+            # Create balanced matrix: each path can transition to any path with equal probability
+            # But slightly favor staying in same path (40%) vs switching (60% distributed)
+            matrix = {}
+            for path_id in path_ids:
+                transitions = {}
+                stay_probability = 0.4
+                switch_probability = (1.0 - stay_probability) / (num_paths - 1) if num_paths > 1 else 0.0
+                
+                for target_id in path_ids:
+                    if target_id == path_id:
+                        transitions[target_id] = stay_probability
+                    else:
+                        transitions[target_id] = switch_probability
+                
+                matrix[path_id] = transitions
+            
+            self.dynamic_paths_config['transition_matrix'] = matrix
+            log.debug("🛤️ Dynamic Paths: Auto-generated transition matrix")
+        else:
+            # Use provided matrix
+            self.dynamic_paths_config['transition_matrix'] = matrix_cfg
+            log.debug("🛤️ Dynamic Paths: Using provided transition matrix")
+    
+    def _select_initial_path(self):
+        """Select initial path when routine starts."""
+        if not self.dynamic_paths:
+            self.current_path_id = None
+            return
+        
+        selection_mode = self.dynamic_paths_config['selection_mode']
+        
+        if selection_mode == 'random':
+            self.current_path_id = random.choice(self.dynamic_paths)['id']
+        elif selection_mode == 'weighted':
+            # Weighted random selection
+            weights = [p['weight'] for p in self.dynamic_paths]
+            self.current_path_id = random.choices(
+                [p['id'] for p in self.dynamic_paths],
+                weights=weights
+            )[0]
+        elif selection_mode == 'transition_matrix':
+            # For initial selection, use equal probability
+            self.current_path_id = random.choice(self.dynamic_paths)['id']
+        elif selection_mode == 'sequential':
+            # Start with first path
+            self.current_path_id = self.dynamic_paths[0]['id']
+        else:
+            # Fallback to random
+            self.current_path_id = random.choice(self.dynamic_paths)['id']
+        
+        # Set initial index based on current path
+        self._apply_path_to_index()
+        self.path_switch_interval = random.randint(
+            self.dynamic_paths_config['switch_interval']['min_loops'],
+            self.dynamic_paths_config['switch_interval']['max_loops']
+        )
+        self.path_switch_counter = 0
+    
+    def _select_next_path(self):
+        """Select next path based on selection mode and transition matrix."""
+        if not self.dynamic_paths or not self.current_path_id:
+            return
+        
+        selection_mode = self.dynamic_paths_config['selection_mode']
+        
+        if selection_mode == 'random':
+            # Random selection
+            available_paths = [p['id'] for p in self.dynamic_paths if p['id'] != self.current_path_id]
+            if available_paths:
+                self.current_path_id = random.choice(available_paths)
+            else:
+                self.current_path_id = random.choice(self.dynamic_paths)['id']
+        
+        elif selection_mode == 'weighted':
+            # Weighted random (excluding current path)
+            available_paths = [p for p in self.dynamic_paths if p['id'] != self.current_path_id]
+            if available_paths:
+                weights = [p['weight'] for p in available_paths]
+                self.current_path_id = random.choices(
+                    [p['id'] for p in available_paths],
+                    weights=weights
+                )[0]
+            else:
+                self.current_path_id = random.choice(self.dynamic_paths)['id']
+        
+        elif selection_mode == 'transition_matrix':
+            # Use transition matrix
+            matrix = self.dynamic_paths_config.get('transition_matrix', {})
+            if self.current_path_id in matrix:
+                transitions = matrix[self.current_path_id]
+                path_ids = list(transitions.keys())
+                probabilities = list(transitions.values())
+                self.current_path_id = random.choices(path_ids, weights=probabilities)[0]
+            else:
+                # Fallback to random
+                self.current_path_id = random.choice(self.dynamic_paths)['id']
+        
+        elif selection_mode == 'sequential':
+            # Sequential: path1 -> path2 -> ... -> path1
+            current_idx = next((i for i, p in enumerate(self.dynamic_paths) if p['id'] == self.current_path_id), 0)
+            next_idx = (current_idx + 1) % len(self.dynamic_paths)
+            self.current_path_id = self.dynamic_paths[next_idx]['id']
+        
+        # Apply new path to index
+        self._apply_path_to_index()
+        self.path_switch_counter = 0
+        self.path_switch_interval = random.randint(
+            self.dynamic_paths_config['switch_interval']['min_loops'],
+            self.dynamic_paths_config['switch_interval']['max_loops']
+        )
+        
+        log.info("🛤️ Dynamic Paths: Switched to %s (next switch in %d loops)", 
+                self.current_path_id, self.path_switch_interval)
+        
+        # Record path switch in metrics
+        try:
+            get_metrics_logger().record_path_switch(self.current_path_id)
+        except Exception:
+            pass  # Metrics logger might not be initialized yet
+    
+    def _apply_path_to_index(self):
+        """Apply current path to routine index (set index to first point in path)."""
+        if not self.current_path_id or not self.dynamic_paths:
+            return
+        
+        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+        if current_path and current_path['indices']:
+            # Set index to first point in path
+            self.index = current_path['indices'][0]
+            self.last_index = -1  # Reset last_index to allow loop detection
+    
+    def _get_current_path_indices(self):
+        """Get indices for current path."""
+        if not self.current_path_id or not self.dynamic_paths:
+            return None
+        
+        current_path = next((p for p in self.dynamic_paths if p['id'] == self.current_path_id), None)
+        return current_path['indices'] if current_path else None
+    
+    def _is_path_end(self, current_index):
+        """Check if current index is the end of current path."""
+        path_indices = self._get_current_path_indices()
+        if not path_indices:
+            return False
+        
+        # Check if we're at the last index in path
+        return current_index == path_indices[-1]
 
     @staticmethod
     def get_all_components():

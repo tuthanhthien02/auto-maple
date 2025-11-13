@@ -8,6 +8,7 @@ from src.common import config, settings, utils
 from src.common.vkeys import key_down, key_up, press, press_with_behavioral_pause
 from src.common.anti_detect import get_human_delay, update_activity
 from src.common.logger import get_logger, get_action_logger
+from src.common.metrics_logger import get_metrics_logger
 log = get_logger(__name__)
 action_log = get_action_logger()
 CommandDecision = namedtuple('CommandDecision', 'command skip_reason wait_duration')
@@ -90,6 +91,13 @@ class Point(Component):
 
             target_location = config.routine.get_position_with_offset(self.location) \
                 if hasattr(config, 'routine') and config.routine else self.location
+            
+            # Track position offset if different from original
+            if target_location != self.location:
+                try:
+                    get_metrics_logger().record_position_offset()
+                except Exception:
+                    pass
 
             move = config.bot.command_book['move']
             move(*target_location).execute()
@@ -110,6 +118,12 @@ class Point(Component):
                 if decision.skip_reason:
                     log.info("Point: Skipping command '%s' (%s)",
                              decision.command.__class__.__name__, decision.skip_reason)
+                    # Track command skip (only for probabilistic skips, not teleport skips)
+                    if decision.skip_reason == "probabilistic skip":
+                        try:
+                            get_metrics_logger().record_command_skip()
+                        except Exception:
+                            pass
                     continue
 
                 if decision.wait_duration:
@@ -119,6 +133,11 @@ class Point(Component):
                                      decision.wait_duration,
                                      human_delay)
                     time.sleep(human_delay)
+                    # Track extra wait
+                    try:
+                        get_metrics_logger().record_extra_wait()
+                    except Exception:
+                        pass
 
                 decision.command.execute()
         self._increment_counter()
@@ -184,6 +203,13 @@ class Point(Component):
         random.shuffle(subset)
         for idx, command in zip(randomizable_indices, subset):
             commands[idx] = command
+        
+        # Track command shuffle
+        try:
+            get_metrics_logger().record_command_shuffle()
+        except Exception:
+            pass
+        
         return commands
 
     def info(self):
@@ -521,7 +547,8 @@ class Move(Command):
 
                 self._new_direction(key)
                 self._maybe_apply_micro_gesture(key)
-                step(key, target_stage)
+                # Pass distance to step() for distance-based movement (hold vs press)
+                step(key, target_stage, distance=local_error)
 
                 if settings.record_layout:
                     config.layout.add(*config.player_pos)
@@ -594,6 +621,11 @@ class Move(Command):
         finally:
             key_up(opposite)
         routine.observability_metrics['micro_gestures'] += 1
+        # Track micro gesture in metrics
+        try:
+            get_metrics_logger().record_micro_gesture()
+        except Exception:
+            pass
 
     @staticmethod
     def _opposite_direction(direction):
@@ -615,11 +647,12 @@ class Adjust(Command):
         self.max_steps = settings.validate_nonnegative_int(max_steps)
 
 
-def step(direction, target):
+def step(direction, target, distance=None):
     """
     The default 'step' function. If not overridden, immediately stops the bot.
     :param direction:   The direction in which to move.
     :param target:      The target location to step towards.
+    :param distance:    Optional distance to target. Used for distance-based movement decisions.
     :return:            None
     """
 
