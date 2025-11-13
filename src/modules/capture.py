@@ -81,6 +81,20 @@ class Capture:
         except Exception:
             log.error("Failed to start capture thread", exc_info=True)
 
+    @staticmethod
+    def _templates_available():
+        """Check that minimap templates are loaded successfully."""
+        if MM_TL_TEMPLATE is None or MM_BR_TEMPLATE is None:
+            missing = []
+            if MM_TL_TEMPLATE is None:
+                missing.append("MM_TL_TEMPLATE")
+            if MM_BR_TEMPLATE is None:
+                missing.append("MM_BR_TEMPLATE")
+            log.error("Missing minimap template(s): %s. Please ensure assets are present.",
+                      ", ".join(missing))
+            return False
+        return True
+
     def recalibrate_minimap(self):
         """Request minimap recalibration without restarting the module."""
         self._recalibrate_requested = True
@@ -90,6 +104,11 @@ class Capture:
         """
         The main capture loop that calibrates and tracks the minimap.
         """
+        if not self._templates_available():
+            # Without templates we cannot calibrate; keep module ready but disabled
+            self.ready = False
+            log.error("Capture module disabled because required templates are missing.")
+            return
         consecutive_calibration_errors = 0
         max_calibration_errors = 20
         calibration_attempts = 0
@@ -164,6 +183,12 @@ class Capture:
                 
                 if DEBUG:
                     log.debug("Searching for TL corner in ROI...")
+                if tl_roi.shape[0] < MM_TL_TEMPLATE.shape[0] or tl_roi.shape[1] < MM_TL_TEMPLATE.shape[1]:
+                    if DEBUG:
+                        log.debug("TL ROI smaller than template: roi=%s, template=%s",
+                                  tl_roi.shape, MM_TL_TEMPLATE.shape)
+                    continue
+
                 tl_local, _ = utils.single_match(tl_roi, MM_TL_TEMPLATE)
                 tl = (tl_local[0] + tl_roi_x0, tl_local[1] + tl_roi_y0)
                 if DEBUG:
@@ -189,6 +214,12 @@ class Capture:
                 
                 if DEBUG:
                     log.debug("Searching for BR corner in ROI...")
+                if br_roi.shape[0] < MM_BR_TEMPLATE.shape[0] or br_roi.shape[1] < MM_BR_TEMPLATE.shape[1]:
+                    if DEBUG:
+                        log.debug("BR ROI smaller than template: roi=%s, template=%s",
+                                  br_roi.shape, MM_BR_TEMPLATE.shape)
+                    continue
+
                 _, br_local = utils.single_match(br_roi, MM_BR_TEMPLATE)
                 br = (br_local[0] + br_roi_x0, br_local[1] + br_roi_y0)
                 if DEBUG:
