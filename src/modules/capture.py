@@ -2,6 +2,7 @@
 
 import time
 import ctypes
+import threading
 from ctypes import wintypes
 import cv2
 import numpy as np
@@ -71,7 +72,11 @@ class Capture:
         Starts the capture thread.
         """
         try:
-            self.thread = utils.DaemonThread(target=self._main)
+            self.thread = threading.Thread(
+                target=self._main,
+                name="CaptureThread",
+                daemon=True
+            )
             self.thread.start()
         except Exception:
             log.error("Failed to start capture thread", exc_info=True)
