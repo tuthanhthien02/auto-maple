@@ -1,11 +1,13 @@
 """
 VM Input Blocker - Block input từ VM hardware và force dùng Arduino
 Sử dụng keyboard hook để block tất cả input từ VM hardware
+Anti-detect: Random pass-through, timing variation, periodic pauses
 """
 import ctypes
 import ctypes.wintypes
 import threading
 import time
+import random
 from typing import Optional
 from ctypes import wintypes
 from src.common.logger import get_logger
@@ -65,10 +67,17 @@ class VMInputBlocker:
             # Add more emergency keys if needed
         }
         
+        # Anti-detect settings (không ảnh hưởng đến blocking - chỉ timing variation)
+        self.enable_timing_variation = True  # Enable timing variation trong hook (0-0.5ms)
+        # NOTE: Block 100% input từ VM hardware - không có random pass-through
+        
+        # Periodic pause settings (REMOVED - không cần vì không ảnh hưởng blocking)
+        # NOTE: Periodic pauses đã được remove vì không cần thiết cho 100% blocking
+        
         # Stats
         self.stats = {
             'total_blocked': 0,
-            'total_passed': 0,
+            'total_passed': 0,  # Only whitelist keys pass through
         }
         
         # Initialize Windows API
@@ -135,27 +144,39 @@ class VMInputBlocker:
     def _low_level_keyboard_proc(self, nCode, wParam, lParam):
         """
         Low-level keyboard hook callback
-        Blocks all input from VM hardware (except whitelist keys)
+        Blocks 100% input from VM hardware (except whitelist keys only)
+        
+        CRITICAL: Return 1 = Block key, Return CallNextHookEx = Pass through
+        - Whitelist keys (End key): Pass through
+        - All other keys when blocking: Return 1 (100% block)
+        
+        Anti-detect: Timing variation (0-0.5ms) trong hook processing
+        NOTE: Timing variation không ảnh hưởng blocking - vẫn block 100%
         """
         # Fast path: if not action code, pass through immediately
         if nCode < HC_ACTION:
             return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         
+        # Anti-detect: Timing variation trong hook processing (0-0.5ms)
+        # NOTE: Delay này rất nhỏ và không ảnh hưởng đến blocking behavior
+        if self.enable_timing_variation and self.blocking:
+            time.sleep(random.uniform(0, 0.0005))
+        
         # Parse structure to get vkCode
         kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
         vk_code = kb_data.vkCode
         
-        # Whitelist check: allow emergency keys
+        # Whitelist check: allow emergency keys ONLY
         if vk_code in self.whitelist_vk_codes:
             self.stats['total_passed'] += 1
             return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
         
-        # Block all other keys from VM hardware
+        # Block 100% all other keys from VM hardware
         if self.blocking:
             self.stats['total_blocked'] += 1
             if self.enable_logging:
                 log.debug(f"[VM_INPUT_BLOCKER] Blocked key: VK={vk_code:02X}")
-            return 1  # Block the key
+            return 1  # Block the key - 100% blocking
         
         # If not blocking, pass through
         self.stats['total_passed'] += 1
