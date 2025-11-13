@@ -123,6 +123,21 @@ def multi_match(frame, template, threshold=0.95, is_gray=False):
     return results
 
 
+def _get_minimap_ratio(default=1.0):
+    """
+    Safely retrieve minimap ratio from config.capture.
+    Returns DEFAULT if capture module or ratio is unavailable.
+    """
+    capture = getattr(config, 'capture', None)
+    ratio = getattr(capture, 'minimap_ratio', None) if capture else None
+    try:
+        if ratio and float(ratio) > 0:
+            return float(ratio)
+    except (TypeError, ValueError):
+        pass
+    return default
+
+
 def convert_to_relative(point, frame):
     """
     Converts POINT into relative coordinates in the range [0, 1] based on FRAME.
@@ -134,7 +149,8 @@ def convert_to_relative(point, frame):
     """
 
     x = point[0] / frame.shape[1]
-    y = point[1] / config.capture.minimap_ratio / frame.shape[0]
+    minimap_ratio = _get_minimap_ratio()
+    y = point[1] / minimap_ratio / frame.shape[0]
     return x, y
 
 
@@ -149,7 +165,8 @@ def convert_to_absolute(point, frame):
     """
 
     x = int(round(point[0] * frame.shape[1]))
-    y = int(round(point[1] * config.capture.minimap_ratio * frame.shape[0]))
+    minimap_ratio = _get_minimap_ratio()
+    y = int(round(point[1] * minimap_ratio * frame.shape[0]))
     return x, y
 
 
