@@ -1,88 +1,88 @@
 {
-    "active_profile": "default",
-    "defaults": {
-        "routine_randomization": {
-            "enabled": true,
-            "point_selection": {
-                "enabled": false,
-                "skip_probability": 0.1,
-                "max_skip_per_loop": 2,
-                "min_points_between_skips": 3,
-                "never_skip_labels": true,
-                "never_skip_jumps": true,
-                "never_skip_transitions": true
-            },
-            "routine_pattern": {
-                "enabled": false,
-                "variant_switch_probability": 0.15,
-                "min_loops_before_switch": 3,
-                "floor_variant_chance": 0.1,
-                "variants": {
-                    "normal": {
-                        "weight": 0.7,
-                        "description": "Normal routine execution"
-                    },
-                    "reverse": {"weight": 0.15, "description": "Reverse floor order"},
-                    "floor1_only": {"weight": 0.1, "description": "Floor 1 only"},
-                    "floor2_only": {"weight": 0.05, "description": "Floor 2 only"}
-                }
-            },
-            "command_sequence": {
-                "enabled": false,
-                "shuffle_probability": 0.25,
-                "skip_probability": 0.05,
-                "extra_wait_probability": 0.15,
-                "extra_wait_range": [0.05, 0.12],
-                "skip_blacklist": ["Teleport", "Adjust"],
-                "shuffle_blacklist": ["Teleport", "Adjust"]
-            },
-            "movement": {
-                "position_offset": {
-                    "enabled": false,
-                    "range": 0.003,
-                    "axes": {"x": true, "y": false}
-                },
-                "micro_gesture": {
-                    "enabled": false,
-                    "mirror_chance": 0.08,
-                    "duration_range": [0.03, 0.08]
-                },
-                "observability": {"log_every_loops": 10}
-            },
-            "dynamic_paths": {
-                "enabled": false,
-                "path_count": 4,
-                "generation_strategy": "random_skip",
-                "skip_percentage_range": [0.1, 0.3],
-                "selection_mode": "transition_matrix",
-                "switch_interval": {"min_loops": 2, "max_loops": 5},
-                "transition_matrix": {"auto": true, "stay_probability": 0.2}
-            }
+  "active_profile": "default",
+  "defaults": {
+    "routine_randomization": {
+      "enabled": true,
+      "point_selection": {
+        "enabled": false,
+        "skip_probability": 0.1,
+        "max_skip_per_loop": 2,
+        "min_points_between_skips": 3,
+        "never_skip_labels": true,
+        "never_skip_jumps": true,
+        "never_skip_transitions": true
+      },
+      "routine_pattern": {
+        "enabled": false,
+        "variant_switch_probability": 0.15,
+        "min_loops_before_switch": 3,
+        "floor_variant_chance": 0.1,
+        "variants": {
+          "normal": {
+            "weight": 0.7,
+            "description": "Normal routine execution"
+          },
+          "reverse": { "weight": 0.15, "description": "Reverse floor order" },
+          "floor1_only": { "weight": 0.1, "description": "Floor 1 only" },
+          "floor2_only": { "weight": 0.05, "description": "Floor 2 only" }
         }
-    },
-    "profiles": {
-        "default": {},
-        "safe": {
-            "routine_randomization": {
-                "point_selection": {"skip_probability": 0.05},
-                "movement": {
-                    "position_offset": {"range": 0.002},
-                    "micro_gesture": {"mirror_chance": 0.05}
-                }
-            }
+      },
+      "command_sequence": {
+        "enabled": false,
+        "shuffle_probability": 0.25,
+        "skip_probability": 0.05,
+        "extra_wait_probability": 0.15,
+        "extra_wait_range": [0.05, 0.12],
+        "skip_blacklist": ["Teleport", "Adjust"],
+        "shuffle_blacklist": ["Teleport", "Adjust"]
+      },
+      "movement": {
+        "position_offset": {
+          "enabled": false,
+          "range": 0.003,
+          "axes": { "x": true, "y": false }
         },
-        "aggressive": {
-            "routine_randomization": {
-                "point_selection": {"skip_probability": 0.18, "enabled": true},
-                "movement": {
-                    "position_offset": {
-                        "enabled": true,
-                        "range": 0.01,
-                        "axes": {"x": true, "y": true}
-                    },
-                    "micro_gesture": {"enabled": true, "mirror_chance": 0.15}
-                }
-            }
-        }
+        "micro_gesture": {
+          "enabled": false,
+          "mirror_chance": 0.08,
+          "duration_range": [0.03, 0.08]
+        },
+        "observability": { "log_every_loops": 10 }
+      },
+      "dynamic_paths": {
+        "enabled": false,
+        "path_count": 4,
+        "generation_strategy": "random_skip",
+        "skip_percentage_range": [0.1, 0.3],
+        "selection_mode": "transition_matrix",
+        "switch_interval": { "min_loops": 2, "max_loops": 5 },
+        "transition_matrix": { "auto": true, "stay_probability": 0.2 }
+      }
     }
+  },
+  "profiles": {
+    "default": {},
+    "safe": {
+      "routine_randomization": {
+        "point_selection": { "skip_probability": 0.05 },
+        "movement": {
+          "position_offset": { "range": 0.002 },
+          "micro_gesture": { "mirror_chance": 0.05 }
+        }
+      }
+    },
+    "aggressive": {
+      "routine_randomization": {
+        "point_selection": { "skip_probability": 0.18, "enabled": true },
+        "movement": {
+          "position_offset": {
+            "enabled": true,
+            "range": 0.01,
+            "axes": { "x": true, "y": true }
+          },
+          "micro_gesture": { "enabled": true, "mirror_chance": 0.15 }
+        }
+      }
+    }
+  }
 }

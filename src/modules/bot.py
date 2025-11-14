@@ -2,21 +2,24 @@
 
 import threading
 import time
-import git
+
 import cv2
+import git
+
+from src.command_book.command_book import CommandBook
 from src.common import config, utils
 from src.common.anti_detect import initialize_anti_detect, update_activity
+from src.common.interfaces import Configurable
+from src.common.logger import get_logger
 
 # Routine randomization - DISABLED
 # from src.common.routine_randomization import initialize_routine_randomization, get_variant_start_index
 from src.common.process_stealth import enable_process_stealth
+from src.common.vkeys import click, press
 from src.detection import detection
-from src.routine.routine import Routine
-from src.command_book.command_book import CommandBook
 from src.routine.components import Point
-from src.common.vkeys import press, click
-from src.common.interfaces import Configurable
-from src.common.logger import get_logger
+from src.routine.routine import Routine
+
 # Metrics disabled temporarily - not needed for now
 # from src.common.metrics_logger import get_metrics_logger
 
