@@ -197,6 +197,15 @@ class Bot(Configurable):
                     # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
                     time.sleep(0.05)
                 else:
+                    # Log why bot is not executing to help debug
+                    if not config.enabled:
+                        log.debug(
+                            "Bot loop: config.enabled = False, skipping execution"
+                        )
+                    elif len(config.routine) == 0:
+                        log.debug(
+                            "Bot loop: len(config.routine) = 0, skipping execution"
+                        )
                     # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
                     time.sleep(0.2)
             except KeyboardInterrupt:
