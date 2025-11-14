@@ -134,8 +134,8 @@ class Settings(Tab):
     def _on_canvas_configure(self, event):
         """Update canvas window width when canvas is resized"""
         if not getattr(self, "_enable_horizontal_scroll", False):
-        canvas_width = event.width
-        self._canvas.itemconfig(self._canvas_window, width=canvas_width)
+            canvas_width = event.width
+            self._canvas.itemconfig(self._canvas_window, width=canvas_width)
 
     def update_class_bindings(self):
         self.class_bindings.destroy()
