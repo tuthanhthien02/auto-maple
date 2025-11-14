@@ -15,9 +15,9 @@ DEBUG = False
 
 user32 = ctypes.windll.user32
 
-MM_TL_TEMPLATE = cv2.imread("assets/minimap_tl_template.png", 0)
-MM_BR_TEMPLATE = cv2.imread("assets/minimap_br_template.png", 0)
-PLAYER_TEMPLATE = cv2.imread("assets/player_template_new.png", 0)
+MM_TL_TEMPLATE = cv2.imread(utils.get_asset_path("assets/minimap_tl_template.png"), 0)
+MM_BR_TEMPLATE = cv2.imread(utils.get_asset_path("assets/minimap_br_template.png"), 0)
+PLAYER_TEMPLATE = cv2.imread(utils.get_asset_path("assets/player_template_new.png"), 0)
 PLAYER_THRESHOLD = 0.55
 PLAYER_HSV_LOWER = np.array([18, 140, 170])
 PLAYER_HSV_UPPER = np.array([38, 255, 255])
