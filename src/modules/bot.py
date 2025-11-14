@@ -184,7 +184,16 @@ class Bot(Configurable):
                             metrics.update_position(element.location)
 
                         element.execute()
+                        log.debug(
+                            "Element executed, stepping routine from index %d",
+                            config.routine.index,
+                        )
                         config.routine.step()
+                        log.debug(
+                            "Routine stepped, new index: %d/%d",
+                            config.routine.index,
+                            len(config.routine.sequence) - 1,
+                        )
 
                         config.routine.is_skipping_context = False
                         config.routine.is_backwarding_context = False
