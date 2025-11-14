@@ -189,7 +189,7 @@ def modify_boards_txt(boards_txt_path, change_vid_pid=False):
                     keyword in line.lower()
                     for keyword in ["product", "manufacturer", "vid", "pid"]
                 ):
-                    print(f"   Line {i+1}: {line.strip()}")
+                    print(f"   Line {i + 1}: {line.strip()}")
             return True
 
         # Write file
@@ -221,7 +221,7 @@ def modify_boards_txt(boards_txt_path, change_vid_pid=False):
                     NEW_PID.lower() if change_vid_pid else "",
                 ]
             ):
-                print(f"   Line {i+1}: {line.strip()}")
+                print(f"   Line {i + 1}: {line.strip()}")
 
         return True
 

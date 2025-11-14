@@ -107,9 +107,12 @@ class DynamicPathsSmokeTests(unittest.TestCase):
         """Test random_skip generation strategy."""
         self.routine.dynamic_paths_config["generation_strategy"] = "random_skip"
 
-        with patch("src.routine.routine.random.uniform", return_value=0.2), patch(
-            "src.routine.routine.random.sample",
-            side_effect=lambda seq, k: sorted(seq)[:k],
+        with (
+            patch("src.routine.routine.random.uniform", return_value=0.2),
+            patch(
+                "src.routine.routine.random.sample",
+                side_effect=lambda seq, k: sorted(seq)[:k],
+            ),
         ):
             self.routine._generate_dynamic_paths()
 
@@ -122,8 +125,9 @@ class DynamicPathsSmokeTests(unittest.TestCase):
         """Test partial generation strategy."""
         self.routine.dynamic_paths_config["generation_strategy"] = "partial"
 
-        with patch("src.routine.routine.random.uniform", return_value=0.2), patch(
-            "src.routine.routine.random.random", return_value=0.0
+        with (
+            patch("src.routine.routine.random.uniform", return_value=0.2),
+            patch("src.routine.routine.random.random", return_value=0.0),
         ):  # First N%
             self.routine._generate_dynamic_paths()
 

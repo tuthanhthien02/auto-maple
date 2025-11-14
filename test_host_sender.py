@@ -20,7 +20,7 @@ def main():
             print("[TEST] ✓ Connected!")
             break
         time.sleep(1)
-        print(f"[TEST] Waiting... ({i+1}/5)")
+        print(f"[TEST] Waiting... ({i + 1}/5)")
     else:
         print("[TEST] ✗ Connection timeout!")
         sender.stop()

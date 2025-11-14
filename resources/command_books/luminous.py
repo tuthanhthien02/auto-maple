@@ -1,12 +1,13 @@
 """Command book for Luminous class."""
 
-from src.routine.components import Command
-from src.common.vkeys import press, key_down, key_up
-from src.common import config, utils, settings
-from src.common.logger import get_logger
-import time
-import random
 import math
+import random
+import time
+
+from src.common import config, settings, utils
+from src.common.logger import get_logger
+from src.common.vkeys import key_down, key_up, press
+from src.routine.components import Command
 
 log = get_logger(__name__)
 
@@ -279,9 +280,12 @@ class Teleport(Command):
             finally:
                 # ALWAYS Release direction key (even if error occurs)
                 key_up(direction_key)
-                # Random delay between combos
+                # Small delay after releasing direction key to ensure game processes input
                 if i < self.times - 1:
                     time.sleep(random.uniform(*TimingConfig.TELEPORT["combo_delay"]))
+                elif i == self.times - 1:
+                    # Small delay after last combo to ensure smooth transition
+                    time.sleep(random.uniform(0.02, 0.05))
 
 
 class Teleport_Up(Command):
@@ -576,15 +580,21 @@ class Adjust(Command):
                     counter -= 1
             else:
                 d_y = self.target[1] - config.player_pos[1]
-                if abs(d_y) > settings.adjust_tolerance / math.sqrt(2):
+                # Handle Y adjustment (similar to Kanna)
+                # Only adjust for small fine-tuning, NOT large floor transitions
+                # Large floor transitions should be handled by Move/step() during movement
+                y_threshold = settings.adjust_tolerance / math.sqrt(2)
+                large_y_change = abs(d_y) > settings.move_tolerance * 1.5
+
+                # Only adjust Y for small fine-tuning, skip if large floor transition
+                # (large transitions are handled by step() during Move walk)
+                if abs(d_y) > y_threshold and not large_y_change:
                     if d_y < 0:
-                        # Use Luminous teleport up
+                        # Moving up: Use Luminous teleport up for small adjustments only
                         Teleport("up").main()
                     else:
-                        # Use Luminous jump down - FIXED: Use Jump_Down class instead of manual press
-                        Jump_Down(
-                            1
-                        ).main()  # Use existing Jump_Down class with proper timing
+                        # Moving down: Use Luminous jump down for small adjustments only
+                        Jump_Down(1).main()
                     counter -= 1
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
@@ -623,14 +633,6 @@ def step(direction, target, distance=None):
     if config.stage_fright and direction != "up" and utils.bernoulli(0.75):
         time.sleep(utils.rand_float(0.1, 0.3))
 
-    # Check Y distance for vertical movements (from Kanna - SMART!)
-    d_y = target[1] - config.player_pos[1]
-    if abs(d_y) > settings.move_tolerance * 1.5:
-        if direction == "down":
-            press(Key.jump, 3)
-        elif direction == "up":
-            press(Key.jump, 1)
-
     # Handle different directions (hybrid approach)
     if direction in ("left", "right"):
         # Horizontal movement - Distance-based: Hold (xa) vs Press (gần)
@@ -663,6 +665,30 @@ def step(direction, target, distance=None):
     else:
         # Teleport for vertical movement - FIXED: Hold direction key first
         direction_key = getattr(Key, direction)
+
+        # Check for large Y distance changes (floor transitions) - similar to Kanna
+        # Auto-jump BEFORE teleport for large Y changes
+        d_y = target[1] - config.player_pos[1]
+        large_y_change = abs(d_y) > settings.move_tolerance * 1.5
+        has_auto_jumped = False
+
+        if large_y_change and direction in ("up", "down"):
+            # Large Y change indicates floor transition - jump before teleport (like Kanna)
+            if direction == "down":
+                log.debug(
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping down before teleport",
+                    d_y,
+                )
+                press(Key.jump, 3)
+                has_auto_jumped = True
+            elif direction == "up":
+                log.debug(
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping up before teleport",
+                    d_y,
+                )
+                press(Key.jump, 1)
+                has_auto_jumped = True
+
         try:
             # Hold direction key FIRST with random timing (like Teleport class)
             key_down(direction_key)
@@ -670,12 +696,17 @@ def step(direction, target, distance=None):
 
             if direction in ("up", "down"):
                 # Vertical teleport: Hold direction + Press ALT + Press W
-                key_down(Key.jump)
-                time.sleep(random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"]))
-                key_up(Key.jump)
-                time.sleep(
-                    random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
-                )
+                # NOTE: Skip jump in teleport combo if already auto-jumped to avoid duplicate
+                if not has_auto_jumped:
+                    # Only jump in teleport combo if not already jumped above
+                    key_down(Key.jump)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
+                    )
+                    key_up(Key.jump)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
+                    )
 
                 num_presses = 1  # Vertical = 1 press
                 for _ in range(num_presses):

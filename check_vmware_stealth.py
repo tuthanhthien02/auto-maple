@@ -119,7 +119,7 @@ class VMwareStealthChecker:
                                     "pid": proc.info["pid"],
                                     "exe": proc.info["exe"],
                                     "risk": "HIGH",
-                                    "message": f'VMware process đang chạy: {proc.info["name"]}',
+                                    "message": f"VMware process đang chạy: {proc.info['name']}",
                                 }
                             )
                             break
@@ -216,7 +216,7 @@ class VMwareStealthChecker:
                                         ),
                                         "status": status,
                                         "risk": "HIGH",
-                                        "message": f'VMware service đang chạy: {service.name()} ({service_info.get("display_name", "")})',
+                                        "message": f"VMware service đang chạy: {service.name()} ({service_info.get('display_name', '')})",
                                     }
                                 )
                             break
@@ -235,7 +235,7 @@ class VMwareStealthChecker:
                                     ),
                                     "status": status,
                                     "risk": "HIGH",
-                                    "message": f'VMware service đang chạy: {service.name()} ({service_info.get("display_name", "")})',
+                                    "message": f"VMware service đang chạy: {service.name()} ({service_info.get('display_name', '')})",
                                 }
                             )
                 except Exception:

@@ -720,9 +720,9 @@ class VMwareReceiver:
                 print("[ARDUINO] Dummy serial - no disconnection needed")
 
         # Print stats
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("=== FINAL STATISTICS ===")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Total received: {self.stats['total_received']}")
         print(f"Total forwarded: {self.stats['total_forwarded']}")
         print(f"Total errors: {self.stats['total_errors']}")
@@ -732,7 +732,7 @@ class VMwareReceiver:
                 self.stats["total_forwarded"] / self.stats["total_received"] * 100
             )
             print(f"Success rate: {success_rate:.1f}%")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         # Save config
         self._save_config()
@@ -787,13 +787,13 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("=== INITIALIZATION ERROR ===")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Error: {e}")
         print(f"Error type: {type(e).__name__}")
         print("\n=== Error Details ===")
         traceback.print_exc()
         print("=== End Error Details ===\n")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
         input("Press Enter to close...")

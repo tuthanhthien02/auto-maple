@@ -48,9 +48,9 @@ wait_random,0.2,0.5
 
 *,0.325,0.097,adjust=True,frequency=1
 Label,f1_pos_5
-Comment,Floor 1 Pos 5: Reflection Mix Random then jump_teleport_up to Floor 2
+Comment,Floor 1 Pos 5: Reflection Mix Random (auto-jump to Floor 2 via Adjust)
 reflection_mix_random
-wait_random,0.8,1.5
+wait_random,0.1,0.3
 
 # ========================================
 # FLOOR 2: RIGHT → LEFT (y ≈ 0.043)
@@ -95,9 +95,9 @@ wait_random,0.2,0.5
 
 *,0.140,0.043,adjust=True,frequency=1
 Label,f2_pos_5
-Comment,Floor 2 Pos 5: Reflection Mix Random then jump_down to Floor 1
+Comment,Floor 2 Pos 5: Reflection Mix Random (auto-jump to Floor 1 via Adjust)
 reflection_mix_random
-wait_random,1.0,1.8
+wait_random,0.1,0.3
 
 # ========================================
 # LOOP BACK TO START

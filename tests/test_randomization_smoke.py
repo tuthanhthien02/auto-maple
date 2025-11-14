@@ -99,8 +99,9 @@ class RandomizationSmokeTests(unittest.TestCase):
         self.routine.backward_range = (2, 2)
         self.routine.index = 2
 
-        with patch("src.routine.routine.random.random", return_value=0.0), patch(
-            "src.routine.routine.random.randint", return_value=2
+        with (
+            patch("src.routine.routine.random.random", return_value=0.0),
+            patch("src.routine.routine.random.randint", return_value=2),
         ):
             should_back, steps = self.routine.should_backward()
 
@@ -139,13 +140,17 @@ class RandomizationSmokeTests(unittest.TestCase):
             }
         )
 
-        with patch(
-            "src.routine.components.random.random",
-            side_effect=[0.0, 0.0, 0.9, 0.0, 0.0],
-        ), patch(
-            "src.routine.components.random.shuffle",
-            side_effect=lambda seq: seq.reverse(),
-        ), patch("src.routine.components.random.uniform", return_value=0.05):
+        with (
+            patch(
+                "src.routine.components.random.random",
+                side_effect=[0.0, 0.0, 0.9, 0.0, 0.0],
+            ),
+            patch(
+                "src.routine.components.random.shuffle",
+                side_effect=lambda seq: seq.reverse(),
+            ),
+            patch("src.routine.components.random.uniform", return_value=0.05),
+        ):
             decisions = list(point._iter_commands(False, False))
 
         command_names = [d.command.__class__.__name__ for d in decisions]

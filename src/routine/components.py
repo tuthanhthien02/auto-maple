@@ -591,6 +591,11 @@ class Move(Command):
         # Calculate distance to target
         distance = utils.distance(config.player_pos, self.target)
 
+        # NOTE: Auto-jump for floor transitions is handled by:
+        # 1. Adjust class (when adjust=True) - handles Y adjustment including floor transitions
+        # 2. step() function (when direction is vertical) - handles large Y changes during movement
+        # Move class does NOT auto-jump to avoid duplicate jumps
+
         # Check if we should teleport (when skipping, backwarding, or reverse and distance is far)
         is_skipping = getattr(config.routine, "is_skipping_context", False)
         is_backwarding = getattr(config.routine, "is_backwarding_context", False)

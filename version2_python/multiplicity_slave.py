@@ -373,7 +373,7 @@ def start_pause():
     is_paused = True
     duration = random.uniform(PAUSE_DURATION_MIN, PAUSE_DURATION_MAX) / 1000.0
 
-    print(f"{Fore.YELLOW}[PAUSE] Auto pause for {duration/60:.1f} minutes")
+    print(f"{Fore.YELLOW}[PAUSE] Auto pause for {duration / 60:.1f} minutes")
 
     threading.Timer(duration, end_pause).start()
 
@@ -397,14 +397,14 @@ def show_performance_stats():
         return
 
     stats = performance_stats
-    print(f"\n{Fore.CYAN}{'='*60}")
+    print(f"\n{Fore.CYAN}{'=' * 60}")
     print(f"{Fore.GREEN}📊 PERFORMANCE STATS")
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"Total Keypresses: {stats['total_keypresses']}")
     print(f"Avg Latency: {stats['avg_latency']:.1f}ms")
     print(f"Total Desync Time: {stats['total_desync_time']:.0f}ms")
     print(f"Total Jitter Time: {stats['total_jitter_time']:.0f}ms")
-    print(f"{Fore.CYAN}{'='*60}\n")
+    print(f"{Fore.CYAN}{'=' * 60}\n")
 
     # Schedule next display
     threading.Timer(60, show_performance_stats).start()
@@ -417,14 +417,14 @@ def show_performance_stats():
 
 def main():
     """Main entry point"""
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"{Fore.GREEN}🎮 MULTIPLICITY SLAVE (Python Version)")
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"TCP Port: {TCP_PORT}")
     print(f"Desync Range: {DESYNC_MIN}-{DESYNC_MAX}ms")
     print(f"Jitter Range: {JITTER_MIN}-{JITTER_MAX}ms")
     print(f"Auto Pause: {'Enabled' if ENABLE_AUTO_PAUSE else 'Disabled'}")
-    print(f"{Fore.CYAN}{'='*60}\n")
+    print(f"{Fore.CYAN}{'=' * 60}\n")
 
     # Start behavioral pause scheduler
     if ENABLE_AUTO_PAUSE:

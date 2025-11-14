@@ -426,9 +426,9 @@ class HostSender:
 
     def _print_statistics(self):
         """Print statistics"""
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("=== STATISTICS ===")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Connection: {'CONNECTED' if self.connected else 'DISCONNECTED'}")
         print(f"Hardware keys captured: {self.stats['total_hardware_keys']}")
         print(f"Total sent: {self.stats['total_sent']}")
@@ -440,7 +440,7 @@ class HostSender:
                 self.stats["total_sent"] / self.stats["total_hardware_keys"] * 100
             )
             print(f"Sent rate: {sent_rate:.1f}%")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
     def connect(self) -> bool:
         """Kết nối đến VMware receiver"""
@@ -733,13 +733,13 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("=== INITIALIZATION ERROR ===")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Error: {e}")
         print(f"Error type: {type(e).__name__}")
         print("\n=== Error Details ===")
         traceback.print_exc()
         print("=== End Error Details ===\n")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
         input("Press Enter to close...")

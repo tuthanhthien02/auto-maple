@@ -316,24 +316,24 @@ def on_key_release_hotkey(key):
 
 def show_status():
     """Show current status"""
-    print(f"\n{Fore.CYAN}{'='*60}")
+    print(f"\n{Fore.CYAN}{'=' * 60}")
     print(f"{Fore.GREEN}📊 MASTER STATUS")
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(
         f"Broadcasting: {Fore.GREEN if broadcasting_enabled else Fore.RED}{'ENABLED' if broadcasting_enabled else 'DISABLED'}"
     )
     print(f"VMs configured: {len(VM_PORTS)}")
     for vm_name, port in VM_PORTS.items():
         print(f"  • {vm_name}: {VM_HOST}:{port}")
-    print(f"{Fore.CYAN}{'='*60}\n")
+    print(f"{Fore.CYAN}{'=' * 60}\n")
 
 
 def show_performance():
     """Show performance statistics"""
     stats = performance_stats
-    print(f"\n{Fore.CYAN}{'='*60}")
+    print(f"\n{Fore.CYAN}{'=' * 60}")
     print(f"{Fore.GREEN}📊 PERFORMANCE STATS")
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"Total Sent: {stats['total_sent']}")
     print(f"Success: {Fore.GREEN}{stats['total_success']}")
     print(f"Failed: {Fore.RED}{stats['total_failed']}")
@@ -343,7 +343,7 @@ def show_performance():
             stats["total_success"] / (stats["total_sent"] * len(VM_PORTS))
         ) * 100
         print(f"Success Rate: {success_rate:.1f}%")
-    print(f"{Fore.CYAN}{'='*60}\n")
+    print(f"{Fore.CYAN}{'=' * 60}\n")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -353,9 +353,9 @@ def show_performance():
 
 def main():
     """Main entry point"""
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"{Fore.GREEN}🎮 MULTIPLICITY MASTER (Python Version)")
-    print(f"{Fore.CYAN}{'='*60}")
+    print(f"{Fore.CYAN}{'=' * 60}")
     print(f"VMs configured: {len(VM_PORTS)}")
     for vm_name, port in VM_PORTS.items():
         print(f"  • {vm_name}: {VM_HOST}:{port}")
@@ -364,7 +364,7 @@ def main():
     print("  Ctrl+Alt+S - Show Status")
     print("  Ctrl+Alt+P - Show Performance")
     print("  Ctrl+Alt+Q - Quit")
-    print(f"{Fore.CYAN}{'='*60}\n")
+    print(f"{Fore.CYAN}{'=' * 60}\n")
     print(f"{Fore.GREEN}✓ Listening for keyboard input...")
     print(f"{Fore.GREEN}✓ Press any key to broadcast to VMs\n")
 
