@@ -42,12 +42,9 @@ class Edit(Tab):
     def _create_scrollable_frame(self):
         """Create a scrollable container for Edit content"""
         # Create canvas and scrollbars
-        self._canvas_container = Frame(self)
-        self._canvas_container.pack(side="top", fill="both", expand=True)
-
-        self._canvas = tk.Canvas(self._canvas_container, highlightthickness=0)
+        self._canvas = tk.Canvas(self, highlightthickness=0)
         self._scrollbar = tk.Scrollbar(
-            self._canvas_container, orient="vertical", command=self._canvas.yview
+            self, orient="vertical", command=self._canvas.yview
         )
         self._hscrollbar = tk.Scrollbar(
             self, orient="horizontal", command=self._canvas.xview
@@ -55,10 +52,7 @@ class Edit(Tab):
         self._scroll_content = Frame(self._canvas)
 
         # Configure scroll region
-        self._scroll_content.bind(
-            "<Configure>",
-            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")),
-        )
+        self._scroll_content.bind("<Configure>", self._on_content_configure)
 
         # Create window in canvas
         self._canvas_window = self._canvas.create_window(
@@ -87,16 +81,18 @@ class Edit(Tab):
         self._canvas.bind("<Button-4>", _on_mousewheel)
         self._canvas.bind("<Button-5>", _on_mousewheel)
 
-        # Update canvas width when window resizes
+        # Update scrollregion when canvas resizes
         self._canvas.bind("<Configure>", self._on_canvas_configure)
 
     def _on_canvas_configure(self, event):
-        """Update canvas window size when canvas is resized"""
-        canvas_width = max(event.width, self._canvas.winfo_reqwidth())
-        canvas_height = max(event.height, self._canvas.winfo_reqheight())
-        self._canvas.config(scrollregion=self._canvas.bbox("all"))
+        """Update scrollregion when canvas is resized"""
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+
+    def _on_content_configure(self, event):
+        """Match canvas window size to content to enable XY scrolling."""
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
         self._canvas.itemconfig(
-            self._canvas_window, width=canvas_width, height=canvas_height
+            self._canvas_window, width=event.width, height=event.height
         )
 
 
