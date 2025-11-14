@@ -190,17 +190,36 @@ class Bot(Configurable):
                             metrics.record_point_execution()
                             metrics.update_position(element.location)
 
-                        element.execute()
-                        log.debug(
-                            "Element executed, stepping routine from index %d",
-                            config.routine.index,
-                        )
-                        config.routine.step()
-                        log.debug(
-                            "Routine stepped, new index: %d/%d",
-                            config.routine.index,
-                            len(config.routine.sequence) - 1,
-                        )
+                        try:
+                            element.execute()
+                            log.debug(
+                                "Element executed, stepping routine from index %d",
+                                config.routine.index,
+                            )
+                        except Exception as exec_error:
+                            log.error(
+                                "Error executing element at index %d: %s",
+                                config.routine.index,
+                                exec_error,
+                                exc_info=True,
+                            )
+                            raise  # Re-raise to be caught by outer exception handler
+
+                        try:
+                            config.routine.step()
+                            log.debug(
+                                "Routine stepped, new index: %d/%d",
+                                config.routine.index,
+                                len(config.routine.sequence) - 1,
+                            )
+                        except Exception as step_error:
+                            log.error(
+                                "Error stepping routine from index %d: %s",
+                                config.routine.index,
+                                step_error,
+                                exc_info=True,
+                            )
+                            raise  # Re-raise to be caught by outer exception handler
 
                         config.routine.is_skipping_context = False
                         config.routine.is_backwarding_context = False
@@ -210,8 +229,13 @@ class Bot(Configurable):
 
                         consecutive_errors = 0
 
+                        log.debug(
+                            "Bot loop iteration completed, sleeping before next iteration"
+                        )
+
                     # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
                     time.sleep(0.05)
+                    log.debug("Bot loop: After sleep, continuing to next iteration")
                 else:
                     # Log why bot is not executing to help debug
                     if not config.enabled:
