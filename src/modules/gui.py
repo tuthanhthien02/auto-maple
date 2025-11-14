@@ -13,7 +13,7 @@ from src.gui import Edit, Menu, Settings, View
 class GUI:
     # CPU Optimization: Reduced from 30 FPS to 10 FPS (sufficient for GUI, human eye can't distinguish >15 FPS)
     DISPLAY_FRAME_RATE = 10
-    RESOLUTIONS = {"DEFAULT": "800x900"}
+    RESOLUTIONS = {"DEFAULT": "800x700"}
 
     def __init__(self):
         config.gui = self
