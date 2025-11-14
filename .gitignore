@@ -15,5 +15,6 @@ __pycache__/
 # Ignore auto-generated spec files, but keep ExplorerSettings.spec
 *.spec
 !ExplorerSettings.spec
+!ExplorerSettings_light.spec
 .env
 logs/
