@@ -61,7 +61,7 @@ ANTI_DETECT_CONFIG = {
     },
     # Process Stealth
     "process_stealth": {
-        "enabled": False,  # DISABLED - High NGS detection risk (hide console, memory obfuscation, process monitoring)
+        "enabled": True,  # ENABLED - Process stealth features (hide console, memory obfuscation, process monitoring)
         "hide_console": True,
         "obfuscate_process_name": False,
         "minimize_memory_footprint": True,

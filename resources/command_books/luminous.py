@@ -151,12 +151,9 @@ class Reflection_Mix_Random(Command):
     def main(self):
         roll = random.random()
         if roll < 0.85:
-            # Reflection: 2-3 casts (use min_times/max_times if valid, otherwise default to 2-3)
-            min_casts = max(2, min(self.min_times, self.max_times))
-            max_casts = max(3, max(self.min_times, self.max_times))
-            # Ensure min_casts <= max_casts
-            if min_casts > max_casts:
-                min_casts, max_casts = 2, 3
+            # Reflection: Use min_times/max_times with minimum 2 casts
+            min_casts = max(2, self.min_times)
+            max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             for _ in range(times):
                 press(Key.reflection, 1, down_time=0.1, up_time=0.1)
@@ -164,11 +161,9 @@ class Reflection_Mix_Random(Command):
                     random.uniform(*TimingConfig.REFLECTION["long_between_casts"])
                 )
         elif roll < 0.95:
-            # Apocalypse: 2-3 casts (consistent with Reflection)
-            min_casts = max(2, min(self.min_times, self.max_times))
-            max_casts = max(3, max(self.min_times, self.max_times))
-            if min_casts > max_casts:
-                min_casts, max_casts = 2, 3
+            # Apocalypse: Use min_times/max_times with minimum 2 casts (consistent with Reflection)
+            min_casts = max(2, self.min_times)
+            max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             for _ in range(times):
                 press(Key.apocalypse, 1, down_time=0.1, up_time=0.1)

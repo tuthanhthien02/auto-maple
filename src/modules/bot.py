@@ -9,6 +9,7 @@ import git
 from src.command_book.command_book import CommandBook
 from src.common import config, utils
 from src.common.anti_detect import initialize_anti_detect, update_activity
+from src.common.anti_detect_config import is_feature_enabled
 from src.common.interfaces import Configurable
 from src.common.logger import get_logger
 
@@ -75,11 +76,15 @@ class Bot(Configurable):
         # Routine randomization - DISABLED
         # initialize_routine_randomization()
 
-        # Enable process stealth (optional)
-        try:
-            enable_process_stealth()
-        except Exception as e:
-            log.warning("Failed to enable process stealth: %s", e)
+        # Enable process stealth (optional, check config first)
+        if is_feature_enabled("process_stealth.enabled"):
+            try:
+                enable_process_stealth()
+                log.info("Process stealth enabled")
+            except Exception as e:
+                log.warning("Failed to enable process stealth: %s", e)
+        else:
+            log.debug("Process stealth disabled via config")
 
         # Enable screenshot blocking (recommended) - DISABLED TEMPORARILY
         # try:
