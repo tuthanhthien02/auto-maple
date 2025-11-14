@@ -12,6 +12,10 @@ class Status(LabelFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(3, weight=1)
 
+        # Hidden vars for compatibility (e.g. Edit tab reuses StringVars)
+        self.curr_cb = tk.StringVar()
+        self.curr_routine = tk.StringVar()
+
         # Dynamic Paths Status
         self.dynamic_paths_label = tk.Label(self, text="Dynamic Paths:")
         self.dynamic_paths_label.grid(row=0, column=1, padx=5, pady=(5, 5), sticky=tk.E)
@@ -84,10 +88,10 @@ class Status(LabelFrame):
         self.recalibrate_status.grid(row=5, column=1, columnspan=2, padx=5, pady=(0, 5))
 
     def set_cb(self, string):
-        pass
+        self.curr_cb.set(string)
 
     def set_routine(self, string):
-        pass
+        self.curr_routine.set(string)
 
     def update_dynamic_paths_status(self):
         """Update Dynamic Paths status display."""
