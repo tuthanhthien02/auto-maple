@@ -89,11 +89,10 @@ class Edit(Tab):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     def _on_content_configure(self, event):
-        """Match canvas window size to content to enable XY scrolling."""
+        """Match canvas window width to canvas for proper horizontal scroll."""
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
-        self._canvas.itemconfig(
-            self._canvas_window, width=event.width, height=event.height
-        )
+        canvas_width = max(event.width, self._canvas.winfo_width())
+        self._canvas.itemconfig(self._canvas_window, width=canvas_width)
 
 
 class Editor(LabelFrame):
