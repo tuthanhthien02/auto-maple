@@ -2,7 +2,6 @@
 
 import tkinter as tk
 from src.gui.interfaces import KeyBindings, LabelFrame
-from src.gui.settings.pets import Pets
 from src.gui.settings.routine_randomization import RoutineRandomization
 from src.gui.settings.vmware_receiver import VMwareReceiver
 from src.gui.interfaces import Tab, Frame
@@ -22,10 +21,12 @@ class Settings(Tab):
         self.column1 = Frame(self._scroll_content)
         self.column1.grid(row=0, column=1, sticky=tk.N, padx=10, pady=10)
 
-        self.controls = KeyBindings(
-            self.column1, "Auto Maple Controls", config.listener
-        )
-        self.controls.pack(side=tk.TOP, fill="x", expand=True)
+        # Priority sections on top
+        self.routine_randomization = RoutineRandomization(self.column1)
+        self.routine_randomization.pack(side=tk.TOP, fill="x", expand=True)
+        self.vmware_receiver = VMwareReceiver(self.column1)
+        self.vmware_receiver.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+
         self.listener_settings = LabelFrame(
             self.column1, "Keyboard Listener", padding=(5, 5, 5, 5)
         )
@@ -54,14 +55,6 @@ class Settings(Tab):
             self.column1, "In-game Keybindings", config.bot
         )
         self.common_bindings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
-        self.pets = Pets(self.column1)
-        self.pets.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
-        self.routine_randomization = RoutineRandomization(self.column1)
-        self.routine_randomization.pack(
-            side=tk.TOP, fill="x", expand=True, pady=(10, 0)
-        )
-        self.vmware_receiver = VMwareReceiver(self.column1)
-        self.vmware_receiver.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
 
         self.column2 = Frame(self._scroll_content)
         self.column2.grid(row=0, column=2, sticky=tk.N, padx=10, pady=10)
@@ -73,9 +66,17 @@ class Settings(Tab):
     def _create_scrollable_frame(self):
         """Create a scrollable container for Settings content"""
         # Create canvas and scrollbar
-        self._canvas = tk.Canvas(self, highlightthickness=0)
+        self._enable_horizontal_scroll = True
+
+        self._canvas_container = Frame(self)
+        self._canvas_container.pack(side="top", fill="both", expand=True)
+
+        self._canvas = tk.Canvas(self._canvas_container, highlightthickness=0)
         self._scrollbar = tk.Scrollbar(
-            self, orient="vertical", command=self._canvas.yview
+            self._canvas_container, orient="vertical", command=self._canvas.yview
+        )
+        self._hscrollbar = tk.Scrollbar(
+            self, orient="horizontal", command=self._canvas.xview
         )
         self._scroll_content = Frame(self._canvas)
 
@@ -91,11 +92,14 @@ class Settings(Tab):
         )
 
         # Configure canvas scrolling
-        self._canvas.configure(yscrollcommand=self._scrollbar.set)
+        self._canvas.configure(
+            yscrollcommand=self._scrollbar.set, xscrollcommand=self._hscrollbar.set
+        )
 
-        # Pack canvas and scrollbar
+        # Pack canvas and scrollbars
         self._canvas.pack(side="left", fill="both", expand=True)
         self._scrollbar.pack(side="right", fill="y")
+        self._hscrollbar.pack(side="bottom", fill="x")
 
         # Bind mouse wheel to canvas
         def _on_mousewheel(event):
@@ -129,8 +133,9 @@ class Settings(Tab):
 
     def _on_canvas_configure(self, event):
         """Update canvas window width when canvas is resized"""
-        canvas_width = event.width
-        self._canvas.itemconfig(self._canvas_window, width=canvas_width)
+        if not getattr(self, "_enable_horizontal_scroll", False):
+            canvas_width = event.width
+            self._canvas.itemconfig(self._canvas_window, width=canvas_width)
 
     def update_class_bindings(self):
         self.class_bindings.destroy()

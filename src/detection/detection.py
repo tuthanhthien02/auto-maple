@@ -55,7 +55,9 @@ def load_model():
     """
     if tf is None:
         raise RuntimeError(f"TensorFlow is not available: {_TF_IMPORT_ERROR}")
-    model_dir = "assets/models/rune_model_rnn_filtered_cannied/saved_model"
+    model_dir = utils.get_asset_path(
+        "assets/models/rune_model_rnn_filtered_cannied/saved_model"
+    )
     return tf.saved_model.load(model_dir)
 
 

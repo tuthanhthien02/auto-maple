@@ -14,7 +14,9 @@ from src.common.interfaces import Configurable
 
 
 # The rune's buff icon
-RUNE_BUFF_TEMPLATE = cv2.imread("assets/rune_buff_template.jpg", 0)
+RUNE_BUFF_TEMPLATE = cv2.imread(
+    utils.get_asset_path("assets/rune_buff_template.jpg"), 0
+)
 
 
 class Bot(Configurable):

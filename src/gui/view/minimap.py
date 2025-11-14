@@ -21,7 +21,7 @@ class Minimap(LabelFrame):
             borderwidth=0,
             highlightthickness=0,
         )
-        self.canvas.pack(expand=True, fill="both", padx=5, pady=5)
+        self.canvas.pack(padx=5, pady=5)
         self.container = None
 
         # CPU Optimization: Cache converted and resized minimap to avoid repeated conversions
@@ -72,6 +72,8 @@ class Minimap(LabelFrame):
                 img = cv2.resize(
                     img, (new_width, new_height), interpolation=cv2.INTER_AREA
                 )
+                # Adjust canvas to new size to prevent letterboxing
+                self.canvas.configure(width=new_width, height=new_height)
 
             # Cache the converted/resized image
             self.cached_minimap = img.copy()

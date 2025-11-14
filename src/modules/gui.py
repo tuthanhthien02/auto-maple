@@ -1,18 +1,19 @@
 """User friendly GUI to interact with Auto Maple."""
 
-import time
+import os
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
-from src.common import config, settings
-from src.gui import Menu, View, Edit, Settings
-import os
+
+from src.common import config, settings, utils
+from src.gui import Edit, Menu, Settings, View
 
 
 class GUI:
     # CPU Optimization: Reduced from 30 FPS to 10 FPS (sufficient for GUI, human eye can't distinguish >15 FPS)
     DISPLAY_FRAME_RATE = 10
-    RESOLUTIONS = {"DEFAULT": "800x900", "Edit": "1400x800", "View": "1400x800"}
+    RESOLUTIONS = {"DEFAULT": "800x900"}
 
     def __init__(self):
         config.gui = self
@@ -20,7 +21,7 @@ class GUI:
         self.root = tk.Tk()
         self.root.title("Explorer Settings")
         # Thiết lập icon cửa sổ: stealth thành Explorer Settings
-        icon_path = os.path.join("assets", "explorer-icon.ico")
+        icon_path = utils.get_asset_path(os.path.join("assets", "explorer-icon.ico"))
         if os.path.exists(icon_path):
             try:
                 self.root.iconbitmap(icon_path)
@@ -45,6 +46,7 @@ class GUI:
         self.navigation.pack(expand=True, fill="both")
         self.navigation.bind("<<NotebookTabChanged>>", self._resize_window)
         self.root.focus()
+        self._enable_global_mousewheel()
 
     def set_routine(self, arr):
         self.routine_var.set(arr)
@@ -75,6 +77,33 @@ class GUI:
                 self.root.geometry(GUI.RESOLUTIONS[page])
             else:
                 self.root.geometry(GUI.RESOLUTIONS["DEFAULT"])
+
+    def _enable_global_mousewheel(self):
+        """Enable mouse wheel scrolling on scrollable widgets without requiring focus."""
+
+        def _dispatch(event):
+            widget = self.root.winfo_containing(event.x_root, event.y_root)
+            delta = 0
+            if hasattr(event, "delta") and event.delta:
+                delta = int(-1 * (event.delta / 120))
+            elif getattr(event, "num", None) in (4, 5):
+                delta = -1 if event.num == 4 else 1
+            while widget:
+                if isinstance(
+                    widget,
+                    (
+                        tk.Canvas,
+                        tk.Listbox,
+                        tk.Text,
+                        ttk.Treeview,
+                    ),
+                ):
+                    widget.yview_scroll(delta, "units")
+                    return "break"
+                widget = widget.master
+
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            self.root.bind_all(sequence, _dispatch, add="+")
 
     def start(self):
         """Starts the GUI as well as any scheduled functions."""
