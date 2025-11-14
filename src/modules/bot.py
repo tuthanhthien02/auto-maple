@@ -124,9 +124,17 @@ class Bot(Configurable):
 
                 # Check if we should log periodic summary
                 if metrics.should_log_summary():
+                    log.debug("Bot loop: Calling metrics.log_summary()")
                     metrics.log_summary()
+                    log.debug("Bot loop: metrics.log_summary() completed")
 
+                log.debug(
+                    "Bot loop: Checking execution condition: enabled=%s, routine_len=%d",
+                    config.enabled,
+                    len(config.routine) if config.routine else 0,
+                )
                 if config.enabled and len(config.routine) > 0:
+                    log.debug("Bot loop: Entering execution block")
                     # Track loop start time
                     loop_start_time = time.time()
 
