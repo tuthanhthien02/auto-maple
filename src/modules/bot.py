@@ -115,16 +115,16 @@ class Bot(Configurable):
 
         while True:
             try:
-                # Check if we should log periodic summary
-                if metrics.should_log_summary():
-                    metrics.log_summary()
-
-                # Log loop iteration for debugging
+                # Log loop iteration FIRST to track if we enter the loop
                 log.debug(
                     "Bot loop iteration: enabled=%s, routine_len=%d",
                     config.enabled,
                     len(config.routine) if config.routine else 0,
                 )
+
+                # Check if we should log periodic summary
+                if metrics.should_log_summary():
+                    metrics.log_summary()
 
                 if config.enabled and len(config.routine) > 0:
                     # Track loop start time
