@@ -17,7 +17,8 @@ from src.routine.components import Point
 from src.common.vkeys import press, click
 from src.common.interfaces import Configurable
 from src.common.logger import get_logger
-from src.common.metrics_logger import get_metrics_logger
+# Metrics disabled temporarily - not needed for now
+# from src.common.metrics_logger import get_metrics_logger
 
 
 # The rune's buff icon
@@ -111,7 +112,8 @@ class Bot(Configurable):
 
         consecutive_errors = 0
         max_consecutive_errors = 10
-        metrics = get_metrics_logger()
+        # Metrics disabled temporarily
+        # metrics = get_metrics_logger()
 
         while True:
             try:
@@ -122,11 +124,11 @@ class Bot(Configurable):
                     len(config.routine) if config.routine else 0,
                 )
 
-                # Check if we should log periodic summary
-                if metrics.should_log_summary():
-                    log.debug("Bot loop: Calling metrics.log_summary()")
-                    metrics.log_summary()
-                    log.debug("Bot loop: metrics.log_summary() completed")
+                # Metrics disabled temporarily
+                # if metrics and metrics.should_log_summary():
+                #     log.debug("Bot loop: Calling metrics.log_summary()")
+                #     metrics.log_summary()
+                #     log.debug("Bot loop: metrics.log_summary() completed")
 
                 log.debug(
                     "Bot loop: Checking execution condition: enabled=%s, routine_len=%d",
@@ -135,8 +137,8 @@ class Bot(Configurable):
                 )
                 if config.enabled and len(config.routine) > 0:
                     log.debug("Bot loop: Entering execution block")
-                    # Track loop start time
-                    loop_start_time = time.time()
+                    # Track loop start time (disabled with metrics)
+                    # loop_start_time = time.time()
 
                     # Update activity for anti-detect
                     current_time = time.time()
@@ -155,7 +157,7 @@ class Bot(Configurable):
                     should_backward, backward_steps = config.routine.should_backward()
                     if should_backward:
                         config.routine.apply_backward(backward_steps)
-                        metrics.record_backward_movement()
+                        # metrics.record_backward_movement()
                         element = config.routine[config.routine.index]
                         element_type = element.__class__.__name__
                         log.info(
@@ -184,7 +186,7 @@ class Bot(Configurable):
                                 "Skipping point at index %d due to randomization",
                                 config.routine.index,
                             )
-                            metrics.record_point_skip()
+                            # metrics.record_point_skip()
                         config.routine.is_skipping_context = True
                         config.routine.step()
                     else:
@@ -195,8 +197,8 @@ class Bot(Configurable):
                                 element.location[0],
                                 element.location[1],
                             )
-                            metrics.record_point_execution()
-                            metrics.update_position(element.location)
+                            # metrics.record_point_execution()
+                            # metrics.update_position(element.location)
 
                         try:
                             element.execute()
@@ -232,8 +234,8 @@ class Bot(Configurable):
                         config.routine.is_skipping_context = False
                         config.routine.is_backwarding_context = False
 
-                        loop_duration = time.time() - loop_start_time
-                        metrics.record_loop_completion(loop_duration)
+                        # loop_duration = time.time() - loop_start_time
+                        # metrics.record_loop_completion(loop_duration)
 
                         consecutive_errors = 0
 
@@ -261,7 +263,7 @@ class Bot(Configurable):
                 raise
             except Exception as e:
                 consecutive_errors += 1
-                metrics.record_error()
+                # metrics.record_error()
                 log.error(
                     "Bot loop error (consecutive: %d/%d): %s",
                     consecutive_errors,
@@ -286,7 +288,7 @@ class Bot(Configurable):
                             log.warning(
                                 "Recovering: Skipping current point and continuing"
                             )
-                            metrics.record_recovery()
+                            # metrics.record_recovery()
                             config.routine.step()
                             config.routine.is_skipping_context = False
                             config.routine.is_backwarding_context = False
