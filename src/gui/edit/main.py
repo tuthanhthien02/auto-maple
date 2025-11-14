@@ -19,8 +19,10 @@ class Edit(Tab):
         self._create_scrollable_frame()
 
         # Column sizing to keep widgets visible (supports horizontal scroll if needed)
-        for col in range(5):
-            self._scroll_content.columnconfigure(col, weight=1, minsize=200)
+        self._scroll_content.columnconfigure(0, weight=1, minsize=280)
+        self._scroll_content.columnconfigure(1, weight=2, minsize=360)
+        self._scroll_content.columnconfigure(2, weight=1, minsize=260)
+        self._scroll_content.columnconfigure(3, weight=1, minsize=260)
 
         # Store reference to Edit instance in scroll_content for widgets to access
         self._scroll_content.edit_instance = self
