@@ -46,18 +46,10 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.325,0.097,adjust=False,frequency=1
-Label,f1_pos_5
-reflection_mix_random
-wait_random,0.1,0.3
-
-# ========================================
-# TRANSITION: FLOOR 1 → FLOOR 2
-# ========================================
-Comment,=== TRANSITION: Jump Teleport Up to Floor 2 at (0.325,0.043) ===
 *,0.325,0.097,adjust=True,frequency=1
-Label,jump_up
-jump_teleport_up,1
+Label,f1_pos_5
+Comment,Floor 1 Pos 5: Reflection Mix Random then jump_teleport_up to Floor 2
+reflection_mix_random
 wait_random,0.8,1.5
 
 # ========================================
@@ -101,19 +93,10 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.140,0.043,adjust=False,frequency=1
+*,0.140,0.043,adjust=True,frequency=1
 Label,f2_pos_5
+Comment,Floor 2 Pos 5: Reflection Mix Random then jump_down to Floor 1
 reflection_mix_random
-wait_random,0.1,0.3
-
-# ========================================
-# TRANSITION: FLOOR 2 → FLOOR 1
-# ========================================
-Comment,=== TRANSITION: Drop Back to Floor 1 at (0.143,0.097) ===
-*,0.143,0.043,adjust=True,frequency=1
-Label,jump_down
-wait_random,0.25,0.40
-jump_down,1
 wait_random,1.0,1.8
 
 # ========================================
