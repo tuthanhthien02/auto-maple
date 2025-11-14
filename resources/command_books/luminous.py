@@ -520,16 +520,22 @@ class Buff(Command):
     def main(self):
         now = time.time()
         # Random hóa thời gian buff: 120–170 giây (thay vì cố định 180s)
-        if Buff._next_buff_time == 0.0 or now >= Buff._next_buff_time:
+        if Buff._next_buff_time <= 0.0 or now >= Buff._next_buff_time:
             press(Key.buff_main, 1)
-            time.sleep(0.1)
+            time.sleep(random.uniform(0.1, 0.2))
             # Temporarily disable secondary buff per request
             # press(Key.buff_secondary, 1)
             # time.sleep(0.1)
-            # Nghỉ ngẫu nhiên 2–4 giây sau khi buff để anti-detect
-            time.sleep(random.uniform(2.0, 4.0))
             # Lên lịch lần buff tiếp theo
             Buff._next_buff_time = now + random.uniform(120.0, 170.0)
+            log.debug(
+                "Buff casted, next buff in %.1f seconds",
+                Buff._next_buff_time - now,
+            )
+        else:
+            # Log when buff is skipped due to cooldown
+            remaining = Buff._next_buff_time - now
+            log.debug("Buff skipped (cooldown: %.1f seconds remaining)", remaining)
 
 
 class Adjust(Command):
@@ -875,9 +881,19 @@ class Buff_Secondary(Command):
     def main(self):
         now = time.time()
         if (
-            Buff_Secondary._next_buff_time == 0.0
+            Buff_Secondary._next_buff_time <= 0.0
             or now >= Buff_Secondary._next_buff_time
         ):
             press(Key.buff_secondary, 1)
             time.sleep(random.uniform(0.1, 0.2))
             Buff_Secondary._next_buff_time = now + random.uniform(800.0, 900.0)
+            log.debug(
+                "Buff Secondary casted, next buff in %.1f seconds",
+                Buff_Secondary._next_buff_time - now,
+            )
+        else:
+            # Log when buff is skipped due to cooldown
+            remaining = Buff_Secondary._next_buff_time - now
+            log.debug(
+                "Buff Secondary skipped (cooldown: %.1f seconds remaining)", remaining
+            )

@@ -11,6 +11,10 @@ from ctypes import wintypes
 
 import psutil
 
+from src.common.logger import get_logger
+
+log = get_logger(__name__)
+
 
 class ProcessStealth:
     """Manages process stealth features."""
@@ -23,6 +27,7 @@ class ProcessStealth:
         self.original_description = None
         self.description_changed = False
         self.fake_allocations = []  # Track fake memory allocations
+        self._fake_mem_lock = threading.Lock()  # Thread safety for fake_allocations
 
     def hide_console(self):
         """Hide the console window."""
@@ -37,10 +42,10 @@ class ProcessStealth:
                     user32 = ctypes.WinDLL("user32")
                     user32.ShowWindow(console_window, 0)  # SW_HIDE
                     self.console_hidden = True
-                    print("[Process Stealth] Console window hidden")
+                    log.info("[Process Stealth] Console window hidden")
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to hide console: {e}")
+            log.error("[Process Stealth] Failed to hide console: %s", e)
 
     def show_console(self):
         """Show the console window."""
@@ -55,10 +60,10 @@ class ProcessStealth:
                     user32 = ctypes.WinDLL("user32")
                     user32.ShowWindow(console_window, 1)  # SW_SHOW
                     self.console_hidden = False
-                    print("[Process Stealth] Console window shown")
+                    log.info("[Process Stealth] Console window shown")
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to show console: {e}")
+            log.error("[Process Stealth] Failed to show console: %s", e)
 
     def change_process_name(self, new_name):
         """Change the process name (requires admin privileges)."""
@@ -66,43 +71,43 @@ class ProcessStealth:
             if not self.process_name_changed:
                 # This is a simplified approach - actual process name changing
                 # requires more complex techniques and admin privileges
-                print(f"[Process Stealth] Process name change requested: {new_name}")
-                print(
+                log.info(
+                    "[Process Stealth] Process name change requested: %s", new_name
+                )
+                log.info(
                     "[Process Stealth] Note: Full process name changing requires admin privileges"
                 )
                 self.process_name_changed = True
                 self.original_process_name = os.path.basename(sys.executable)
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to change process name: {e}")
+            log.error("[Process Stealth] Failed to change process name: %s", e)
 
     def restore_process_name(self):
         """Restore the original process name."""
         try:
             if self.process_name_changed:
-                print("[Process Stealth] Process name restored")
+                log.info("[Process Stealth] Process name restored")
                 self.process_name_changed = False
                 self.original_process_name = None
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to restore process name: {e}")
+            log.error("[Process Stealth] Failed to restore process name: %s", e)
 
     def minimize_memory_footprint(self):
         """Minimize memory footprint to reduce detection."""
         try:
             # Force garbage collection
-            import gc
-
             gc.collect()
 
             # Clear any cached data
             if hasattr(sys, "_clear_type_cache"):
                 sys._clear_type_cache()
 
-            print("[Process Stealth] Memory footprint minimized")
+            log.debug("[Process Stealth] Memory footprint minimized")
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to minimize memory: {e}")
+            log.error("[Process Stealth] Failed to minimize memory: %s", e)
 
     def obfuscate_memory_patterns(self):
         """Obfuscate memory patterns to avoid detection."""
@@ -116,7 +121,7 @@ class ProcessStealth:
             del noise_data
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to obfuscate memory: {e}")
+            log.error("[Process Stealth] Failed to obfuscate memory: %s", e)
 
     def scramble_memory(self):
         """Scramble memory patterns by moving data around."""
@@ -140,7 +145,7 @@ class ProcessStealth:
             gc.collect()
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to scramble memory: {e}")
+            log.error("[Process Stealth] Failed to scramble memory: %s", e)
 
     def allocate_fake_memory(self, count=None):
         """Allocate fake memory with random data to obfuscate memory patterns."""
@@ -148,31 +153,34 @@ class ProcessStealth:
             if count is None:
                 count = random.randint(3, 8)  # 3-8 fake allocations
 
-            # Clear old allocations if too many
-            if len(self.fake_allocations) > 20:
-                # Remove oldest 50%
-                remove_count = len(self.fake_allocations) // 2
-                self.fake_allocations = self.fake_allocations[remove_count:]
+            # Thread-safe: Clear old allocations if too many
+            with self._fake_mem_lock:
+                if len(self.fake_allocations) > 20:
+                    # Remove oldest 50%
+                    remove_count = len(self.fake_allocations) // 2
+                    self.fake_allocations = self.fake_allocations[remove_count:]
 
-            # Allocate new fake memory blocks
-            for _ in range(count):
-                # Random size between 1KB and 50KB
-                size = random.randint(1024, 51200)
-                # Create random data
-                fake_data = bytearray(random.randint(0, 255) for _ in range(size))
-                # Store reference to prevent immediate garbage collection
-                self.fake_allocations.append(fake_data)
+            # Allocate new fake memory blocks (thread-safe)
+            with self._fake_mem_lock:
+                for _ in range(count):
+                    # Random size between 1KB and 50KB
+                    size = random.randint(1024, 51200)
+                    # Create random data
+                    fake_data = bytearray(random.randint(0, 255) for _ in range(size))
+                    # Store reference to prevent immediate garbage collection
+                    self.fake_allocations.append(fake_data)
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to allocate fake memory: {e}")
+            log.error("[Process Stealth] Failed to allocate fake memory: %s", e)
 
     def clear_fake_memory(self):
         """Clear all fake memory allocations."""
         try:
-            self.fake_allocations.clear()
+            with self._fake_mem_lock:
+                self.fake_allocations.clear()
             gc.collect()
         except Exception as e:
-            print(f"[Process Stealth] Failed to clear fake memory: {e}")
+            log.error("[Process Stealth] Failed to clear fake memory: %s", e)
 
     def change_process_description(self, new_description=None):
         """Change process description/window title (does not require admin)."""
@@ -198,12 +206,12 @@ class ProcessStealth:
             console_window = kernel32.GetConsoleWindow()
             if console_window:
                 # Change window title (visible in Task Manager)
-                user32.SetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+                # SetWindowTextW expects LPCWSTR (pointer to wide string)
+                user32.SetWindowTextW.argtypes = [wintypes.HWND, ctypes.c_wchar_p]
                 user32.SetWindowTextW.restype = wintypes.BOOL
 
-                # Convert to wide string
-                description_wide = new_description.encode("utf-16le") + b"\x00\x00"
-                result = user32.SetWindowTextW(console_window, description_wide)
+                # Convert to wide string (Python string is already Unicode)
+                result = user32.SetWindowTextW(console_window, new_description)
 
                 if result:
                     if not self.description_changed:
@@ -223,7 +231,15 @@ class ProcessStealth:
                             pass
 
                     self.description_changed = True
+                    log.info(
+                        "[Process Stealth] Process description changed to: %s",
+                        new_description,
+                    )
                     return True
+                else:
+                    log.warning(
+                        "[Process Stealth] SetWindowTextW returned False (may need admin)"
+                    )
 
             # Also try to change process title via sys.argv[0] manipulation
             # (This is a limited approach but doesn't require admin)
@@ -238,7 +254,7 @@ class ProcessStealth:
             return False
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to change process description: {e}")
+            log.error("[Process Stealth] Failed to change process description: %s", e)
             return False
 
     def restore_process_description(self):
@@ -250,18 +266,15 @@ class ProcessStealth:
 
                 console_window = kernel32.GetConsoleWindow()
                 if console_window:
-                    user32.SetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+                    user32.SetWindowTextW.argtypes = [wintypes.HWND, ctypes.c_wchar_p]
                     user32.SetWindowTextW.restype = wintypes.BOOL
 
-                    description_wide = (
-                        self.original_description.encode("utf-16le") + b"\x00\x00"
-                    )
-                    user32.SetWindowTextW(console_window, description_wide)
+                    user32.SetWindowTextW(console_window, self.original_description)
                     self.description_changed = False
                     self.original_description = None
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to restore process description: {e}")
+            log.error("[Process Stealth] Failed to restore process description: %s", e)
 
     def hide_from_task_manager(self):
         """Attempt to hide from Task Manager (advanced technique)."""
@@ -269,11 +282,13 @@ class ProcessStealth:
             # This is a placeholder - actual hiding from Task Manager
             # requires very advanced techniques and may not be possible
             # on modern Windows systems due to security restrictions
-            print("[Process Stealth] Task Manager hiding not implemented")
-            print("[Process Stealth] Note: Modern Windows prevents this for security")
+            log.info("[Process Stealth] Task Manager hiding not implemented")
+            log.info(
+                "[Process Stealth] Note: Modern Windows prevents this for security"
+            )
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to hide from Task Manager: {e}")
+            log.error("[Process Stealth] Failed to hide from Task Manager: %s", e)
 
     def get_process_info(self):
         """Get current process information."""
@@ -284,7 +299,7 @@ class ProcessStealth:
                 "pid": current_process.pid,
                 "name": current_process.name(),
                 "memory_usage": current_process.memory_info().rss,
-                "cpu_percent": current_process.cpu_percent(),
+                "cpu_percent": current_process.cpu_percent(interval=0.1),
                 "create_time": current_process.create_time(),
                 "status": current_process.status(),
             }
@@ -292,7 +307,7 @@ class ProcessStealth:
             return info
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to get process info: {e}")
+            log.error("[Process Stealth] Failed to get process info: %s", e)
             return None
 
     def monitor_process(self):
@@ -303,16 +318,16 @@ class ProcessStealth:
             # Check memory usage
             memory_usage = current_process.memory_info().rss / 1024 / 1024  # MB
             if memory_usage > 500:  # More than 500MB
-                print(f"[Process Stealth] High memory usage: {memory_usage:.1f}MB")
+                log.warning("[Process Stealth] High memory usage: %.1fMB", memory_usage)
                 self.minimize_memory_footprint()
 
-            # Check CPU usage
-            cpu_percent = current_process.cpu_percent()
+            # Check CPU usage (need interval for accurate reading)
+            cpu_percent = current_process.cpu_percent(interval=0.1)
             if cpu_percent > 50:  # More than 50% CPU
-                print(f"[Process Stealth] High CPU usage: {cpu_percent:.1f}%")
+                log.warning("[Process Stealth] High CPU usage: %.1f%%", cpu_percent)
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to monitor process: {e}")
+            log.error("[Process Stealth] Failed to monitor process: %s", e)
 
     def cleanup(self):
         """Cleanup stealth features."""
@@ -329,10 +344,10 @@ class ProcessStealth:
             # Clear fake memory allocations
             self.clear_fake_memory()
 
-            print("[Process Stealth] Stealth features cleaned up")
+            log.info("[Process Stealth] Stealth features cleaned up")
 
         except Exception as e:
-            print(f"[Process Stealth] Failed to cleanup: {e}")
+            log.error("[Process Stealth] Failed to cleanup: %s", e)
 
 
 class StealthMonitor:
@@ -355,7 +370,7 @@ class StealthMonitor:
                 target=self._monitor_loop, daemon=True
             )
             self.monitor_thread.start()
-            print("[Stealth Monitor] Started monitoring")
+            log.info("[Stealth Monitor] Started monitoring")
 
     def stop_monitoring(self):
         """Stop stealth monitoring."""
@@ -365,7 +380,7 @@ class StealthMonitor:
             self.monitor_thread.join()
         if self.memory_scramble_thread:
             self.memory_scramble_thread.join()
-        print("[Stealth Monitor] Stopped monitoring")
+        log.info("[Stealth Monitor] Stopped monitoring")
 
     def _monitor_loop(self):
         """Main monitoring loop."""
@@ -375,7 +390,7 @@ class StealthMonitor:
                 time.sleep(30)  # Check every 30 seconds
 
             except Exception as e:
-                print(f"[Stealth Monitor] Error: {e}")
+                log.error("[Stealth Monitor] Error: %s", e, exc_info=True)
                 time.sleep(60)  # Wait longer on error
 
     def _memory_scramble_loop(self):
@@ -395,7 +410,9 @@ class StealthMonitor:
                     self.stealth.allocate_fake_memory()
 
             except Exception as e:
-                print(f"[Stealth Monitor] Memory scramble error: {e}")
+                log.error(
+                    "[Stealth Monitor] Memory scramble error: %s", e, exc_info=True
+                )
                 time.sleep(60)  # Wait on error
 
     def start_memory_scrambling(self, interval_min=300, interval_max=600):
@@ -408,9 +425,11 @@ class StealthMonitor:
                 target=self._memory_scramble_loop, daemon=True
             )
             self.memory_scramble_thread.start()
-            print(
-                f"[Stealth Monitor] Started periodic memory scrambling "
-                f"({interval_min//60}-{interval_max//60} minutes)"
+            log.info(
+                "[Stealth Monitor] Started periodic memory scrambling "
+                "(%d-%d minutes)",
+                interval_min // 60,
+                interval_max // 60,
             )
 
     def stop_memory_scrambling(self):
@@ -418,7 +437,7 @@ class StealthMonitor:
         self.memory_scramble_enabled = False
         if self.memory_scramble_thread:
             self.memory_scramble_thread.join(timeout=5)
-        print("[Stealth Monitor] Stopped periodic memory scrambling")
+        log.info("[Stealth Monitor] Stopped periodic memory scrambling")
 
     def enable_stealth(
         self,
@@ -452,10 +471,20 @@ class StealthMonitor:
             # Start monitoring
             self.start_monitoring()
 
-            print("[Stealth Monitor] All stealth features enabled")
+            log.info("[Stealth Monitor] All stealth features enabled")
+            log.info(
+                "[Stealth Monitor] Features: console_hidden=%s, description_changed=%s, "
+                "memory_scrambling=%s, fake_allocations=%d",
+                self.stealth.console_hidden,
+                self.stealth.description_changed,
+                self.memory_scramble_enabled,
+                len(self.stealth.fake_allocations),
+            )
 
         except Exception as e:
-            print(f"[Stealth Monitor] Failed to enable stealth: {e}")
+            log.error(
+                "[Stealth Monitor] Failed to enable stealth: %s", e, exc_info=True
+            )
 
     def disable_stealth(self):
         """Disable all stealth features."""
@@ -466,10 +495,12 @@ class StealthMonitor:
             # Cleanup stealth features
             self.stealth.cleanup()
 
-            print("[Stealth Monitor] All stealth features disabled")
+            log.info("[Stealth Monitor] All stealth features disabled")
 
         except Exception as e:
-            print(f"[Stealth Monitor] Failed to disable stealth: {e}")
+            log.error(
+                "[Stealth Monitor] Failed to disable stealth: %s", e, exc_info=True
+            )
 
 
 # Global instance
@@ -508,3 +539,21 @@ def get_process_info():
 def is_stealth_enabled():
     """Check if stealth is enabled."""
     return stealth_monitor.monitoring
+
+
+def get_stealth_status():
+    """Get detailed status of all stealth features.
+
+    Returns:
+        dict: Dictionary containing status of all stealth features
+    """
+    status = {
+        "enabled": stealth_monitor.monitoring,
+        "console_hidden": stealth_monitor.stealth.console_hidden,
+        "description_changed": stealth_monitor.stealth.description_changed,
+        "original_description": stealth_monitor.stealth.original_description,
+        "memory_scrambling_enabled": stealth_monitor.memory_scramble_enabled,
+        "fake_allocations_count": len(stealth_monitor.stealth.fake_allocations),
+        "process_info": stealth_monitor.stealth.get_process_info(),
+    }
+    return status
