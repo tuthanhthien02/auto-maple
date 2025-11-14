@@ -1,11 +1,11 @@
 """Displays Auto Maple's current settings and allows the user to edit them."""
 
 import tkinter as tk
-from src.gui.interfaces import KeyBindings, LabelFrame
+
+from src.common import config
+from src.gui.interfaces import Frame, KeyBindings, LabelFrame, Tab
 from src.gui.settings.routine_randomization import RoutineRandomization
 from src.gui.settings.vmware_receiver import VMwareReceiver
-from src.gui.interfaces import Tab, Frame
-from src.common import config
 
 
 class Settings(Tab):

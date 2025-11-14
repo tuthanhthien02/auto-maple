@@ -4,10 +4,10 @@ setlocal ENABLEDELAYEDEXPANSION
 REM Change to script directory
 cd /d "%~dp0"
 
-REM Load .env if present (supports lines like KEY=VALUE, ignores blank lines and # comments)
-if exist ".env" (
-    echo [~] Loading .env variables...
-    for /f "usebackq delims=" %%L in (".env") do (
+REM Load .env.prod if present (supports lines like KEY=VALUE, ignores blank lines and # comments)
+if exist ".env.prod" (
+    echo [~] Loading .env.prod variables...
+    for /f "usebackq delims=" %%L in (".env.prod") do (
         set "line=%%L"
         if not "!line!"=="" if not "!line:~0,1!"=="#" (
             for /f "tokens=1,* delims==" %%A in ("!line!") do (
@@ -129,5 +129,3 @@ echo [INFO] The dist\ folder contains everything you need to run the bot
 echo.
 pause
 endlocal
-
-
