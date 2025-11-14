@@ -718,9 +718,12 @@ def step(direction, target, distance=None, waypoint_jumped=False):
 
             if direction in ("up", "down"):
                 # Vertical teleport: Hold direction + Press ALT + Press W
-                # NOTE: Skip jump in teleport combo if already auto-jumped to avoid duplicate
-                if not has_auto_jumped:
-                    # Only jump in teleport combo if not already jumped above
+                # NOTE: Skip jump in teleport combo if already auto-jumped OR waypoint_jumped
+                # to avoid duplicate jumps when step() is called multiple times in Move loop
+                if not has_auto_jumped and not waypoint_jumped:
+                    # Only jump in teleport combo if:
+                    # 1. Not already auto-jumped in this step() call
+                    # 2. Not already jumped for this waypoint (prevents duplicate when step() called again)
                     key_down(Key.jump)
                     time.sleep(
                         random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
