@@ -120,12 +120,15 @@ class Bot(Configurable):
 
         while True:
             try:
-                # Log loop iteration FIRST to track if we enter the loop
-                log.debug(
-                    "Bot loop iteration: enabled=%s, routine_len=%d",
-                    config.enabled,
-                    len(config.routine) if config.routine else 0,
-                )
+                routine_len = len(config.routine) if config.routine else 0
+                is_active = config.enabled and routine_len > 0
+                if is_active:
+                    # Log loop iteration only when active to avoid log spam when idle
+                    log.debug(
+                        "Bot loop iteration: enabled=%s, routine_len=%d",
+                        config.enabled,
+                        routine_len,
+                    )
 
                 # Metrics disabled temporarily
                 # if metrics and metrics.should_log_summary():
@@ -133,134 +136,126 @@ class Bot(Configurable):
                 #     metrics.log_summary()
                 #     log.debug("Bot loop: metrics.log_summary() completed")
 
+                if not is_active:
+                    # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
+                    time.sleep(0.2)
+                    continue
+
                 log.debug(
                     "Bot loop: Checking execution condition: enabled=%s, routine_len=%d",
                     config.enabled,
-                    len(config.routine) if config.routine else 0,
+                    routine_len,
                 )
-                if config.enabled and len(config.routine) > 0:
-                    log.debug("Bot loop: Entering execution block")
-                    # Track loop start time (disabled with metrics)
-                    # loop_start_time = time.time()
+                log.debug("Bot loop: Entering execution block")
+                # Track loop start time (disabled with metrics)
+                # loop_start_time = time.time()
 
-                    # Update activity for anti-detect
-                    current_time = time.time()
-                    if current_time - last_activity_update > 1.0:
-                        update_activity()
-                        last_activity_update = current_time
+                # Update activity for anti-detect
+                current_time = time.time()
+                if current_time - last_activity_update > 1.0:
+                    update_activity()
+                    last_activity_update = current_time
 
-                        # Highlight the current Point in GUI (if available)
-                        try:
-                            config.gui.view.routine.select(config.routine.index)
-                            config.gui.view.details.display_info(config.routine.index)
-                        except Exception as gui_error:
-                            log.debug("GUI update error (non-critical): %s", gui_error)
+                    # Highlight the current Point in GUI (if available)
+                    try:
+                        config.gui.view.routine.select(config.routine.index)
+                        config.gui.view.details.display_info(config.routine.index)
+                    except Exception as gui_error:
+                        log.debug("GUI update error (non-critical): %s", gui_error)
 
-                    # Random Move Backward: Check if we should backward BEFORE any command execution
-                    should_backward, backward_steps = config.routine.should_backward()
-                    if should_backward:
-                        config.routine.apply_backward(backward_steps)
-                        # metrics.record_backward_movement()
-                        element = config.routine[config.routine.index]
-                        element_type = element.__class__.__name__
-                        log.info(
-                            "Random Backward: Now at index %d, element type: %s",
-                            config.routine.index,
-                            element_type,
-                        )
-
+                # Random Move Backward: Check if we should backward BEFORE any command execution
+                should_backward, backward_steps = config.routine.should_backward()
+                if should_backward:
+                    config.routine.apply_backward(backward_steps)
+                    # metrics.record_backward_movement()
                     element = config.routine[config.routine.index]
                     element_type = element.__class__.__name__
-
-                    # Log current routine state
-                    log.debug(
-                        "Routine Execution: Index %d/%d - %s",
+                    log.info(
+                        "Random Backward: Now at index %d, element type: %s",
                         config.routine.index,
-                        len(config.routine.sequence) - 1,
                         element_type,
                     )
 
-                    # Check if we should skip this point
-                    should_skip = config.routine.should_skip_current_point()
+                element = config.routine[config.routine.index]
+                element_type = element.__class__.__name__
 
-                    if should_skip:
-                        if isinstance(element, Point):
-                            log.info(
-                                "Skipping point at index %d due to randomization",
-                                config.routine.index,
-                            )
-                            # metrics.record_point_skip()
-                        config.routine.is_skipping_context = True
-                        config.routine.step()
-                    else:
-                        if isinstance(element, Point):
-                            log.info(
-                                "Executing point at index %d (location: %.3f, %.3f)",
-                                config.routine.index,
-                                element.location[0],
-                                element.location[1],
-                            )
-                            # metrics.record_point_execution()
-                            # metrics.update_position(element.location)
+                # Log current routine state
+                log.debug(
+                    "Routine Execution: Index %d/%d - %s",
+                    config.routine.index,
+                    len(config.routine.sequence) - 1,
+                    element_type,
+                )
 
-                        try:
-                            element.execute()
-                            log.debug(
-                                "Element executed, stepping routine from index %d",
-                                config.routine.index,
-                            )
-                        except Exception as exec_error:
-                            log.error(
-                                "Error executing element at index %d: %s",
-                                config.routine.index,
-                                exec_error,
-                                exc_info=True,
-                            )
-                            raise  # Re-raise to be caught by outer exception handler
+                # Check if we should skip this point
+                should_skip = config.routine.should_skip_current_point()
 
-                        try:
-                            config.routine.step()
-                            log.debug(
-                                "Routine stepped, new index: %d/%d",
-                                config.routine.index,
-                                len(config.routine.sequence) - 1,
-                            )
-                        except Exception as step_error:
-                            log.error(
-                                "Error stepping routine from index %d: %s",
-                                config.routine.index,
-                                step_error,
-                                exc_info=True,
-                            )
-                            raise  # Re-raise to be caught by outer exception handler
-
-                        config.routine.is_skipping_context = False
-                        config.routine.is_backwarding_context = False
-
-                        # loop_duration = time.time() - loop_start_time
-                        # metrics.record_loop_completion(loop_duration)
-
-                        consecutive_errors = 0
-
-                        log.debug(
-                            "Bot loop iteration completed, sleeping before next iteration"
+                if should_skip:
+                    if isinstance(element, Point):
+                        log.info(
+                            "Skipping point at index %d due to randomization",
+                            config.routine.index,
                         )
-
-                    # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
-                    time.sleep(0.05)
-                    log.debug("Bot loop: After sleep, continuing to next iteration")
+                        # metrics.record_point_skip()
+                    config.routine.is_skipping_context = True
+                    config.routine.step()
                 else:
-                    # Log why bot is not executing to help debug
-                    if not config.enabled:
-                        log.debug(
-                            "Bot loop: config.enabled = False, skipping execution"
+                    if isinstance(element, Point):
+                        log.info(
+                            "Executing point at index %d (location: %.3f, %.3f)",
+                            config.routine.index,
+                            element.location[0],
+                            element.location[1],
                         )
-                    elif len(config.routine) == 0:
+                        # metrics.record_point_execution()
+                        # metrics.update_position(element.location)
+
+                    try:
+                        element.execute()
                         log.debug(
-                            "Bot loop: len(config.routine) = 0, skipping execution"
+                            "Element executed, stepping routine from index %d",
+                            config.routine.index,
                         )
-                    # CPU Optimization: Lower frequency when disabled - 5 Hz (enough to detect enable)
-                    time.sleep(0.2)
+                    except Exception as exec_error:
+                        log.error(
+                            "Error executing element at index %d: %s",
+                            config.routine.index,
+                            exec_error,
+                            exc_info=True,
+                        )
+                        raise  # Re-raise to be caught by outer exception handler
+
+                    try:
+                        config.routine.step()
+                        log.debug(
+                            "Routine stepped, new index: %d/%d",
+                            config.routine.index,
+                            len(config.routine.sequence) - 1,
+                        )
+                    except Exception as step_error:
+                        log.error(
+                            "Error stepping routine from index %d: %s",
+                            config.routine.index,
+                            step_error,
+                            exc_info=True,
+                        )
+                        raise  # Re-raise to be caught by outer exception handler
+
+                    config.routine.is_skipping_context = False
+                    config.routine.is_backwarding_context = False
+
+                    # loop_duration = time.time() - loop_start_time
+                    # metrics.record_loop_completion(loop_duration)
+
+                    consecutive_errors = 0
+
+                    log.debug(
+                        "Bot loop iteration completed, sleeping before next iteration"
+                    )
+
+                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
+                time.sleep(0.05)
+                log.debug("Bot loop: After sleep, continuing to next iteration")
             except KeyboardInterrupt:
                 log.info("Bot loop interrupted by user")
                 raise
