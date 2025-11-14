@@ -11,8 +11,8 @@ from src.gui import Edit, Menu, Settings, View
 
 
 class GUI:
-    # CPU Optimization: Reduced from 30 FPS to 10 FPS (sufficient for GUI, human eye can't distinguish >15 FPS)
-    DISPLAY_FRAME_RATE = 10
+    # CPU Optimization: Reduced from 30 FPS to 6 FPS (sufficient for visual feedback, reduced from 10 FPS)
+    DISPLAY_FRAME_RATE = 6
     RESOLUTIONS = {"DEFAULT": "800x700", "Edit": "1000x700"}
 
     def __init__(self):
@@ -150,8 +150,8 @@ class GUI:
 
         while True:
             try:
-                # Refresh status every 2 seconds
-                time.sleep(2.0)
+                # CPU Optimization: Increased refresh interval from 2s to 3s
+                time.sleep(3.0)
                 if hasattr(config, "gui") and config.gui:
                     if hasattr(config.gui, "settings") and config.gui.settings:
                         if (
@@ -173,8 +173,8 @@ class GUI:
 
         while True:
             try:
-                # Refresh status every 1 second (more frequent for better UX)
-                time.sleep(1.0)
+                # CPU Optimization: Increased refresh interval from 1s to 2s
+                time.sleep(2.0)
                 if hasattr(config, "gui") and config.gui:
                     if hasattr(config.gui, "view") and config.gui.view:
                         if (
@@ -196,8 +196,8 @@ class GUI:
 
         while True:
             try:
-                # Refresh status every 1 second
-                time.sleep(1.0)
+                # CPU Optimization: Increased refresh interval from 1s to 2s
+                time.sleep(2.0)
                 if hasattr(config, "gui") and config.gui:
                     if hasattr(config.gui, "view") and config.gui.view:
                         if (
@@ -219,8 +219,8 @@ class GUI:
 
         while True:
             try:
-                # Refresh status every 2 seconds (less frequent since it doesn't change often)
-                time.sleep(2.0)
+                # CPU Optimization: Increased refresh interval from 2s to 4s (doesn't change often)
+                time.sleep(4.0)
                 if hasattr(config, "gui") and config.gui:
                     if hasattr(config.gui, "view") and config.gui.view:
                         if (

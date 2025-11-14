@@ -50,6 +50,9 @@ class Bot(Configurable):
         self.rune_closest_pos = (0, 0)  # Location of the Point closest to rune
         self.submodules = []
         self.command_book = None  # CommandBook instance
+
+        # CPU Optimization: Track last GUI index to avoid unnecessary updates
+        self._last_gui_index = -1
         # self.module_name = None
         # self.buff = components.Buff()
 
@@ -127,13 +130,13 @@ class Bot(Configurable):
             try:
                 routine_len = len(config.routine) if config.routine else 0
                 is_active = config.enabled and routine_len > 0
-                if is_active:
-                    # Log loop iteration only when active to avoid log spam when idle
-                    log.debug(
-                        "Bot loop iteration: enabled=%s, routine_len=%d",
-                        config.enabled,
-                        routine_len,
-                    )
+                # CPU Optimization: Removed debug logging in hot loop
+                # if is_active:
+                #     log.debug(
+                #         "Bot loop iteration: enabled=%s, routine_len=%d",
+                #         config.enabled,
+                #         routine_len,
+                #     )
 
                 # Metrics disabled temporarily
                 # if metrics and metrics.should_log_summary():
@@ -146,12 +149,13 @@ class Bot(Configurable):
                     time.sleep(0.2)
                     continue
 
-                log.debug(
-                    "Bot loop: Checking execution condition: enabled=%s, routine_len=%d",
-                    config.enabled,
-                    routine_len,
-                )
-                log.debug("Bot loop: Entering execution block")
+                # CPU Optimization: Removed debug logging in hot loop
+                # log.debug(
+                #     "Bot loop: Checking execution condition: enabled=%s, routine_len=%d",
+                #     config.enabled,
+                #     routine_len,
+                # )
+                # log.debug("Bot loop: Entering execution block")
                 # Track loop start time (disabled with metrics)
                 # loop_start_time = time.time()
 
@@ -161,10 +165,14 @@ class Bot(Configurable):
                     update_activity()
                     last_activity_update = current_time
 
+                # CPU Optimization: Only update GUI when routine index actually changes
+                current_index = config.routine.index if config.routine else -1
+                if current_index != self._last_gui_index:
                     # Highlight the current Point in GUI (if available)
                     try:
-                        config.gui.view.routine.select(config.routine.index)
-                        config.gui.view.details.display_info(config.routine.index)
+                        config.gui.view.routine.select(current_index)
+                        config.gui.view.details.display_info(current_index)
+                        self._last_gui_index = current_index
                     except Exception as gui_error:
                         log.debug("GUI update error (non-critical): %s", gui_error)
 
@@ -217,10 +225,11 @@ class Bot(Configurable):
 
                     try:
                         element.execute()
-                        log.debug(
-                            "Element executed, stepping routine from index %d",
-                            config.routine.index,
-                        )
+                        # CPU Optimization: Removed debug logging in hot loop
+                        # log.debug(
+                        #     "Element executed, stepping routine from index %d",
+                        #     config.routine.index,
+                        # )
                     except Exception as exec_error:
                         log.error(
                             "Error executing element at index %d: %s",
@@ -232,11 +241,12 @@ class Bot(Configurable):
 
                     try:
                         config.routine.step()
-                        log.debug(
-                            "Routine stepped, new index: %d/%d",
-                            config.routine.index,
-                            len(config.routine.sequence) - 1,
-                        )
+                        # CPU Optimization: Removed debug logging in hot loop
+                        # log.debug(
+                        #     "Routine stepped, new index: %d/%d",
+                        #     config.routine.index,
+                        #     len(config.routine.sequence) - 1,
+                        # )
                     except Exception as step_error:
                         log.error(
                             "Error stepping routine from index %d: %s",
@@ -254,13 +264,15 @@ class Bot(Configurable):
 
                     consecutive_errors = 0
 
-                    log.debug(
-                        "Bot loop iteration completed, sleeping before next iteration"
-                    )
+                    # CPU Optimization: Removed debug logging in hot loop
+                    # log.debug(
+                    #     "Bot loop iteration completed, sleeping before next iteration"
+                    # )
 
-                # CPU Optimization: Adaptive sleep - 20 Hz when active (sufficient responsiveness)
-                time.sleep(0.05)
-                log.debug("Bot loop: After sleep, continuing to next iteration")
+                # CPU Optimization: Adaptive sleep - 10 Hz when active (sufficient responsiveness, reduced from 20 Hz)
+                time.sleep(0.1)
+                # CPU Optimization: Removed debug logging in hot loop
+                # log.debug("Bot loop: After sleep, continuing to next iteration")
             except KeyboardInterrupt:
                 log.info("Bot loop interrupted by user")
                 raise

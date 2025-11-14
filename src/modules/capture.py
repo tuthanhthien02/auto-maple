@@ -67,6 +67,15 @@ class Capture:
         self.position_check_interval = POSITION_CHECK_INTERVAL
         self.pos_update_interval = POS_UPDATE_INTERVAL
 
+        # Adaptive frame rate tracking
+        self.consecutive_stable_frames = 0
+        self.last_position_change_time = 0
+
+        # CPU Optimization: Cache for image processing
+        self.cached_hsv = None
+        self.cached_minimap_hash = None
+        self.cached_mask = None
+
     def start(self):
         """
         Starts the capture thread.
@@ -120,11 +129,23 @@ class Capture:
         if minimap_bgr is None or minimap_bgr.size == 0:
             return None
 
-        hsv = cv2.cvtColor(minimap_bgr, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, PLAYER_HSV_LOWER, PLAYER_HSV_UPPER)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        mask = cv2.dilate(mask, kernel, iterations=1)
+        # CPU Optimization: Cache HSV conversion and mask if minimap hasn't changed
+        minimap_hash = hash(minimap_bgr.tobytes())
+        if minimap_hash == self.cached_minimap_hash and self.cached_mask is not None:
+            # Reuse cached mask if minimap is unchanged
+            mask = self.cached_mask
+        else:
+            # Recompute HSV and mask only when minimap changes
+            hsv = cv2.cvtColor(minimap_bgr, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv, PLAYER_HSV_LOWER, PLAYER_HSV_UPPER)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+            mask = cv2.dilate(mask, kernel, iterations=1)
+
+            # Cache the results
+            self.cached_minimap_hash = minimap_hash
+            self.cached_hsv = hsv
+            self.cached_mask = mask
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         candidates = []
@@ -398,17 +419,39 @@ class Capture:
                                     )
                                     self.calibrated = False
                                     self._recalibrate_requested = False
+                                    # CPU Optimization: Clear cache on recalibration
+                                    self.cached_hsv = None
+                                    self.cached_minimap_hash = None
+                                    self.cached_mask = None
                                 break
 
                             current_time = time.time()
                             bot_active = config.enabled and len(config.path) > 0
 
+                            # CPU Optimization: Adaptive frame rate based on bot state and player movement
                             if bot_active:
-                                frame_delay = 0.033
+                                # When bot is active, use higher FPS but still allow adaptive reduction
+                                frame_delay = 0.033  # ~30 FPS when active
                             elif config.enabled:
-                                frame_delay = 0.1
+                                # Bot enabled but not actively moving
+                                frame_delay = 0.15  # ~6.7 FPS (increased from 0.1s)
                             else:
-                                frame_delay = 0.2
+                                # Bot disabled - use lower FPS to save CPU
+                                frame_delay = 0.4  # 2.5 FPS (increased from 0.2s)
+
+                            # Adaptive frame rate: increase delay if player position is stable
+                            if (
+                                self.last_player_pos is not None
+                                and self.last_position_change_time > 0
+                            ):
+                                time_since_position_change = (
+                                    current_time - self.last_position_change_time
+                                )
+                                if (
+                                    time_since_position_change > 2.0
+                                ):  # Position stable for 2+ seconds
+                                    # Increase delay by 50% when position is stable
+                                    frame_delay *= 1.5
 
                             self.frame = self.screenshot()
                             if self.frame is None:
@@ -440,13 +483,51 @@ class Capture:
                                 should_match = True
 
                             if should_match:
-                                minimap_gray = cv2.cvtColor(
-                                    minimap_bgr, cv2.COLOR_BGR2GRAY
-                                )
+                                # CPU Optimization: Skip position detection if position is stable
+                                # and we're not in active bot mode
+                                skip_detection = False
+                                if not bot_active and self.last_player_pos is not None:
+                                    time_since_change = (
+                                        current_time - self.last_position_change_time
+                                    )
+                                    if (
+                                        time_since_change < 1.0
+                                    ):  # Position changed recently, need detection
+                                        skip_detection = False
+                                    elif (
+                                        self.consecutive_stable_frames > 10
+                                    ):  # Very stable, skip detection
+                                        skip_detection = True
 
-                                player_abs = self._detect_player_position(minimap_bgr)
+                                if skip_detection:
+                                    # Reuse last known position when stable
+                                    player_abs = None
+                                    if self.last_player_pos is not None:
+                                        # Convert relative to absolute for validation
+                                        player_abs = utils.convert_to_absolute(
+                                            self.last_player_pos, minimap_bgr
+                                        )
+                                        # Still need to update position if force update interval reached
+                                        if (
+                                            time_since_last_update
+                                            >= self.pos_update_interval
+                                        ):
+                                            new_pos = (
+                                                self.last_player_pos
+                                            )  # Reuse last position
+                                            config.player_pos = new_pos
+                                            self.last_pos_update_time = current_time
+                                else:
+                                    minimap_gray = cv2.cvtColor(
+                                        minimap_bgr, cv2.COLOR_BGR2GRAY
+                                    )
 
-                                if player_abs is None:
+                                    player_abs = self._detect_player_position(
+                                        minimap_bgr
+                                    )
+
+                                if player_abs is None and not skip_detection:
+                                    # Only do template matching if we didn't skip detection
                                     search_roi = minimap_gray
                                     offset = (0, 0)
                                     if self.last_player_pos is not None:
@@ -494,7 +575,7 @@ class Capture:
                                 ):
                                     player_abs = None
 
-                                if player_abs:
+                                if player_abs and not skip_detection:
                                     new_pos = utils.convert_to_relative(
                                         player_abs, minimap_bgr
                                     )
@@ -503,9 +584,24 @@ class Capture:
                                         or time_since_last_update
                                         >= self.pos_update_interval
                                     ):
+                                        # Track position changes for adaptive frame rate
+                                        if new_pos != self.last_player_pos:
+                                            self.last_position_change_time = (
+                                                current_time
+                                            )
+                                            self.consecutive_stable_frames = 0
+                                        else:
+                                            self.consecutive_stable_frames += 1
+
                                         config.player_pos = new_pos
                                         self.last_player_pos = new_pos
                                         self.last_pos_update_time = current_time
+
+                                        # Initialize last_position_change_time on first detection
+                                        if self.last_position_change_time == 0:
+                                            self.last_position_change_time = (
+                                                current_time
+                                            )
 
                             self.minimap = {
                                 "minimap": minimap_bgr,
