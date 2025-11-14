@@ -1,14 +1,15 @@
 """A collection of classes used to execute a Routine."""
 
 import math
-import time
 import random
+import time
 from collections import namedtuple
+
 from src.common import config, settings, utils
-from src.common.vkeys import key_down, key_up, press
 from src.common.anti_detect import get_human_delay, update_activity
-from src.common.logger import get_logger, get_action_logger
+from src.common.logger import get_action_logger, get_logger
 from src.common.metrics_logger import get_metrics_logger
+from src.common.vkeys import key_down, key_up, press
 
 log = get_logger(__name__)
 action_log = get_action_logger()
@@ -717,6 +718,8 @@ class Move(Command):
                 waypoint, allow_jitter=not is_last_waypoint
             )
             self.prev_direction = ""
+            # Track if we've already jumped for this waypoint to prevent duplicate jumps
+            waypoint_jumped = False
 
             local_error = utils.distance(config.player_pos, target_stage)
             global_error = utils.distance(config.player_pos, self.target)
@@ -740,7 +743,16 @@ class Move(Command):
                 self._new_direction(key)
                 self._maybe_apply_micro_gesture(key)
                 # Pass distance to step() for distance-based movement (hold vs press)
-                step(key, target_stage, distance=local_error)
+                # Also pass waypoint_jumped flag to prevent duplicate jumps
+                step(
+                    key,
+                    target_stage,
+                    distance=local_error,
+                    waypoint_jumped=waypoint_jumped,
+                )
+                # Mark as jumped if this was a vertical movement with large Y change
+                if key in ("up", "down") and abs(d_y) > settings.move_tolerance * 1.5:
+                    waypoint_jumped = True
 
                 if settings.record_layout:
                     config.layout.add(*config.player_pos)
@@ -844,12 +856,13 @@ class Adjust(Command):
         self.max_steps = settings.validate_nonnegative_int(max_steps)
 
 
-def step(direction, target, distance=None):
+def step(direction, target, distance=None, waypoint_jumped=False):
     """
     The default 'step' function. If not overridden, immediately stops the bot.
     :param direction:   The direction in which to move.
     :param target:      The target location to step towards.
     :param distance:    Optional distance to target. Used for distance-based movement decisions.
+    :param waypoint_jumped: If True, skip auto-jump to prevent duplicate jumps for same waypoint.
     :return:            None
     """
 

@@ -21,6 +21,7 @@ DYNAMIC_PATHS_SKIP_MAX_KEY = "Dynamic Paths Skip Max"
 DYNAMIC_PATHS_SELECTION_MODE_KEY = "Dynamic Paths Selection Mode"
 DYNAMIC_PATHS_SWITCH_MIN_KEY = "Dynamic Paths Switch Min Loops"
 DYNAMIC_PATHS_SWITCH_MAX_KEY = "Dynamic Paths Switch Max Loops"
+DYNAMIC_PATHS_STAY_PROBABILITY_KEY = "Dynamic Paths Stay Probability"
 
 SCROLL_HEIGHT = 400
 
@@ -468,6 +469,35 @@ class RoutineRandomization(LabelFrame):
         )
         self.switch_interval_label.pack(side=tk.LEFT)
 
+        # Stay Probability (only shown when selection_mode is transition_matrix)
+        stay_prob_row = Frame(self.dynamic_paths_frame)
+        stay_prob_row.pack(side=tk.TOP, fill="x", expand=True, padx=5, pady=2)
+
+        stay_prob_label = tk.Label(stay_prob_row, text="Stay Probability:")
+        stay_prob_label.pack(side=tk.LEFT, padx=(0, 10))
+
+        stay_probability = self._load_float_setting(
+            DYNAMIC_PATHS_STAY_PROBABILITY_KEY,
+            "routine_randomization.dynamic_paths.transition_matrix.stay_probability",
+            0.2,
+        )
+        self.stay_probability_var = tk.IntVar(value=int(stay_probability * 100))
+        stay_prob_slider = tk.Scale(
+            stay_prob_row,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.stay_probability_var,
+            command=self._on_stay_probability_change,
+            length=150,
+        )
+        stay_prob_slider.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.stay_probability_label = tk.Label(
+            stay_prob_row, text=f"{int(stay_probability * 100)}%"
+        )
+        self.stay_probability_label.pack(side=tk.LEFT)
+
         # Sync với anti_detect_config và routine khi load
         self._sync_to_anti_detect()
         self._sync_to_routine()
@@ -657,6 +687,14 @@ class RoutineRandomization(LabelFrame):
         self.settings.save_config()
         self._sync_to_routine()
 
+    def _on_stay_probability_change(self, value):
+        """Handle Stay Probability change."""
+        probability = int(value) / 100.0
+        self.stay_probability_label.config(text=f"{int(value)}%")
+        self.settings.set(DYNAMIC_PATHS_STAY_PROBABILITY_KEY, probability)
+        self.settings.save_config()
+        self._sync_to_routine()
+
     def _set_bot_config_bool(self, feature_path, value):
         try:
             from src.common import config
@@ -748,6 +786,12 @@ class RoutineRandomization(LabelFrame):
                         "min_loops": self.settings.get(DYNAMIC_PATHS_SWITCH_MIN_KEY),
                         "max_loops": self.settings.get(DYNAMIC_PATHS_SWITCH_MAX_KEY),
                     }
+                    # Update transition_matrix stay_probability
+                    if "transition_matrix" not in config.routine.dynamic_paths_config:
+                        config.routine.dynamic_paths_config["transition_matrix"] = {}
+                    config.routine.dynamic_paths_config["transition_matrix"][
+                        "stay_probability"
+                    ] = self.settings.get(DYNAMIC_PATHS_STAY_PROBABILITY_KEY)
                     # Regenerate paths if routine is loaded
                     if config.routine.sequence:
                         config.routine._generate_dynamic_paths()
@@ -779,6 +823,7 @@ class RoutineRandomizationSettings(Configurable):
         DYNAMIC_PATHS_SELECTION_MODE_KEY: "transition_matrix",
         DYNAMIC_PATHS_SWITCH_MIN_KEY: 2,
         DYNAMIC_PATHS_SWITCH_MAX_KEY: 5,
+        DYNAMIC_PATHS_STAY_PROBABILITY_KEY: 0.2,  # 20% stay, 80% switch
     }
 
     def get(self, key):

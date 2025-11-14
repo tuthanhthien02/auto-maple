@@ -2082,11 +2082,14 @@ class Routine:
             num_paths = len(path_ids)
 
             # Create balanced matrix: each path can transition to any path with equal probability
-            # But slightly favor staying in same path (40%) vs switching (60% distributed)
+            # Get stay_probability from config (default: 0.2 = 20% stay, 80% switch)
+            stay_probability = matrix_cfg.get("stay_probability", 0.2)
+            # Clamp to valid range [0.0, 1.0]
+            stay_probability = max(0.0, min(1.0, stay_probability))
+
             matrix = {}
             for path_id in path_ids:
                 transitions = {}
-                stay_probability = 0.4
                 switch_probability = (
                     (1.0 - stay_probability) / (num_paths - 1) if num_paths > 1 else 0.0
                 )

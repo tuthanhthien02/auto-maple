@@ -606,7 +606,7 @@ class Adjust(Command):
         key_up("down")
 
 
-def step(direction, target, distance=None):
+def step(direction, target, distance=None, waypoint_jumped=False):
     """
     Performs one movement step in the given DIRECTION towards TARGET.
     Should not press any arrow keys, as those are handled by Auto Maple.
@@ -615,6 +615,7 @@ def step(direction, target, distance=None):
     :param direction: Direction to move ('left', 'right', 'up', 'down')
     :param target: Target location
     :param distance: Optional distance to target. If None, will be calculated.
+    :param waypoint_jumped: If True, skip auto-jump to prevent duplicate jumps for same waypoint.
     """
 
     # Calculate distance if not provided
@@ -668,11 +669,19 @@ def step(direction, target, distance=None):
 
         # Check for large Y distance changes (floor transitions) - similar to Kanna
         # Auto-jump BEFORE teleport for large Y changes
+        # NOTE: Only jump once per step() call to prevent duplicate jumps when step() is called
+        # multiple times in Move loop. After teleport, Y distance will decrease, so subsequent
+        # step() calls won't trigger jump again.
         d_y = target[1] - config.player_pos[1]
         large_y_change = abs(d_y) > settings.move_tolerance * 1.5
         has_auto_jumped = False
 
-        if large_y_change and direction in ("up", "down"):
+        # Only auto-jump if:
+        # 1. Large Y change detected (floor transition)
+        # 2. Direction is vertical
+        # 3. Haven't already jumped for this waypoint (prevents duplicate jumps)
+        # This prevents duplicate jumps when step() is called multiple times for same waypoint
+        if large_y_change and direction in ("up", "down") and not waypoint_jumped:
             # Large Y change indicates floor transition - jump before teleport (like Kanna)
             if direction == "down":
                 log.debug(
