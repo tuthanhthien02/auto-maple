@@ -119,6 +119,13 @@ class Bot(Configurable):
                 if metrics.should_log_summary():
                     metrics.log_summary()
 
+                # Log loop iteration for debugging
+                log.debug(
+                    "Bot loop iteration: enabled=%s, routine_len=%d",
+                    config.enabled,
+                    len(config.routine) if config.routine else 0,
+                )
+
                 if config.enabled and len(config.routine) > 0:
                     # Track loop start time
                     loop_start_time = time.time()

@@ -1637,15 +1637,17 @@ class Routine:
                     loops_remaining,
                 )
 
-        loops_remaining = self.variant_switch_interval - self.variant_switch_counter
-        log.info(
-            "🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
-            self.loop_count,
-            self.current_variant,
-            self.variant_switch_counter,
-            self.variant_switch_interval,
-            loops_remaining,
-        )
+        # Only log variant info if variant switching is enabled
+        if self.variant_enabled:
+            loops_remaining = self.variant_switch_interval - self.variant_switch_counter
+            log.info(
+                "🔄 Routine Pattern Variation: Loop %d completed (variant: '%s', switch counter: %d/%d, %d loop(s) remaining before switch)",
+                self.loop_count,
+                self.current_variant,
+                self.variant_switch_counter,
+                self.variant_switch_interval,
+                loops_remaining,
+            )
         self._log_observability_snapshot()
         if not self.floor_variant_active:
             self._maybe_activate_floor_variant()
