@@ -902,8 +902,6 @@ class Wait_Random(Command):
 
     def main(self):
         # Generate random duration within range
-        import random
-
         random_duration = random.uniform(self.min_duration, self.max_duration)
 
         # Use human-like delay for the random duration

@@ -516,14 +516,16 @@ class Jump_Down(Command):
 class Buff(Command):
     """Required buff command - buffs periodically."""
 
+    # Class-level variable to persist state across instances
+    _next_buff_time = 0.0
+
     def __init__(self):
         super().__init__(locals())
-        self.next_buff_time = 0.0
 
     def main(self):
         now = time.time()
         # Random hóa thời gian buff: 120–170 giây (thay vì cố định 180s)
-        if self.next_buff_time == 0.0 or now >= self.next_buff_time:
+        if Buff._next_buff_time == 0.0 or now >= Buff._next_buff_time:
             press(Key.buff_main, 1)
             time.sleep(0.1)
             # Temporarily disable secondary buff per request
@@ -532,7 +534,7 @@ class Buff(Command):
             # Nghỉ ngẫu nhiên 2–4 giây sau khi buff để anti-detect
             time.sleep(random.uniform(2.0, 4.0))
             # Lên lịch lần buff tiếp theo
-            self.next_buff_time = now + random.uniform(120.0, 170.0)
+            Buff._next_buff_time = now + random.uniform(120.0, 170.0)
 
 
 class Adjust(Command):
@@ -869,13 +871,18 @@ class Face_Left(Command):
 class Buff_Secondary(Command):
     """Casts the secondary buff on a random cooldown between 800-900 seconds."""
 
+    # Class-level variable to persist state across instances
+    _next_buff_time = 0.0
+
     def __init__(self):
         super().__init__(locals())
-        self.next_buff_time = 0.0
 
     def main(self):
         now = time.time()
-        if self.next_buff_time == 0.0 or now >= self.next_buff_time:
+        if (
+            Buff_Secondary._next_buff_time == 0.0
+            or now >= Buff_Secondary._next_buff_time
+        ):
             press(Key.buff_secondary, 1)
             time.sleep(random.uniform(0.1, 0.2))
-            self.next_buff_time = now + random.uniform(800.0, 900.0)
+            Buff_Secondary._next_buff_time = now + random.uniform(800.0, 900.0)
