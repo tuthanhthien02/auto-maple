@@ -23,6 +23,7 @@ class Minimap(LabelFrame):
         )
         self.canvas.pack(padx=5, pady=5)
         self.container = None
+        self.current_size = (self.WIDTH, self.HEIGHT)
 
         # CPU Optimization: Cache converted and resized minimap to avoid repeated conversions
         self.cached_minimap_hash = None
@@ -72,8 +73,7 @@ class Minimap(LabelFrame):
                 img = cv2.resize(
                     img, (new_width, new_height), interpolation=cv2.INTER_AREA
                 )
-                # Adjust canvas to new size to prevent letterboxing
-                self.canvas.configure(width=new_width, height=new_height)
+                self._update_canvas_size(new_width, new_height)
 
             # Cache the converted/resized image
             self.cached_minimap = img.copy()
@@ -82,6 +82,8 @@ class Minimap(LabelFrame):
         else:
             # Reuse cached image (still need to draw on it)
             img = self.cached_minimap.copy()
+            if self.cached_size:
+                self._update_canvas_size(*self.cached_size)
 
         # Mark the position of the active rune
         if rune_active:
@@ -147,8 +149,15 @@ class Minimap(LabelFrame):
         # Display the minimap in the Canvas
         if self.container is None:
             self.container = self.canvas.create_image(
-                self.WIDTH // 2, self.HEIGHT // 2, image=img_photo, anchor=tk.CENTER
+                0, 0, image=img_photo, anchor=tk.NW
             )
         else:
             self.canvas.itemconfig(self.container, image=img_photo)
         self._img = img_photo  # Prevent garbage collection
+
+    def _update_canvas_size(self, width, height):
+        width = max(1, width)
+        height = max(1, height)
+        if (width, height) != self.current_size:
+            self.canvas.configure(width=width, height=height)
+            self.current_size = (width, height)

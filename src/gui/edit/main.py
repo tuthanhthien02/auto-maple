@@ -41,10 +41,16 @@ class Edit(Tab):
 
     def _create_scrollable_frame(self):
         """Create a scrollable container for Edit content"""
-        # Create canvas and scrollbar
-        self._canvas = tk.Canvas(self, highlightthickness=0)
+        # Create canvas and scrollbars
+        self._canvas_container = Frame(self)
+        self._canvas_container.pack(side="top", fill="both", expand=True)
+
+        self._canvas = tk.Canvas(self._canvas_container, highlightthickness=0)
         self._scrollbar = tk.Scrollbar(
-            self, orient="vertical", command=self._canvas.yview
+            self._canvas_container, orient="vertical", command=self._canvas.yview
+        )
+        self._hscrollbar = tk.Scrollbar(
+            self, orient="horizontal", command=self._canvas.xview
         )
         self._scroll_content = Frame(self._canvas)
 
@@ -60,11 +66,14 @@ class Edit(Tab):
         )
 
         # Configure canvas scrolling
-        self._canvas.configure(yscrollcommand=self._scrollbar.set)
+        self._canvas.configure(
+            yscrollcommand=self._scrollbar.set, xscrollcommand=self._hscrollbar.set
+        )
 
-        # Pack canvas and scrollbar
+        # Pack canvas and scrollbars
         self._canvas.pack(side="left", fill="both", expand=True)
         self._scrollbar.pack(side="right", fill="y")
+        self._hscrollbar.pack(side="bottom", fill="x")
 
         # Bind mouse wheel to canvas
         def _on_mousewheel(event):

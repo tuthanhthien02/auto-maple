@@ -12,52 +12,39 @@ class Status(LabelFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(3, weight=1)
 
-        self.curr_cb = tk.StringVar()
-        self.curr_routine = tk.StringVar()
-
-        self.cb_label = tk.Label(self, text="Command Book:")
-        self.cb_label.grid(row=0, column=1, padx=5, pady=(5, 0), sticky=tk.E)
-        self.cb_entry = tk.Entry(self, textvariable=self.curr_cb, state=tk.DISABLED)
-        self.cb_entry.grid(row=0, column=2, padx=(0, 5), pady=(5, 0), sticky=tk.EW)
-
-        self.r_label = tk.Label(self, text="Routine:")
-        self.r_label.grid(row=1, column=1, padx=5, pady=(0, 5), sticky=tk.E)
-        self.r_entry = tk.Entry(self, textvariable=self.curr_routine, state=tk.DISABLED)
-        self.r_entry.grid(row=1, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW)
-
         # Dynamic Paths Status
         self.dynamic_paths_label = tk.Label(self, text="Dynamic Paths:")
-        self.dynamic_paths_label.grid(row=2, column=1, padx=5, pady=(0, 5), sticky=tk.E)
+        self.dynamic_paths_label.grid(row=0, column=1, padx=5, pady=(5, 5), sticky=tk.E)
         self.dynamic_paths_var = tk.StringVar(value="Disabled")
         self.dynamic_paths_entry = tk.Entry(
             self, textvariable=self.dynamic_paths_var, state=tk.DISABLED, width=30
         )
         self.dynamic_paths_entry.grid(
-            row=2, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
+            row=0, column=2, padx=(0, 5), pady=(5, 5), sticky=tk.EW
         )
 
         # Command Sequence Status (shows command order after shuffle)
         self.command_sequence_label = tk.Label(self, text="Command Order:")
         self.command_sequence_label.grid(
-            row=3, column=1, padx=5, pady=(0, 5), sticky=tk.E
+            row=1, column=1, padx=5, pady=(0, 5), sticky=tk.E
         )
         self.command_sequence_var = tk.StringVar(value="Disabled")
         self.command_sequence_entry = tk.Entry(
             self, textvariable=self.command_sequence_var, state=tk.DISABLED, width=50
         )
         self.command_sequence_entry.grid(
-            row=3, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
+            row=1, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
         )
 
         # Input Method Status (Arduino/SendInput)
         self.input_method_label = tk.Label(self, text="Input Method:")
-        self.input_method_label.grid(row=4, column=1, padx=5, pady=(0, 5), sticky=tk.E)
+        self.input_method_label.grid(row=2, column=1, padx=5, pady=(0, 5), sticky=tk.E)
         self.input_method_var = tk.StringVar(value="Checking...")
         self.input_method_entry = tk.Entry(
             self, textvariable=self.input_method_var, state=tk.DISABLED, width=30
         )
         self.input_method_entry.grid(
-            row=4, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
+            row=2, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
         )
 
         # Recalibrate Minimap button
@@ -74,7 +61,7 @@ class Status(LabelFrame):
             cursor="hand2",
         )
         self.recalibrate_btn.grid(
-            row=5, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW
+            row=3, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW
         )
         self.toggle_btn = tk.Button(
             self,
@@ -89,18 +76,18 @@ class Status(LabelFrame):
             cursor="hand2",
         )
         self.toggle_btn.grid(
-            row=6, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+            row=4, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
         )
 
         # Status label for recalibration feedback
         self.recalibrate_status = tk.Label(self, text="", fg="green", font=("Arial", 8))
-        self.recalibrate_status.grid(row=7, column=1, columnspan=2, padx=5, pady=(0, 5))
+        self.recalibrate_status.grid(row=5, column=1, columnspan=2, padx=5, pady=(0, 5))
 
     def set_cb(self, string):
-        self.curr_cb.set(string)
+        pass
 
     def set_routine(self, string):
-        self.curr_routine.set(string)
+        pass
 
     def update_dynamic_paths_status(self):
         """Update Dynamic Paths status display."""
