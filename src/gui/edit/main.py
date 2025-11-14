@@ -91,9 +91,13 @@ class Edit(Tab):
         self._canvas.bind("<Configure>", self._on_canvas_configure)
 
     def _on_canvas_configure(self, event):
-        """Update canvas window width when canvas is resized"""
-        canvas_width = event.width
-        self._canvas.itemconfig(self._canvas_window, width=canvas_width)
+        """Update canvas window size when canvas is resized"""
+        canvas_width = max(event.width, self._canvas.winfo_reqwidth())
+        canvas_height = max(event.height, self._canvas.winfo_reqheight())
+        self._canvas.config(scrollregion=self._canvas.bbox("all"))
+        self._canvas.itemconfig(
+            self._canvas_window, width=canvas_width, height=canvas_height
+        )
 
 
 class Editor(LabelFrame):
