@@ -218,6 +218,7 @@ class HostSender:
         self.CONFIG_PATH = os.path.join(
             os.path.dirname(__file__), "host_sender.config.json"
         )
+        self._config_snapshot = {}
         self._load_config()
 
         # Initialize Windows API
@@ -285,6 +286,16 @@ class HostSender:
         # Store hook proc type for later use
         self.HOOKPROC = HOOKPROC
 
+    def _get_config_dict(self):
+        return {
+            "vmware_ip": self.vmware_ip,
+            "vmware_port": self.vmware_port,
+            "reconnect_interval": self.reconnect_interval,
+            "enable_logging": self.enable_logging,
+            "block_original_input": self.block_original_input,
+            "forwarding_enabled": self.forwarding_enabled,
+        }
+
     def _load_config(self):
         """Load config from JSON file"""
         try:
@@ -310,6 +321,7 @@ class HostSender:
                             f"[CONFIG] Loaded: vmware_ip={self.vmware_ip}, "
                             f"vmware_port={self.vmware_port}, block_input={self.block_original_input}"
                         )
+            self._config_snapshot = self._get_config_dict()
         except Exception as e:
             if self.enable_logging:
                 print(f"[CONFIG] Load error: {e}")
@@ -317,16 +329,14 @@ class HostSender:
     def _save_config(self):
         """Save config to JSON file"""
         try:
-            config = {
-                "vmware_ip": self.vmware_ip,
-                "vmware_port": self.vmware_port,
-                "reconnect_interval": self.reconnect_interval,
-                "enable_logging": self.enable_logging,
-                "block_original_input": self.block_original_input,
-                "forwarding_enabled": self.forwarding_enabled,
-            }
+            config = self._get_config_dict()
+            if config == self._config_snapshot:
+                if self.enable_logging:
+                    print("[CONFIG] No changes detected; skipping save")
+                return
             with open(self.CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4)
+            self._config_snapshot = config.copy()
         except Exception as e:
             if self.enable_logging:
                 print(f"[CONFIG] Save error: {e}")

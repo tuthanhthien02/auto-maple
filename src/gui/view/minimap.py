@@ -10,9 +10,9 @@ class Minimap(LabelFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, "Minimap", **kwargs)
 
-        # Optimized canvas for scale 1.2 minimap (~522x164, display at 2x)
-        self.WIDTH = 1044  # 522 × 2 for clear visibility
-        self.HEIGHT = 328  # 164 × 2, maintains aspect ratio
+        # Optimized canvas; default to 50% of previous width to reduce footprint
+        self.WIDTH = 522  # Previously 1044; still keeps clarity at 1x scale
+        self.HEIGHT = 328  # Maintain height for readability
         self.canvas = tk.Canvas(
             self,
             bg="black",

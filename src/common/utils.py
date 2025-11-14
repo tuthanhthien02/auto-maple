@@ -203,6 +203,9 @@ def filter_color(img, ranges):
     return result
 
 
+LOCATION_DISPLAY_RADIUS_SCALE = 0.65
+
+
 def draw_location(minimap, pos, color):
     """
     Draws a visual representation of POINT onto MINIMAP. The radius of the circle represents
@@ -214,9 +217,13 @@ def draw_location(minimap, pos, color):
     """
 
     center = convert_to_absolute(pos, minimap)
-    cv2.circle(
-        minimap, center, round(minimap.shape[1] * settings.move_tolerance), color, 1
+    radius = max(
+        2,
+        round(
+            minimap.shape[1] * settings.move_tolerance * LOCATION_DISPLAY_RADIUS_SCALE
+        ),
     )
+    cv2.circle(minimap, center, radius, color, 1)
 
 
 def print_separator():
