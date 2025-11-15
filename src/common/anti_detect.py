@@ -214,15 +214,119 @@ class MemoryOptimizer:
         """Perform memory cleanup to reduce signatures."""
         import gc
 
-        # Force garbage collection
-        gc.collect()
+        # Optimization: Multiple GC passes for better cleanup
+        gc.collect(0)  # Collect generation 0
+        gc.collect(1)  # Collect generation 1
+        gc.collect(2)  # Collect generation 2 (full collection)
+        gc.collect()  # Final pass
 
-        # Clear any cached data
-        if hasattr(config, "capture") and hasattr(config.capture, "frame"):
-            config.capture.frame = None
+        # Clear capture module caches
+        # Bug fix: Use try-except to handle potential AttributeError or None access
+        try:
+            if hasattr(config, "capture") and config.capture is not None:
+                capture = config.capture
+                # Clear frame
+                if hasattr(capture, "frame"):
+                    capture.frame = None
+                # Optimization: Clear cached image processing data
+                # Bug fix: Explicitly delete numpy arrays to free memory
+                if hasattr(capture, "cached_hsv") and capture.cached_hsv is not None:
+                    try:
+                        del capture.cached_hsv
+                    except Exception:
+                        pass
+                    capture.cached_hsv = None
+                if hasattr(capture, "cached_mask") and capture.cached_mask is not None:
+                    try:
+                        del capture.cached_mask
+                    except Exception:
+                        pass
+                    capture.cached_mask = None
+                if hasattr(capture, "cached_minimap_hash"):
+                    capture.cached_minimap_hash = None
+                if (
+                    hasattr(capture, "minimap_sample")
+                    and capture.minimap_sample is not None
+                ):
+                    try:
+                        del capture.minimap_sample
+                    except Exception:
+                        pass
+                    capture.minimap_sample = None
+        except (AttributeError, TypeError) as e:
+            log.debug("Error clearing capture caches: %s", e)
+
+        # Optimization: Clear pattern history to prevent memory growth
+        # Bug fix: Use try-except to handle potential AttributeError
+        try:
+            if (
+                hasattr(pattern_diversifier, "pattern_history")
+                and pattern_diversifier.pattern_history is not None
+            ):
+                # Keep only recent history (last 50 instead of 100)
+                if len(pattern_diversifier.pattern_history) > 50:
+                    pattern_diversifier.pattern_history = (
+                        pattern_diversifier.pattern_history[-50:]
+                    )
+        except (AttributeError, TypeError) as e:
+            log.debug("Error clearing pattern history: %s", e)
+
+        # Optimization: Clear GUI caches if available
+        try:
+            if hasattr(config, "gui") and config.gui is not None:
+                gui = config.gui
+                # Clear minimap view cache
+                if hasattr(gui, "view") and hasattr(gui.view, "minimap"):
+                    minimap_view = gui.view.minimap
+                    # Bug fix: Check if minimap_view is still valid before accessing
+                    if minimap_view is not None:
+                        # Clear cached minimap image
+                        if (
+                            hasattr(minimap_view, "cached_minimap")
+                            and minimap_view.cached_minimap is not None
+                        ):
+                            try:
+                                del minimap_view.cached_minimap
+                            except Exception:
+                                pass  # Ignore deletion errors
+                            minimap_view.cached_minimap = None
+                        if hasattr(minimap_view, "cached_minimap_hash"):
+                            minimap_view.cached_minimap_hash = None
+                        if hasattr(minimap_view, "cached_size"):
+                            minimap_view.cached_size = None
+                        # Bug fix: Only clear PhotoImage if not currently displayed
+                        # PhotoImage may be referenced by canvas, so be careful
+                        if (
+                            hasattr(minimap_view, "cached_photo_image")
+                            and minimap_view.cached_photo_image is not None
+                        ):
+                            # Check if PhotoImage is still referenced by canvas
+                            if not (
+                                hasattr(minimap_view, "_img")
+                                and minimap_view._img is minimap_view.cached_photo_image
+                            ):
+                                try:
+                                    del minimap_view.cached_photo_image
+                                except Exception:
+                                    pass  # Ignore deletion errors
+                                minimap_view.cached_photo_image = None
+                        if hasattr(minimap_view, "cached_photo_hash"):
+                            minimap_view.cached_photo_hash = None
+        except Exception:
+            pass  # Ignore GUI cleanup errors
+
+        # Optimization: Clear routine caches if available
+        try:
+            if hasattr(config, "routine") and config.routine is not None:
+                routine = config.routine
+                # Clear any cached routine data
+                if hasattr(routine, "_cached_path"):
+                    routine._cached_path = None
+        except Exception:
+            pass  # Ignore routine cleanup errors
 
         self.last_cleanup = time.time()
-        log.info("Memory cleanup performed")
+        log.info("Memory cleanup performed (optimized)")
 
 
 # Global instances

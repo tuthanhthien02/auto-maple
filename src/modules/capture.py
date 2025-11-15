@@ -467,6 +467,47 @@ class Capture:
                                     # Increase delay by 50% when position is stable
                                     frame_delay *= 1.5
 
+                            # Optimization: Periodic cache cleanup to reduce memory footprint
+                            # Clean cache every 5 minutes (300 seconds) to prevent memory growth
+                            cache_cleanup_interval = 300.0
+                            if not hasattr(self, "_last_cache_cleanup"):
+                                self._last_cache_cleanup = current_time
+                            elif (
+                                current_time - self._last_cache_cleanup
+                                > cache_cleanup_interval
+                            ):
+                                # Bug fix: Use try-except to handle potential errors during cleanup
+                                try:
+                                    # Clear cached image processing data periodically
+                                    if self.cached_hsv is not None:
+                                        try:
+                                            del self.cached_hsv
+                                        except Exception:
+                                            pass
+                                        self.cached_hsv = None
+                                    if self.cached_mask is not None:
+                                        try:
+                                            del self.cached_mask
+                                        except Exception:
+                                            pass
+                                        self.cached_mask = None
+                                    self.cached_minimap_hash = None
+                                    # Force garbage collection after cache cleanup
+                                    import gc
+
+                                    gc.collect()
+                                    self._last_cache_cleanup = current_time
+                                    log.debug(
+                                        "Capture cache cleaned (periodic cleanup)"
+                                    )
+                                except Exception as cleanup_error:
+                                    log.debug(
+                                        "Error during periodic cache cleanup: %s",
+                                        cleanup_error,
+                                    )
+                                    # Still update timestamp to prevent repeated failures
+                                    self._last_cache_cleanup = current_time
+
                             self.frame = self.screenshot()
                             if self.frame is None:
                                 time.sleep(frame_delay)

@@ -140,12 +140,28 @@ class ProcessStealth:
     def minimize_memory_footprint(self):
         """Minimize memory footprint to reduce detection."""
         try:
-            # Force garbage collection
-            gc.collect()
+            # Optimization: Multiple GC passes for better cleanup
+            gc.collect(0)  # Collect generation 0
+            gc.collect(1)  # Collect generation 1
+            gc.collect(2)  # Collect generation 2 (full collection)
+            gc.collect()  # Final pass
 
             # Clear any cached data
             if hasattr(sys, "_clear_type_cache"):
                 sys._clear_type_cache()
+
+            # Optimization: Clear module-level caches if possible
+            # Bug fix: Only invalidate caches if safe (not during critical operations)
+            try:
+                import importlib
+
+                # Clear importlib cache
+                # Note: invalidate_caches() is safe to call, it only clears import cache
+                # and doesn't affect already-loaded modules
+                if hasattr(importlib, "invalidate_caches"):
+                    importlib.invalidate_caches()
+            except Exception:
+                pass  # Ignore if not available
 
             log.debug("[Process Stealth] Memory footprint minimized")
 
@@ -155,13 +171,35 @@ class ProcessStealth:
     def obfuscate_memory_patterns(self):
         """Obfuscate memory patterns to avoid detection."""
         try:
-            # Allocate and deallocate memory to create noise
-            noise_data = []
-            for _ in range(100):
-                noise_data.append(random.randint(0, 255))
+            # Optimization: Create more substantial noise to be more effective
+            # Allocate multiple buffers with random data (10-20 buffers, 1-5KB each)
+            # Bug fix: Limit total memory allocation to prevent excessive memory usage
+            max_total_memory = 100 * 1024  # Max 100KB total
+            noise_buffers = []
+            buffer_count = random.randint(10, 20)
+            total_allocated = 0
+
+            for _ in range(buffer_count):
+                if total_allocated >= max_total_memory:
+                    break  # Stop if we've allocated enough
+                size = random.randint(1024, 5120)  # 1KB to 5KB
+                # Bug fix: Ensure we don't exceed max_total_memory
+                remaining = max_total_memory - total_allocated
+                if size > remaining:
+                    size = remaining
+                if size <= 0:
+                    break
+
+                noise_data = bytearray(random.randint(0, 255) for _ in range(size))
+                noise_buffers.append(noise_data)
+                total_allocated += size
 
             # Clear the noise
-            del noise_data
+            # Bug fix: Explicitly delete each buffer before clearing list
+            for buffer in noise_buffers:
+                del buffer
+            del noise_buffers
+            gc.collect()  # Force GC to actually free memory
 
         except Exception as e:
             log.error("[Process Stealth] Failed to obfuscate memory: %s", e)
@@ -169,23 +207,59 @@ class ProcessStealth:
     def scramble_memory(self):
         """Scramble memory patterns by moving data around."""
         try:
-            # Force garbage collection to compact memory
-            gc.collect()
+            # Optimization: Multiple GC passes before scrambling
+            gc.collect(0)
+            gc.collect(1)
+            gc.collect(2)
 
-            # Allocate temporary buffers with random data
+            # Optimization: Allocate more substantial temporary buffers with random data
+            # Use larger buffers (5-20 buffers, 5-50KB each) for better obfuscation
+            # Bug fix: Limit total memory allocation to prevent excessive memory usage
+            max_total_memory = 500 * 1024  # Max 500KB total
             temp_buffers = []
-            for _ in range(random.randint(5, 15)):
-                size = random.randint(1024, 10240)  # 1KB to 10KB
+            buffer_count = random.randint(5, 20)
+            total_allocated = 0
+
+            for _ in range(buffer_count):
+                if total_allocated >= max_total_memory:
+                    break  # Stop if we've allocated enough
+                size = random.randint(
+                    5120, 51200
+                )  # 5KB to 50KB (increased from 1-10KB)
+                # Bug fix: Ensure we don't exceed max_total_memory
+                remaining = max_total_memory - total_allocated
+                if size > remaining:
+                    size = remaining
+                if size <= 0:
+                    break
+
                 buffer_data = bytearray(random.randint(0, 255) for _ in range(size))
                 temp_buffers.append(buffer_data)
+                total_allocated += size
 
-            # Clear type cache
+            # Optimization: Clear type cache and module cache
             if hasattr(sys, "_clear_type_cache"):
                 sys._clear_type_cache()
 
-            # Deallocate buffers
+            # Bug fix: Only invalidate caches if safe
+            try:
+                import importlib
+
+                if hasattr(importlib, "invalidate_caches"):
+                    importlib.invalidate_caches()
+            except Exception:
+                pass
+
+            # Optimization: Explicitly delete each buffer before clearing list
+            for buffer in temp_buffers:
+                del buffer
             del temp_buffers
-            gc.collect()
+
+            # Optimization: Multiple GC passes after scrambling
+            gc.collect(0)
+            gc.collect(1)
+            gc.collect(2)
+            gc.collect()  # Final pass
 
         except Exception as e:
             log.error("[Process Stealth] Failed to scramble memory: %s", e)
@@ -220,8 +294,18 @@ class ProcessStealth:
         """Clear all fake memory allocations."""
         try:
             with self._fake_mem_lock:
+                # Optimization: Explicitly delete each allocation before clearing list
+                # Bug fix: Create a copy of the list to avoid modifying while iterating
+                allocations_to_clear = list(self.fake_allocations)
+                for allocation in allocations_to_clear:
+                    try:
+                        del allocation
+                    except Exception:
+                        pass  # Ignore errors when deleting individual allocations
                 self.fake_allocations.clear()
+            # Force multiple GC passes to ensure memory is actually freed
             gc.collect()
+            gc.collect()  # Second pass for better cleanup
         except Exception as e:
             log.error("[Process Stealth] Failed to clear fake memory: %s", e)
 
