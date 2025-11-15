@@ -141,6 +141,10 @@ def _configure_root_logger() -> logging.Logger:
     level = getattr(logging, level_name, logging.INFO)
     logger.setLevel(level)
     for handler in _build_handlers(log_file):
+        # Bug fix: Set handler level to match logger level to properly filter logs
+        # Handler level NOTSET (0) means it respects logger level, but explicitly setting
+        # ensures proper filtering when AUTO_MAPLE_LOG_LEVEL is set to ERROR
+        handler.setLevel(level)
         logger.addHandler(handler)
     logger.propagate = False
 
