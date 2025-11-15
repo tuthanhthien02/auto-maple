@@ -17,6 +17,14 @@ from src.common.logger import get_logger
 # from src.common.routine_randomization import initialize_routine_randomization, get_variant_start_index
 from src.common.process_stealth import enable_process_stealth
 from src.common.vkeys import click, press
+from src.common.crash_detection import (
+    register_crash_handlers,
+    log_startup,
+)
+from src.common.health_check import (
+    initialize_health_checks,
+    start_health_monitoring,
+)
 from src.detection import detection
 from src.routine.components import Point
 from src.routine.routine import Routine
@@ -73,6 +81,14 @@ class Bot(Configurable):
         :return:    None
         """
 
+        # Register crash detection handlers (must be first)
+        register_crash_handlers()
+        log_startup()
+
+        # Initialize health checks
+        initialize_health_checks()
+        start_health_monitoring(interval=30.0)
+
         # Initialize anti-detect features
         initialize_anti_detect()
 
@@ -82,8 +98,8 @@ class Bot(Configurable):
         # Enable process stealth (optional, check config first)
         if is_feature_enabled("process_stealth.enabled"):
             try:
-                enable_process_stealth()
-                log.info("Process stealth enabled")
+                enable_process_stealth(randomize_process_name=True)
+                log.info("Process stealth enabled with name randomization")
             except Exception as e:
                 log.warning("Failed to enable process stealth: %s", e)
         else:

@@ -65,12 +65,12 @@ class TimingConfig:
 
     # Step movement configuration
     STEP_MOVEMENT = {
-        "hold_threshold_multiplier": 2.0,  # Multiplier for move_tolerance to determine hold vs press
+        "hold_threshold_multiplier": 1.5,  # Multiplier for move_tolerance to determine hold vs press
         # Distance > (move_tolerance * multiplier) → hold key (xa)
         # Distance ≤ (move_tolerance * multiplier) → press key (gần)
         # Có thể chỉnh multiplier này nếu test thực tế không work:
-        # - Tăng multiplier (vd: 3.0, 4.0, 5.0) → nhiều trường hợp dùng press key hơn
-        # - Giảm multiplier (vd: 1.5, 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
+        # - Tăng multiplier (vd: 2.0, 3.0, 4.0, 5.0) → nhiều trường hợp dùng press key hơn
+        # - Giảm multiplier (vd: 1.0, 1.5, 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
     }
 
 
@@ -141,17 +141,21 @@ class Reflection_Random(Command):
 
 
 class Reflection_Mix_Random(Command):
-    """Mix skills per call: 85% Reflection (2–3 casts), 10% Apocalypse (2–3 casts), 5% Death Scythe (1 cast)."""
+    """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast)."""
 
     def __init__(self, min_times=2, max_times=3):
         super().__init__(locals())
+        # Bug fix: Ensure min_times <= max_times to prevent ValueError in random.randint
         self.min_times = int(min_times)
         self.max_times = int(max_times)
+        if self.min_times > self.max_times:
+            # Swap if min > max to prevent errors
+            self.min_times, self.max_times = self.max_times, self.min_times
 
     def main(self):
         roll = random.random()
-        if roll < 0.85:
-            # Reflection: Use min_times/max_times with minimum 2 casts
+        if roll < 0.93:
+            # Reflection: 93% chance, Use min_times/max_times with minimum 2 casts
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
@@ -160,8 +164,8 @@ class Reflection_Mix_Random(Command):
                 time.sleep(
                     random.uniform(*TimingConfig.REFLECTION["long_between_casts"])
                 )
-        elif roll < 0.95:
-            # Apocalypse: Use min_times/max_times with minimum 2 casts (consistent with Reflection)
+        elif roll < 0.98:
+            # Apocalypse: 5% chance, Use min_times/max_times with minimum 2 casts (consistent with Reflection)
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
@@ -170,7 +174,7 @@ class Reflection_Mix_Random(Command):
                 time.sleep(random.uniform(*TimingConfig.HEAVY["long_between_casts"]))
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
         else:
-            # Death Scythe: 1 cast (fixed)
+            # Death Scythe: 2% chance, 1 cast (fixed)
             press(Key.death_scythe, 1, down_time=0.1, up_time=0.1)
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
 
@@ -226,14 +230,6 @@ class Light_Reflection(Command):
 
     def main(self):
         press(Key.light_reflection, 1, down_time=0.1, up_time=0.1)
-        time.sleep(0.2)
-
-
-class Dark_Reflection(Command):
-    """Dark Reflection skill."""
-
-    def main(self):
-        press(Key.dark_reflection, 1, down_time=0.1, up_time=0.1)
         time.sleep(0.2)
 
 
@@ -378,22 +374,6 @@ class Teleport_Down(Command):
                 # Small delay between combos
                 if i < self.times - 1:
                     time.sleep(0.01)  # 10ms between combos
-
-
-class Jump(Command):
-    """Jump - Press ALT key."""
-
-    def __init__(self, times=1):
-        super().__init__(locals())
-        self.times = int(times)
-
-    def main(self):
-        # Simple jump - just press ALT key
-        for i in range(self.times):
-            press(Key.jump, 1, down_time=0.1, up_time=0.1)
-            # Small delay between jumps
-            if i < self.times - 1:
-                time.sleep(0.1)  # 100ms between jumps
 
 
 class Jump_Teleport_Up(Command):
@@ -662,6 +642,10 @@ def step(direction, target, distance=None, waypoint_jumped=False):
             )  # Bug fix: Ensure non-negative
             # Scale extra time: 0.15s per 0.1 distance, max 0.8s extra
             extra_hold_time = min(extra_distance * 1.5, 0.8)  # Max 0.8s extra
+            # Bug fix: Ensure minimum extra_hold_time when distance is just above threshold
+            # This prevents hold_time from being too close to base when distance is barely above threshold
+            # Minimum 0.01s extra ensures meaningful difference from base
+            extra_hold_time = max(0.01, extra_hold_time)
             hold_time = base_hold_time + extra_hold_time
             hold_time = random.uniform(
                 hold_time * 0.85, hold_time * 1.15

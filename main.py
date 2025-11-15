@@ -10,6 +10,11 @@ from src.modules.listener import Listener
 from src.modules.gui import GUI
 from src.common.logger import get_logger
 from src.common import config
+from src.common.crash_detection import (
+    mark_graceful_shutdown,
+    log_shutdown,
+    stop_health_monitoring,
+)
 
 
 log = get_logger(__name__)
@@ -119,7 +124,16 @@ gui = GUI()
 # Cleanup function
 def cleanup():
     """Cleanup on exit"""
+    # Mark graceful shutdown
+    mark_graceful_shutdown("cleanup_called")
+
     log.info("🛑 Shutting down...")
+
+    # Stop health monitoring
+    try:
+        stop_health_monitoring()
+    except Exception as e:
+        log.debug(f"Error stopping health monitoring: {e}")
 
     # Stop VMware Receiver
     if config.vmware_receiver:
@@ -140,6 +154,9 @@ def cleanup():
     except Exception as e:
         log.debug(f"Error closing shared connection: {e}")
 
+    # Log shutdown event
+    log_shutdown()
+
 
 atexit.register(cleanup)
 
@@ -148,6 +165,7 @@ try:
     gui.start()
 except KeyboardInterrupt:
     log.info("🛑 Interrupted by user")
+    mark_graceful_shutdown("keyboard_interrupt")
     cleanup()
 except Exception as e:
     import traceback

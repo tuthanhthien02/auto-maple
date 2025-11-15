@@ -63,10 +63,45 @@ def _ensure_log_directory(base: Path) -> Path:
     return log_dir
 
 
+class CriticalEventFormatter(logging.Formatter):
+    """Formatter that highlights critical events."""
+
+    CRITICAL_EVENTS = {
+        "BOT_STARTUP",
+        "BOT_SHUTDOWN",
+        "UNEXPECTED_EXIT",
+        "SIGNAL_RECEIVED",
+        "UNCAUGHT_EXCEPTION",
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record with critical event highlighting."""
+        # Check if this is a critical event
+        event_type = getattr(record, "event_type", None)
+        is_critical = (
+            record.levelno >= logging.CRITICAL or event_type in self.CRITICAL_EVENTS
+        )
+
+        if is_critical:
+            # Bug fix: Use try-finally to ensure format is always restored
+            # even if exception occurs during formatting
+            original_fmt = self._style._fmt
+            enhanced_fmt = "%(asctime)s | ⚠️  CRITICAL | %(name)s | %(message)s"
+            try:
+                self._style._fmt = enhanced_fmt
+                result = super().format(record)
+            finally:
+                # Always restore original format
+                self._style._fmt = original_fmt
+            return result
+        else:
+            return super().format(record)
+
+
 def _build_handlers(log_file: Path) -> List[logging.Handler]:
     """Create the default file and optional console handlers (configurable)."""
 
-    formatter = logging.Formatter(
+    formatter = CriticalEventFormatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )

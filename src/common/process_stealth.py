@@ -65,10 +65,46 @@ class ProcessStealth:
         except Exception as e:
             log.error("[Process Stealth] Failed to show console: %s", e)
 
-    def change_process_name(self, new_name):
-        """Change the process name (requires admin privileges)."""
+    def change_process_name(self, new_name=None, randomize=True):
+        """Change the process name with randomization support.
+
+        Args:
+            new_name: Specific process name to use (if None, will randomize)
+            randomize: If True, randomly select from pool of common process names
+
+        Note: Actual process name changing requires admin privileges and complex techniques.
+        This function primarily changes the window title/description which is more accessible.
+        """
         try:
             if not self.process_name_changed:
+                if new_name is None and randomize:
+                    # Randomize process name from common Windows processes
+                    common_processes = [
+                        "explorer.exe",
+                        "chrome.exe",
+                        "msedge.exe",
+                        "Code.exe",
+                        "notepad.exe",
+                        "Discord.exe",
+                        "Steam.exe",
+                        "Teams.exe",
+                        "Spotify.exe",
+                        "AcroRd32.exe",
+                        "WinRAR.exe",
+                        "7zFM.exe",
+                        "vlc.exe",
+                        "paintdotnet.exe",
+                        "Calculator.exe",
+                        "wmplayer.exe",
+                        "svchost.exe",
+                        "dwm.exe",
+                        "winlogon.exe",
+                        "csrss.exe",
+                    ]
+                    new_name = random.choice(common_processes)
+                elif new_name is None:
+                    new_name = "explorer.exe"  # Default fallback
+
                 # This is a simplified approach - actual process name changing
                 # requires more complex techniques and admin privileges
                 log.info(
@@ -79,6 +115,13 @@ class ProcessStealth:
                 )
                 self.process_name_changed = True
                 self.original_process_name = os.path.basename(sys.executable)
+
+                # Bug fix: Only change description if not already changed to avoid recursion
+                # Also change description to match (but don't randomize again)
+                if randomize and not self.description_changed:
+                    # Extract base name without .exe
+                    base_name = new_name.replace(".exe", "")
+                    self.change_process_description(base_name, randomize=False)
 
         except Exception as e:
             log.error("[Process Stealth] Failed to change process name: %s", e)
@@ -182,22 +225,42 @@ class ProcessStealth:
         except Exception as e:
             log.error("[Process Stealth] Failed to clear fake memory: %s", e)
 
-    def change_process_description(self, new_description=None):
-        """Change process description/window title (does not require admin)."""
+    def change_process_description(self, new_description=None, randomize=True):
+        """Change process description/window title (does not require admin).
+
+        Args:
+            new_description: Specific description to use (if None, will randomize)
+            randomize: If True, randomly select from pool of common app names
+        """
         try:
             if new_description is None:
-                # Generate a random description to look like a normal app
-                descriptions = [
-                    "Windows Explorer",
-                    "Microsoft Edge",
-                    "Google Chrome",
-                    "Visual Studio Code",
-                    "Notepad++",
-                    "Discord",
-                    "Steam",
-                    "Windows Security",
-                ]
-                new_description = random.choice(descriptions)
+                if randomize:
+                    # Generate a random description to look like a normal app
+                    descriptions = [
+                        "Windows Explorer",
+                        "Microsoft Edge",
+                        "Google Chrome",
+                        "Visual Studio Code",
+                        "Notepad++",
+                        "Discord",
+                        "Steam",
+                        "Windows Security",
+                        "Windows Update",
+                        "Windows Defender",
+                        "Microsoft Teams",
+                        "Spotify",
+                        "Adobe Reader",
+                        "WinRAR",
+                        "7-Zip",
+                        "VLC Media Player",
+                        "Paint.NET",
+                        "Calculator",
+                        "Windows Media Player",
+                        "File Explorer",
+                    ]
+                    new_description = random.choice(descriptions)
+                else:
+                    new_description = "Windows Explorer"  # Default fallback
 
             # Get console window handle
             kernel32 = ctypes.WinDLL("kernel32")
@@ -442,17 +505,31 @@ class StealthMonitor:
     def enable_stealth(
         self,
         change_description=True,
+        randomize_process_name=True,
         enable_memory_scrambling=True,
         enable_fake_allocations=True,
     ):
-        """Enable all stealth features."""
+        """Enable all stealth features.
+
+        Args:
+            change_description: Change process description/window title (default: True)
+            randomize_process_name: Randomize process name/description (default: True)
+            enable_memory_scrambling: Enable periodic memory scrambling (default: True)
+            enable_fake_allocations: Allocate fake memory with random data (default: True)
+        """
         try:
             # Hide console
             self.stealth.hide_console()
 
+            # Change process name (with randomization)
+            if randomize_process_name:
+                self.stealth.change_process_name(randomize=True)
+
             # Change process description (doesn't require admin)
             if change_description:
-                self.stealth.change_process_description()
+                self.stealth.change_process_description(
+                    randomize=randomize_process_name
+                )
 
             # Allocate initial fake memory
             if enable_fake_allocations:
@@ -509,6 +586,7 @@ stealth_monitor = StealthMonitor()
 
 def enable_process_stealth(
     change_description=True,
+    randomize_process_name=True,
     enable_memory_scrambling=True,
     enable_fake_allocations=True,
 ):
@@ -516,11 +594,13 @@ def enable_process_stealth(
 
     Args:
         change_description: Change process description/window title (default: True)
+        randomize_process_name: Randomize process name/description (default: True)
         enable_memory_scrambling: Enable periodic memory scrambling every 5-10 min (default: True)
         enable_fake_allocations: Allocate fake memory with random data (default: True)
     """
     stealth_monitor.enable_stealth(
         change_description=change_description,
+        randomize_process_name=randomize_process_name,
         enable_memory_scrambling=enable_memory_scrambling,
         enable_fake_allocations=enable_fake_allocations,
     )
