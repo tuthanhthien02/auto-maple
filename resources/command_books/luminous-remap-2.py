@@ -1,11 +1,15 @@
 """Command book for Luminous class."""
 
-from src.routine.components import Command
-from src.common.vkeys import press, key_down, key_up
-from src.common import config, utils, settings
-import time
-import random
 import math
+import random
+import time
+
+from src.common import config, settings, utils
+from src.common.logger import get_logger
+from src.common.vkeys import key_down, key_up, press
+from src.routine.components import Command
+
+log = get_logger(__name__)
 
 
 # Global timing configuration for random delays
@@ -59,31 +63,41 @@ class TimingConfig:
         "y": (0.002, 0.005),  # 0.2~0.5% map height
     }
 
+    # Step movement configuration
+    STEP_MOVEMENT = {
+        "hold_threshold_multiplier": 1.5,  # Multiplier for move_tolerance to determine hold vs press
+        # Distance > (move_tolerance * multiplier) → hold key (xa)
+        # Distance ≤ (move_tolerance * multiplier) → press key (gần)
+        # Có thể chỉnh multiplier này nếu test thực tế không work:
+        # - Tăng multiplier (vd: 2.0, 3.0, 4.0, 5.0) → nhiều trường hợp dùng press key hơn
+        # - Giảm multiplier (vd: 1.0, 1.5, 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
+    }
+
 
 class Key:
     """Keybindings - adjust these to match your in-game settings."""
 
     # Primary skills
-    reflection = "a"  # Main attack skill
-    apocalypse = "s"  # Secondary attack
-    death_scythe = "d"  # Death Scythe
+    reflection = "r"  # Main attack skill
+    apocalypse = "h"  # Secondary attack
+    death_scythe = "y"  # Death Scythe
     light_reflection = "2"  # Light mode skill
     dark_reflection = "4"  # Dark mode skill
 
     # Utility
-    teleport = "f"  # Teleport skill
+    teleport = "t"  # Teleport skill
     flash_jump = "s"  # Flash jump if available
 
     # Buffs
-    buff_main = "1"  # Main buff
-    buff_secondary = "2"  # Secondary buff
+    buff_main = "a"  # Main buff
+    buff_secondary = "3"  # Secondary buff
 
     # Movement keys - FIXED: Use correct key names for vkeys
     left = "left"
     right = "right"
     up = "up"
     down = "down"
-    jump = "g"
+    jump = "alt"
 
 
 class Attack(Command):
@@ -127,31 +141,40 @@ class Reflection_Random(Command):
 
 
 class Reflection_Mix_Random(Command):
-    """Mix skills per call: 85% Reflection (2–3 casts), 10% Apocalypse (2–3 casts), 5% Death Scythe (1 cast)."""
+    """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast)."""
 
     def __init__(self, min_times=2, max_times=3):
         super().__init__(locals())
+        # Bug fix: Ensure min_times <= max_times to prevent ValueError in random.randint
         self.min_times = int(min_times)
         self.max_times = int(max_times)
+        if self.min_times > self.max_times:
+            # Swap if min > max to prevent errors
+            self.min_times, self.max_times = self.max_times, self.min_times
 
     def main(self):
         roll = random.random()
-        if roll < 0.85:
+        if roll < 0.93:
+            # Reflection: 93% chance, Use min_times/max_times with minimum 2 casts
             min_casts = max(2, self.min_times)
-            max_casts = max(3, self.max_times)
+            max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             for _ in range(times):
                 press(Key.reflection, 1, down_time=0.1, up_time=0.1)
                 time.sleep(
                     random.uniform(*TimingConfig.REFLECTION["long_between_casts"])
                 )
-        elif roll < 0.95:
-            times = random.randint(2, 3)
+        elif roll < 0.98:
+            # Apocalypse: 5% chance, Use min_times/max_times with minimum 2 casts (consistent with Reflection)
+            min_casts = max(2, self.min_times)
+            max_casts = max(min_casts, self.max_times)  # Ensure max >= min
+            times = random.randint(min_casts, max_casts)
             for _ in range(times):
                 press(Key.apocalypse, 1, down_time=0.1, up_time=0.1)
                 time.sleep(random.uniform(*TimingConfig.HEAVY["long_between_casts"]))
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
         else:
+            # Death Scythe: 2% chance, 1 cast (fixed)
             press(Key.death_scythe, 1, down_time=0.1, up_time=0.1)
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
 
@@ -210,14 +233,6 @@ class Light_Reflection(Command):
         time.sleep(0.2)
 
 
-class Dark_Reflection(Command):
-    """Dark Reflection skill."""
-
-    def main(self):
-        press(Key.dark_reflection, 1, down_time=0.1, up_time=0.1)
-        time.sleep(0.2)
-
-
 class Teleport(Command):
     """Teleport in a direction - CONFIGURABLE RANDOM TIMING."""
 
@@ -266,9 +281,12 @@ class Teleport(Command):
             finally:
                 # ALWAYS Release direction key (even if error occurs)
                 key_up(direction_key)
-                # Random delay between combos
+                # Small delay after releasing direction key to ensure game processes input
                 if i < self.times - 1:
                     time.sleep(random.uniform(*TimingConfig.TELEPORT["combo_delay"]))
+                elif i == self.times - 1:
+                    # Small delay after last combo to ensure smooth transition
+                    time.sleep(random.uniform(0.02, 0.05))
 
 
 class Teleport_Up(Command):
@@ -280,28 +298,49 @@ class Teleport_Up(Command):
 
     def main(self):
         # Teleport Up combo with fixed timing (150ms total)
+        log.debug("🚀 Teleport_Up: Starting %d teleport(s)", self.times)
         for i in range(self.times):
             try:
                 # Step 1: Hold UP key (minimal delay for key registration)
+                log.debug("🚀 Teleport_Up [%d/%d]: Holding UP key", i + 1, self.times)
                 key_down(Key.up)
                 time.sleep(0.01)  # 10ms - just enough for key registration
 
                 # Step 2: Press ALT (instant but with micro-pause)
+                log.debug(
+                    "🚀 Teleport_Up [%d/%d]: Pressing ALT (jump)", i + 1, self.times
+                )
                 key_down(Key.jump)
                 key_up(Key.jump)
                 time.sleep(0.005)  # 5ms micro-pause
 
                 # Step 3: Press W (instant but with micro-pause)
+                log.debug(
+                    "🚀 Teleport_Up [%d/%d]: Pressing W (teleport)", i + 1, self.times
+                )
                 key_down(Key.teleport)
                 key_up(Key.teleport)
                 time.sleep(0.005)  # 5ms micro-pause
 
+                log.debug(
+                    "🚀 Teleport_Up [%d/%d]: Completed successfully", i + 1, self.times
+                )
+            except Exception as e:
+                log.error(
+                    "🚀 Teleport_Up [%d/%d]: Error during execution: %s",
+                    i + 1,
+                    self.times,
+                    e,
+                    exc_info=True,
+                )
+                raise
             finally:
                 # Step 4: Release UP key
                 key_up(Key.up)
                 # Small delay between combos
                 if i < self.times - 1:
                     time.sleep(0.01)  # 10ms between combos
+        log.debug("🚀 Teleport_Up: Completed all %d teleport(s)", self.times)
 
 
 class Teleport_Down(Command):
@@ -337,22 +376,6 @@ class Teleport_Down(Command):
                     time.sleep(0.01)  # 10ms between combos
 
 
-class Jump(Command):
-    """Jump - Press ALT key."""
-
-    def __init__(self, times=1):
-        super().__init__(locals())
-        self.times = int(times)
-
-    def main(self):
-        # Simple jump - just press ALT key
-        for i in range(self.times):
-            press(Key.jump, 1, down_time=0.1, up_time=0.1)
-            # Small delay between jumps
-            if i < self.times - 1:
-                time.sleep(0.1)  # 100ms between jumps
-
-
 class Jump_Teleport_Up(Command):
     """Jump + Teleport Up combo - Jump + UP + W - SIMPLIFIED VERSION."""
 
@@ -362,30 +385,68 @@ class Jump_Teleport_Up(Command):
 
     def main(self):
         # Jump + Teleport Up combo with configurable random timing
+        log.debug("🚀 Jump_Teleport_Up: Starting %d combo(s)", self.times)
         for i in range(self.times):
             try:
                 # Step 1: Press ALT (jump) with random timing
+                log.debug(
+                    "🚀 Jump_Teleport_Up [%d/%d]: Pressing ALT (jump)",
+                    i + 1,
+                    self.times,
+                )
                 press(Key.jump, 1, down_time=0.1, up_time=0.1)
-                time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP["jump_delay"]))
+                jump_delay = random.uniform(
+                    *TimingConfig.JUMP_TELEPORT_UP["jump_delay"]
+                )
+                time.sleep(jump_delay)
 
                 # Step 2: Hold UP key
+                log.debug(
+                    "🚀 Jump_Teleport_Up [%d/%d]: Holding UP key", i + 1, self.times
+                )
                 key_down(Key.up)
-                time.sleep(random.uniform(*TimingConfig.JUMP_TELEPORT_UP["up_hold"]))
+                up_hold = random.uniform(*TimingConfig.JUMP_TELEPORT_UP["up_hold"])
+                time.sleep(up_hold)
 
                 # Step 3: Press W (teleport) with random timing
-                press(Key.teleport, 1, down_time=0.1, up_time=0.1)
-                time.sleep(
-                    random.uniform(*TimingConfig.JUMP_TELEPORT_UP["teleport_delay"])
+                log.debug(
+                    "🚀 Jump_Teleport_Up [%d/%d]: Pressing W (teleport)",
+                    i + 1,
+                    self.times,
                 )
+                press(Key.teleport, 1, down_time=0.1, up_time=0.1)
+                teleport_delay = random.uniform(
+                    *TimingConfig.JUMP_TELEPORT_UP["teleport_delay"]
+                )
+                time.sleep(teleport_delay)
 
+                log.debug(
+                    "🚀 Jump_Teleport_Up [%d/%d]: Completed successfully (jump_delay=%.3fs, up_hold=%.3fs, teleport_delay=%.3fs)",
+                    i + 1,
+                    self.times,
+                    jump_delay,
+                    up_hold,
+                    teleport_delay,
+                )
+            except Exception as e:
+                log.error(
+                    "🚀 Jump_Teleport_Up [%d/%d]: Error during execution: %s",
+                    i + 1,
+                    self.times,
+                    e,
+                    exc_info=True,
+                )
+                raise
             finally:
                 # Step 4: Release UP key
                 key_up(Key.up)
                 # Random delay between combos
                 if i < self.times - 1:
-                    time.sleep(
-                        random.uniform(*TimingConfig.JUMP_TELEPORT_UP["combo_delay"])
+                    combo_delay = random.uniform(
+                        *TimingConfig.JUMP_TELEPORT_UP["combo_delay"]
                     )
+                    time.sleep(combo_delay)
+        log.debug("🚀 Jump_Teleport_Up: Completed all %d combo(s)", self.times)
 
 
 class Jump_Down(Command):
@@ -430,23 +491,31 @@ class Jump_Down(Command):
 class Buff(Command):
     """Required buff command - buffs periodically."""
 
+    # Class-level variable to persist state across instances
+    _next_buff_time = 0.0
+
     def __init__(self):
         super().__init__(locals())
-        self.next_buff_time = 0.0
 
     def main(self):
         now = time.time()
         # Random hóa thời gian buff: 120–170 giây (thay vì cố định 180s)
-        if self.next_buff_time == 0.0 or now >= self.next_buff_time:
+        if Buff._next_buff_time <= 0.0 or now >= Buff._next_buff_time:
             press(Key.buff_main, 1)
-            time.sleep(0.1)
+            time.sleep(random.uniform(0.1, 0.2))
             # Temporarily disable secondary buff per request
             # press(Key.buff_secondary, 1)
             # time.sleep(0.1)
-            # Nghỉ ngẫu nhiên 2–4 giây sau khi buff để anti-detect
-            time.sleep(random.uniform(2.0, 4.0))
             # Lên lịch lần buff tiếp theo
-            self.next_buff_time = now + random.uniform(120.0, 170.0)
+            Buff._next_buff_time = now + random.uniform(120.0, 170.0)
+            log.debug(
+                "Buff casted, next buff in %.1f seconds",
+                Buff._next_buff_time - now,
+            )
+        else:
+            # Log when buff is skipped due to cooldown
+            remaining = Buff._next_buff_time - now
+            log.debug("Buff skipped (cooldown: %.1f seconds remaining)", remaining)
 
 
 class Adjust(Command):
@@ -504,17 +573,21 @@ class Adjust(Command):
                     counter -= 1
             else:
                 d_y = self.target[1] - config.player_pos[1]
-                if abs(d_y) > settings.adjust_tolerance / math.sqrt(2):
+                # Handle Y adjustment (similar to Kanna)
+                # Only adjust for small fine-tuning, NOT large floor transitions
+                # Large floor transitions should be handled by Move/step() during movement
+                y_threshold = settings.adjust_tolerance / math.sqrt(2)
+                large_y_change = abs(d_y) > settings.move_tolerance * 1.5
+
+                # Only adjust Y for small fine-tuning, skip if large floor transition
+                # (large transitions are handled by step() during Move walk)
+                if abs(d_y) > y_threshold and not large_y_change:
                     if d_y < 0:
-                        # Use Luminous teleport up
+                        # Moving up: Use Luminous teleport up for small adjustments only
                         Teleport("up").main()
                     else:
-                        # Use Luminous jump down
-                        key_down("down")
-                        time.sleep(0.05)
-                        press(Key.jump, 3, down_time=0.1)
-                        key_up("down")
-                        time.sleep(0.05)
+                        # Moving down: Use Luminous jump down for small adjustments only
+                        Jump_Down(1).main()
                     counter -= 1
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
@@ -526,38 +599,162 @@ class Adjust(Command):
         key_up("down")
 
 
-def step(direction, target):
+def step(direction, target, distance=None, waypoint_jumped=False):
     """
     Performs one movement step in the given DIRECTION towards TARGET.
     Should not press any arrow keys, as those are handled by Auto Maple.
     Based on Kanna's intelligent step() with Luminous improvements.
+
+    :param direction: Direction to move ('left', 'right', 'up', 'down')
+    :param target: Target location
+    :param distance: Optional distance to target. If None, will be calculated.
+    :param waypoint_jumped: If True, skip auto-jump to prevent duplicate jumps for same waypoint.
     """
+
+    # Calculate distance if not provided
+    if distance is None:
+        distance = utils.distance(config.player_pos, target)
+
+    # Threshold để quyết định hold vs press
+    # Distance > threshold → hold key (xa), ≤ threshold → press key (gần)
+    # Configurable via TimingConfig.STEP_MOVEMENT['hold_threshold_multiplier']
+    hold_threshold = (
+        settings.move_tolerance
+        * TimingConfig.STEP_MOVEMENT["hold_threshold_multiplier"]
+    )
 
     # Anti-detect delay (from Kanna)
     if config.stage_fright and direction != "up" and utils.bernoulli(0.75):
         time.sleep(utils.rand_float(0.1, 0.3))
 
-    # Check Y distance for vertical movements (from Kanna - SMART!)
-    d_y = target[1] - config.player_pos[1]
-    if abs(d_y) > settings.move_tolerance * 1.5:
-        if direction == "down":
-            press(Key.jump, 3)
-        elif direction == "up":
-            press(Key.jump, 1)
-
     # Handle different directions (hybrid approach)
     if direction in ("left", "right"):
-        # Short walk for horizontal movement (from Luminous)
-        try:
-            key_down(getattr(Key, direction))
-            time.sleep(0.1)
-        finally:
-            key_up(getattr(Key, direction))
-        time.sleep(0.05)
+        # Horizontal movement - Distance-based: Hold (xa) vs Press (gần)
+        direction_key = getattr(Key, direction)
+
+        if distance > hold_threshold:
+            # Distance xa → Hold key với timing dựa trên distance (human-like)
+            # Tính toán hold time dựa trên distance: distance càng xa, hold càng lâu
+            # Base hold time: 0.2s, thêm 0.15s cho mỗi 0.1 distance vượt threshold
+            base_hold_time = 0.2
+            extra_distance = max(
+                0.0, distance - hold_threshold
+            )  # Bug fix: Ensure non-negative
+            # Scale extra time: 0.15s per 0.1 distance, max 0.8s extra
+            extra_hold_time = min(extra_distance * 1.5, 0.8)  # Max 0.8s extra
+            # Bug fix: Ensure minimum extra_hold_time when distance is just above threshold
+            # This prevents hold_time from being too close to base when distance is barely above threshold
+            # Minimum 0.01s extra ensures meaningful difference from base
+            extra_hold_time = max(0.01, extra_hold_time)
+            hold_time = base_hold_time + extra_hold_time
+            hold_time = random.uniform(
+                hold_time * 0.85, hold_time * 1.15
+            )  # Add randomness
+            # Bug fix: Ensure minimum hold_time to prevent too-short key presses
+            # Minimum 0.05s to ensure key is registered properly
+            hold_time = max(0.05, hold_time)
+
+            log.debug(
+                "🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s for %.3fs",
+                distance,
+                hold_threshold,
+                direction,
+                hold_time,
+            )
+            try:
+                key_down(direction_key)
+                time.sleep(hold_time)
+            finally:
+                key_up(direction_key)
+            time.sleep(random.uniform(0.03, 0.08))
+        else:
+            # Distance gần → Press key (tap ngắn, human-like)
+            log.debug(
+                "👆 Human-like: distance gần (%.3f ≤ %.3f) → press key %s",
+                distance,
+                hold_threshold,
+                direction,
+            )
+            press(direction_key, 1, down_time=random.uniform(0.05, 0.08), up_time=0.02)
+            time.sleep(random.uniform(0.02, 0.05))
     else:
-        # Teleport for vertical movement (from Kanna)
-        num_presses = 2 if direction in ("up", "down") else 1
-        press(Key.teleport, num_presses)
+        # Teleport for vertical movement - FIXED: Hold direction key first
+        direction_key = getattr(Key, direction)
+
+        # Check for large Y distance changes (floor transitions) - similar to Kanna
+        # Auto-jump BEFORE teleport for large Y changes
+        # NOTE: Only jump once per step() call to prevent duplicate jumps when step() is called
+        # multiple times in Move loop. After teleport, Y distance will decrease, so subsequent
+        # step() calls won't trigger jump again.
+        d_y = target[1] - config.player_pos[1]
+        large_y_change = abs(d_y) > settings.move_tolerance * 1.5
+        has_auto_jumped = False
+
+        # Only auto-jump if:
+        # 1. Large Y change detected (floor transition)
+        # 2. Direction is vertical
+        # 3. Haven't already jumped for this waypoint (prevents duplicate jumps)
+        # This prevents duplicate jumps when step() is called multiple times for same waypoint
+        if large_y_change and direction in ("up", "down") and not waypoint_jumped:
+            # Large Y change indicates floor transition - jump before teleport (like Kanna)
+            if direction == "down":
+                log.debug(
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping down before teleport",
+                    d_y,
+                )
+                press(Key.jump, 3)
+                has_auto_jumped = True
+            elif direction == "up":
+                log.debug(
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping up before teleport",
+                    d_y,
+                )
+                press(Key.jump, 1)
+                has_auto_jumped = True
+
+        try:
+            # Hold direction key FIRST with random timing (like Teleport class)
+            key_down(direction_key)
+            time.sleep(random.uniform(*TimingConfig.TELEPORT["direction_delay"]))
+
+            if direction in ("up", "down"):
+                # Vertical teleport: Hold direction + Press ALT + Press W
+                # NOTE: Skip jump in teleport combo if already auto-jumped OR waypoint_jumped
+                # to avoid duplicate jumps when step() is called multiple times in Move loop
+                if not has_auto_jumped and not waypoint_jumped:
+                    # Only jump in teleport combo if:
+                    # 1. Not already auto-jumped in this step() call
+                    # 2. Not already jumped for this waypoint (prevents duplicate when step() called again)
+                    key_down(Key.jump)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
+                    )
+                    key_up(Key.jump)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
+                    )
+
+                num_presses = 1  # Vertical = 1 press
+                for _ in range(num_presses):
+                    key_down(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT["teleport_hold"]))
+                    key_up(Key.teleport)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["teleport_release"])
+                    )
+            else:
+                # Horizontal teleport: Hold direction + Press W (NO ALT)
+                num_presses = 2
+                for _ in range(num_presses):
+                    key_down(Key.teleport)
+                    time.sleep(random.uniform(*TimingConfig.TELEPORT["teleport_hold"]))
+                    key_up(Key.teleport)
+                    time.sleep(
+                        random.uniform(*TimingConfig.TELEPORT["teleport_release"])
+                    )
+        finally:
+            # ALWAYS Release direction key
+            key_up(direction_key)
 
 
 # ==================== RANDOM ACTIONS ====================
@@ -679,13 +876,28 @@ class Face_Left(Command):
 class Buff_Secondary(Command):
     """Casts the secondary buff on a random cooldown between 800-900 seconds."""
 
+    # Class-level variable to persist state across instances
+    _next_buff_time = 0.0
+
     def __init__(self):
         super().__init__(locals())
-        self.next_buff_time = 0.0
 
     def main(self):
         now = time.time()
-        if self.next_buff_time == 0.0 or now >= self.next_buff_time:
+        if (
+            Buff_Secondary._next_buff_time <= 0.0
+            or now >= Buff_Secondary._next_buff_time
+        ):
             press(Key.buff_secondary, 1)
             time.sleep(random.uniform(0.1, 0.2))
-            self.next_buff_time = now + random.uniform(800.0, 900.0)
+            Buff_Secondary._next_buff_time = now + random.uniform(800.0, 900.0)
+            log.debug(
+                "Buff Secondary casted, next buff in %.1f seconds",
+                Buff_Secondary._next_buff_time - now,
+            )
+        else:
+            # Log when buff is skipped due to cooldown
+            remaining = Buff_Secondary._next_buff_time - now
+            log.debug(
+                "Buff Secondary skipped (cooldown: %.1f seconds remaining)", remaining
+            )
