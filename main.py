@@ -13,8 +13,8 @@ from src.common import config
 from src.common.crash_detection import (
     mark_graceful_shutdown,
     log_shutdown,
-    stop_health_monitoring,
 )
+from src.common.health_check import stop_health_monitoring
 
 
 log = get_logger(__name__)
