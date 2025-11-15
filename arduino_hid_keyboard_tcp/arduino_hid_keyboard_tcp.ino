@@ -957,22 +957,22 @@ void loop() {
     // Process each byte
     for (uint8_t i = 0; i < bytesRead; i++) {
       uint8_t byteVal = serialBatchBuffer[i];
-      
-      if (!frameParsing) {
-        if (byteVal == FRAME_START_BYTE) {
-          frameParsing = true;
-          frameState = FRAME_READ_COUNTER;
-          frameStartMs = millis();  // Bug fix: Track frame parsing start time
-          continue;
-        }
 
-        if (!obfuscationActive) {
-          handleAsciiByte(byteVal);
-        }
+    if (!frameParsing) {
+      if (byteVal == FRAME_START_BYTE) {
+        frameParsing = true;
+        frameState = FRAME_READ_COUNTER;
+          frameStartMs = millis();  // Bug fix: Track frame parsing start time
         continue;
       }
 
-      parseFrameByte(byteVal);
+      if (!obfuscationActive) {
+        handleAsciiByte(byteVal);
+      }
+      continue;
+    }
+
+    parseFrameByte(byteVal);
     }
   }
   
