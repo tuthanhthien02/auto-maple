@@ -76,6 +76,9 @@ class Capture:
         self.cached_minimap_hash = None
         self.cached_mask = None
 
+        # Bug fix: Thread safety for minimap updates
+        self._minimap_lock = threading.Lock()
+
     def start(self):
         """
         Starts the capture thread.
@@ -255,11 +258,17 @@ class Capture:
                 if DEBUG:
                     log.debug("Window rect: %s", rect)
 
-                with mss.mss() as self.sct:
-                    self.frame = self.screenshot()
-                if self.frame is None:
-                    if DEBUG:
-                        log.debug("Screenshot is None, retrying...")
+                # Bug fix: Ensure mss context manager cleanup on exception
+                try:
+                    with mss.mss() as self.sct:
+                        self.frame = self.screenshot()
+                    if self.frame is None:
+                        if DEBUG:
+                            log.debug("Screenshot is None, retrying...")
+                        continue
+                except Exception as e:
+                    log.warning(f"Error during screenshot capture: {e}")
+                    self.sct = None
                     continue
 
                 fh, fw = self.frame.shape[:2]
@@ -420,6 +429,11 @@ class Capture:
                                     self.calibrated = False
                                     self._recalibrate_requested = False
                                     # CPU Optimization: Clear cache on recalibration
+                                    # Bug fix: Explicitly delete cached arrays to free memory
+                                    if self.cached_hsv is not None:
+                                        del self.cached_hsv
+                                    if self.cached_mask is not None:
+                                        del self.cached_mask
                                     self.cached_hsv = None
                                     self.cached_minimap_hash = None
                                     self.cached_mask = None
@@ -603,13 +617,15 @@ class Capture:
                                                 current_time
                                             )
 
-                            self.minimap = {
-                                "minimap": minimap_bgr,
-                                "rune_active": config.bot.rune_active,
-                                "rune_pos": config.bot.rune_pos,
-                                "path": config.path,
-                                "player_pos": config.player_pos,
-                            }
+                            # Bug fix: Thread-safe minimap update
+                            with self._minimap_lock:
+                                self.minimap = {
+                                    "minimap": minimap_bgr,
+                                    "rune_active": config.bot.rune_active,
+                                    "rune_pos": config.bot.rune_pos,
+                                    "path": config.path,
+                                    "player_pos": config.player_pos,
+                                }
 
                             if not self.ready:
                                 self.ready = True

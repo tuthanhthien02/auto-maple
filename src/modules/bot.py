@@ -174,7 +174,10 @@ class Bot(Configurable):
                         config.gui.view.details.display_info(current_index)
                         self._last_gui_index = current_index
                     except Exception as gui_error:
-                        log.debug("GUI update error (non-critical): %s", gui_error)
+                        # Bug fix: Log warning instead of debug for GUI errors
+                        log.warning("GUI update error (non-critical): %s", gui_error)
+                        # Bug fix: Still update _last_gui_index to prevent repeated failed attempts
+                        self._last_gui_index = current_index
 
                 # Random Move Backward: Check if we should backward BEFORE any command execution
                 should_backward, backward_steps = config.routine.should_backward()
@@ -294,6 +297,8 @@ class Bot(Configurable):
                     )
                     config.enabled = False
                     consecutive_errors = 0
+                    # Bug fix: Reset GUI tracking state on error recovery
+                    self._last_gui_index = -1
                     time.sleep(5)
                 else:
                     try:

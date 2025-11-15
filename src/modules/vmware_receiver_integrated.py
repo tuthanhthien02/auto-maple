@@ -122,7 +122,7 @@ class VMwareReceiverIntegrated:
         self.VK_END = 0x23  # End key -> toggle remapping
         self.hook_thread = None
 
-        # Stats
+        # Stats (thread-safe with lock)
         self.stats = {
             "total_received": 0,
             "total_forwarded": 0,
@@ -130,6 +130,7 @@ class VMwareReceiverIntegrated:
             "total_clients": 0,
             "total_remapped": 0,
         }
+        self._stats_lock = threading.Lock()  # Bug fix: Thread safety for stats
 
         # Initialize Windows API for keyboard hook
         if self.enable_hotkey_hook:
@@ -302,17 +303,26 @@ class VMwareReceiverIntegrated:
     def message_loop(self):
         """Windows message loop for keyboard hook"""
         msg = wintypes.MSG()
-        while self.running:
-            bRet = self.user32.PeekMessageW(
-                ctypes.byref(msg), None, 0, 0, PM_REMOVE | PM_NOYIELD
+        try:
+            while self.running:
+                bRet = self.user32.PeekMessageW(
+                    ctypes.byref(msg), None, 0, 0, PM_REMOVE | PM_NOYIELD
+                )
+                if bRet:
+                    if msg.message == 0x0012:  # WM_QUIT
+                        break
+                    self.user32.TranslateMessage(ctypes.byref(msg))
+                    self.user32.DispatchMessageW(ctypes.byref(msg))
+                else:
+                    time.sleep(0)  # Yield to other threads
+        except Exception as e:
+            log.error(f"[ERROR] Keyboard hook message loop error: {e}")
+        finally:
+            # Bug fix: Ensure hook is uninstalled even if exception occurs
+            log.debug(
+                "[VMwareReceiverIntegrated] Cleaning up keyboard hook in message_loop..."
             )
-            if bRet:
-                if msg.message == 0x0012:  # WM_QUIT
-                    break
-                self.user32.TranslateMessage(ctypes.byref(msg))
-                self.user32.DispatchMessageW(ctypes.byref(msg))
-            else:
-                time.sleep(0)  # Yield to other threads
+            self.uninstall_hook()
 
     def send_key_to_arduino(self, key_name: str, action: str) -> bool:
         """
@@ -327,18 +337,22 @@ class VMwareReceiverIntegrated:
         """
         try:
             result = self.shared_connection.send_command(action, key_name)
-            if result:
-                self.stats["total_forwarded"] += 1
-                if self.enable_logging:
-                    log.debug(f"[FORWARD] {action}:{key_name} → Arduino")
-            else:
-                self.stats["total_errors"] += 1
-                if self.enable_logging:
-                    log.warning(f"[ERROR] Failed to forward: {action}:{key_name}")
+            # Bug fix: Thread-safe stats update
+            with self._stats_lock:
+                if result:
+                    self.stats["total_forwarded"] += 1
+                    if self.enable_logging:
+                        log.debug(f"[FORWARD] {action}:{key_name} → Arduino")
+                else:
+                    self.stats["total_errors"] += 1
+                    if self.enable_logging:
+                        log.warning(f"[ERROR] Failed to forward: {action}:{key_name}")
             return result
         except Exception as e:
             log.error(f"[ERROR] Send error: {e}")
-            self.stats["total_errors"] += 1
+            # Bug fix: Thread-safe stats update
+            with self._stats_lock:
+                self.stats["total_errors"] += 1
             return False
 
     def send_all_up(self):
@@ -349,9 +363,11 @@ class VMwareReceiverIntegrated:
 
     def handle_client(self, client_socket, client_address):
         """Xử lý client connection"""
-        self.client_socket = client_socket
-        self.client_address = client_address
-        self.stats["total_clients"] += 1
+        # Bug fix: Thread-safe client socket assignment
+        with self._stats_lock:
+            self.client_socket = client_socket
+            self.client_address = client_address
+            self.stats["total_clients"] += 1
 
         log.info(f"[CLIENT] ✓ Connected from {client_address[0]}:{client_address[1]}")
 
@@ -370,7 +386,9 @@ class VMwareReceiverIntegrated:
                     line = line.strip()
 
                     if line:
-                        self.stats["total_received"] += 1
+                        # Bug fix: Thread-safe stats update
+                        with self._stats_lock:
+                            self.stats["total_received"] += 1
                         if self.enable_logging:
                             log.debug(f"[RECEIVED] Command: {line}")
                         self.process_command(line)
@@ -447,10 +465,16 @@ class VMwareReceiverIntegrated:
                 try:
                     client_socket, client_address = self.server_socket.accept()
                     # Handle client in separate thread
-                    # If new client connects, close old one
-                    if self.client_socket:
+                    # Bug fix: Thread-safe client socket check and close
+                    old_client = None
+                    with self._stats_lock:
+                        if self.client_socket:
+                            old_client = self.client_socket
+                            self.client_socket = None
+                            self.client_address = None
+                    if old_client:
                         try:
-                            self.client_socket.close()
+                            old_client.close()
                         except Exception:
                             pass
 
@@ -527,15 +551,19 @@ class VMwareReceiverIntegrated:
         log.debug("[VMwareReceiverIntegrated] Uninstalling keyboard hook...")
         self.uninstall_hook()
 
-        # Close client connection
-        if self.client_socket:
+        # Close client connection (thread-safe)
+        old_client = None
+        with self._stats_lock:
+            if self.client_socket:
+                old_client = self.client_socket
+                self.client_socket = None
+                self.client_address = None
+        if old_client:
             try:
                 log.debug("[VMwareReceiverIntegrated] Closing client connection...")
-                self.client_socket.close()
+                old_client.close()
             except Exception as e:
                 log.debug(f"[VMwareReceiverIntegrated] Error closing client: {e}")
-            self.client_socket = None
-            self.client_address = None
 
         # Close server socket
         if self.server_socket:
@@ -555,8 +583,10 @@ class VMwareReceiverIntegrated:
         return self.running
 
     def get_stats(self) -> dict:
-        """Get statistics"""
-        return self.stats.copy()
+        """Get statistics (thread-safe)"""
+        # Bug fix: Thread-safe stats access
+        with self._stats_lock:
+            return self.stats.copy()
 
     def print_stats(self):
         """Print statistics"""

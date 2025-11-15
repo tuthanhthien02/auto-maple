@@ -316,6 +316,14 @@ class SharedArduinoConnection:
 
         # Try each port
         for port in ports_to_try:
+            # Bug fix: Close existing serial connection before trying new one
+            if self.serial and self.serial.is_open:
+                try:
+                    self.serial.close()
+                except Exception as e:
+                    log.debug(f"Error closing existing serial connection: {e}")
+                self.serial = None
+
             try:
                 log.debug(f"Trying to connect to {port}...")
                 self.serial = serial.Serial(
@@ -366,6 +374,15 @@ class SharedArduinoConnection:
 
             except serial.SerialException as e:
                 error_str = str(e)
+                # Bug fix: Clean up serial object if connection failed
+                if self.serial:
+                    try:
+                        if self.serial.is_open:
+                            self.serial.close()
+                    except Exception:
+                        pass
+                    self.serial = None
+
                 # Check if port is already in use (Access is denied)
                 if "Access is denied" in error_str or "being used" in error_str.lower():
                     log.warning(f"Port {port} is already in use by another process")
@@ -377,6 +394,14 @@ class SharedArduinoConnection:
                 log.debug(f"Failed to connect to {port}: {e}")
                 continue
             except Exception as e:
+                # Bug fix: Clean up serial object if unexpected error
+                if self.serial:
+                    try:
+                        if self.serial.is_open:
+                            self.serial.close()
+                    except Exception:
+                        pass
+                    self.serial = None
                 log.warning(f"Unexpected error connecting to {port}: {e}")
                 continue
 
@@ -549,8 +574,15 @@ class SharedArduinoConnection:
         return self.send_command("all_up")
 
     def is_connected(self) -> bool:
-        """Check if connected"""
-        return self.connected and self.serial and self.serial.is_open
+        """
+        Check if connected
+        Note: Not thread-safe for concurrent access, but safe when called from send_command() with lock
+        """
+        try:
+            return self.connected and self.serial and self.serial.is_open
+        except Exception:
+            # Handle case where serial object is being closed by another thread
+            return False
 
     def get_serial(self) -> Optional[serial.Serial]:
         """
@@ -604,6 +636,13 @@ class SharedArduinoConnection:
                 finally:
                     self.connected = False
                     self.serial = None
+                    # Bug fix: Clean up obfuscator and device_stealth to prevent memory leaks
+                    if self.obfuscator:
+                        try:
+                            self.obfuscator.reset()
+                        except Exception as e:
+                            log.debug(f"Error resetting obfuscator: {e}")
+                    # Note: device_stealth doesn't need explicit cleanup (it's just a reference)
             else:
                 log.debug(
                     "[SharedArduinoConnection] No active connection to disconnect"

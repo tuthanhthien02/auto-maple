@@ -295,8 +295,22 @@ def key_down(key):
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
-        arduino.key_down(key)
-        return
+        try:
+            result = arduino.key_down(key)
+            # Bug fix: Fallback to SendInput if Arduino fails
+            if result is False:
+                log.warning(
+                    f"Arduino key_down failed for '{key}', falling back to SendInput"
+                )
+                _key_down_sendinput(key)
+            return
+        except Exception as e:
+            # Bug fix: Fallback to SendInput on exception
+            log.warning(
+                f"Arduino key_down error for '{key}': {e}, falling back to SendInput"
+            )
+            _key_down_sendinput(key)
+            return
 
     # Fallback to SendInput
     _key_down_sendinput(key)
@@ -327,8 +341,22 @@ def key_up(key):
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
-        arduino.key_up(key)
-        return
+        try:
+            result = arduino.key_up(key)
+            # Bug fix: Fallback to SendInput if Arduino fails
+            if result is False:
+                log.warning(
+                    f"Arduino key_up failed for '{key}', falling back to SendInput"
+                )
+                _key_up_sendinput(key)
+            return
+        except Exception as e:
+            # Bug fix: Fallback to SendInput on exception
+            log.warning(
+                f"Arduino key_up error for '{key}': {e}, falling back to SendInput"
+            )
+            _key_up_sendinput(key)
+            return
 
     # Fallback to SendInput
     _key_up_sendinput(key)
@@ -392,9 +420,17 @@ def press(key, n, down_time=0.05, up_time=0.1):
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
-        # Use Arduino
-        arduino.press(key, n, down_time, up_time)
-        return
+        try:
+            # Use Arduino
+            arduino.press(key, n, down_time, up_time)
+            return
+        except Exception as e:
+            # Bug fix: Fallback to SendInput on exception
+            log.warning(
+                f"Arduino press error for '{key}': {e}, falling back to SendInput"
+            )
+            _press_sendinput(key, n, down_time, up_time)
+            return
 
     # Fallback to SendInput
     _press_sendinput(key, n, down_time, up_time)

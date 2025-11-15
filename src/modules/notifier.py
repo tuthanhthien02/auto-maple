@@ -87,7 +87,13 @@ class Notifier:
                     current_time = time.time()
                     frame = config.capture.frame
                     height, width, _ = frame.shape
-                    minimap = config.capture.minimap["minimap"]
+                    # Bug fix: Thread-safe minimap access
+                    with config.capture._minimap_lock:
+                        minimap = (
+                            config.capture.minimap["minimap"]
+                            if config.capture.minimap
+                            else None
+                        )
 
                     # CPU Optimization: Check black screen every 0.2s (5 Hz)
                     if current_time - last_black_check > 0.2:
