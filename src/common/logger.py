@@ -98,6 +98,60 @@ class CriticalEventFormatter(logging.Formatter):
             return super().format(record)
 
 
+class EncryptedFileHandler(logging.handlers.RotatingFileHandler):
+    """
+    File handler that encrypts log message content before writing.
+
+    Only the message content is encrypted, metadata (timestamp, level, logger name)
+    remains readable for easier debugging.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize EncryptedFileHandler."""
+        super().__init__(*args, **kwargs)
+        # Import here to avoid circular dependency
+        try:
+            from src.common.log_encryption import get_log_encryptor
+
+            self._encryptor = get_log_encryptor()
+        except ImportError:
+            self._encryptor = None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """
+        Emit a log record, encrypting the message content.
+
+        Falls back to plain text if encryption fails.
+        """
+        try:
+            # Format the record normally first
+            msg = self.format(record)
+
+            # Extract message content (everything after the last " | ")
+            # Format: "timestamp | level | logger | message"
+            parts = msg.rsplit(" | ", 1)
+            if len(parts) == 2:
+                metadata, message = parts
+                # Encrypt only the message content
+                if self._encryptor:
+                    encrypted_message = self._encryptor.encrypt(message)
+                    # Reconstruct log line with encrypted message
+                    msg = f"{metadata} | {encrypted_message}"
+                # If encryption disabled or failed, msg remains unchanged
+            # If format doesn't match expected pattern, encrypt entire message
+            elif self._encryptor:
+                msg = self._encryptor.encrypt(msg)
+
+            # Write to file
+            self.stream.write(msg + self.terminator)
+            self.flush()
+
+        except Exception:
+            # Fallback to parent's emit if encryption fails
+            # This ensures logs are still written even if encryption has issues
+            self.handleError(record)
+
+
 def _build_handlers(log_file: Path) -> List[logging.Handler]:
     """Create the default file and optional console handlers (configurable)."""
 
@@ -106,17 +160,63 @@ def _build_handlers(log_file: Path) -> List[logging.Handler]:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=5 * 1024 * 1024,  # 5 MB per file
-        backupCount=5,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
+    # Check if encryption should be enabled
+    encryption_env = os.getenv("AUTO_MAPLE_LOG_ENCRYPTION", "").strip().lower()
+    encryption_enabled = encryption_env in {"1", "true", "yes", "on"}
+
+    # Auto-enable in production (frozen executable)
+    if not encryption_enabled and getattr(sys, "frozen", False):
+        encryption_enabled = True
+
+    # Validate encryption key exists if encryption is enabled
+    if encryption_enabled:
+        encryption_key = os.getenv("AUTO_MAPLE_LOG_ENCRYPTION_KEY", "").strip()
+        if not encryption_key:
+            # Key not set, disable encryption and log warning
+            encryption_enabled = False
+            # Use a temporary logger to avoid circular dependency
+            temp_logger = logging.getLogger("auto_maple.logger_init")
+            temp_logger.warning(
+                "[Logger] AUTO_MAPLE_LOG_ENCRYPTION_KEY not set, encryption disabled"
+            )
+
+    # Use EncryptedFileHandler if encryption enabled, otherwise use regular RotatingFileHandler
+    if encryption_enabled:
+        try:
+            file_handler = EncryptedFileHandler(
+                log_file,
+                maxBytes=5 * 1024 * 1024,  # 5 MB per file
+                backupCount=5,
+                encoding="utf-8",
+            )
+            file_handler.setFormatter(formatter)
+        except Exception as e:
+            # Fallback to regular handler if EncryptedFileHandler fails
+            temp_logger = logging.getLogger("auto_maple.logger_init")
+            temp_logger.warning(
+                "[Logger] Failed to create EncryptedFileHandler: %s, using regular handler",
+                e,
+            )
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=5 * 1024 * 1024,  # 5 MB per file
+                backupCount=5,
+                encoding="utf-8",
+            )
+            file_handler.setFormatter(formatter)
+    else:
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=5 * 1024 * 1024,  # 5 MB per file
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(formatter)
 
     handlers: List[logging.Handler] = [file_handler]
 
     # Console handler: default ON in dev, OFF in frozen/production
+    # Note: Console output is never encrypted (for debugging)
     default_console = "0" if getattr(sys, "frozen", False) else "1"
     console_env = os.getenv("AUTO_MAPLE_CONSOLE", default_console).strip().lower()
     if console_env in {"1", "true", "yes", "on"}:

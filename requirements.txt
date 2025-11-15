@@ -9,3 +9,4 @@ pywin32
 pyserial
 psutil
 tensorflow
+cryptography>=41.0.0
