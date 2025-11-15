@@ -184,93 +184,112 @@ _arduino_output = None
 def _get_arduino_output():
     """Get or create Arduino output instance using SharedArduinoConnection"""
     global _arduino_output
-    if _arduino_output is None:
-        # Check if Arduino is enabled in config
+
+    # Check if Arduino is enabled in config
+    try:
+        from src.common import config
+
+        if not (hasattr(config, "use_arduino") and config.use_arduino):
+            # Arduino not enabled - return None (not False) to allow retry if config changes
+            return None
+
         try:
-            from src.common import config
+            from src.common.shared_arduino_connection import (
+                SharedArduinoConnection,
+            )
 
-            if hasattr(config, "use_arduino") and config.use_arduino:
-                try:
-                    from src.common.shared_arduino_connection import (
-                        SharedArduinoConnection,
-                    )
+            # Use SharedArduinoConnection singleton
+            shared_conn = SharedArduinoConnection()
 
-                    # Use SharedArduinoConnection singleton
-                    shared_conn = SharedArduinoConnection()
-                    if not shared_conn.connected:
-                        log.warning(
-                            "Arduino output enabled but connection failed, falling back to SendInput"
-                        )
-                        _arduino_output = False  # Mark as unavailable
-                    else:
-                        # Create wrapper object with ArduinoSerialOutput-like interface
-                        class ArduinoOutputWrapper:
-                            def __init__(self, shared_conn):
-                                self.shared_conn = shared_conn
-                                self.connected = shared_conn.connected
+            # Bug fix: Always check connection status, don't cache False
+            # This allows retry when connection becomes available later
+            if not shared_conn.connected:
+                # Connection not ready yet - return None to allow retry
+                if _arduino_output is not None:
+                    # Connection was available but now lost - reset to allow retry
+                    _arduino_output = None
+                return None
 
-                            def key_down(self, key):
-                                try:
-                                    return self.shared_conn.send_command("down", key)
-                                except Exception as e:
-                                    log.error(
-                                        f"[VKEYS] Error in ArduinoOutputWrapper.key_down: {e}"
-                                    )
-                                    import traceback
+            # Connection is available - create or reuse wrapper
+            if _arduino_output is None or not hasattr(_arduino_output, "shared_conn"):
+                # Create wrapper object with ArduinoSerialOutput-like interface
+                class ArduinoOutputWrapper:
+                    def __init__(self, shared_conn):
+                        self.shared_conn = shared_conn
+                        self.connected = shared_conn.connected
 
-                                    log.error(traceback.format_exc())
-                                    return False
+                    def key_down(self, key):
+                        try:
+                            # Update connected status before use
+                            self.connected = self.shared_conn.connected
+                            if not self.connected:
+                                return False
+                            return self.shared_conn.send_command("down", key)
+                        except Exception as e:
+                            log.error(
+                                f"[VKEYS] Error in ArduinoOutputWrapper.key_down: {e}"
+                            )
+                            import traceback
 
-                            def key_up(self, key):
-                                try:
-                                    return self.shared_conn.send_command("up", key)
-                                except Exception as e:
-                                    log.error(
-                                        f"[VKEYS] Error in ArduinoOutputWrapper.key_up: {e}"
-                                    )
-                                    import traceback
+                            log.error(traceback.format_exc())
+                            return False
 
-                                    log.error(traceback.format_exc())
-                                    return False
+                    def key_up(self, key):
+                        try:
+                            # Update connected status before use
+                            self.connected = self.shared_conn.connected
+                            if not self.connected:
+                                return False
+                            return self.shared_conn.send_command("up", key)
+                        except Exception as e:
+                            log.error(
+                                f"[VKEYS] Error in ArduinoOutputWrapper.key_up: {e}"
+                            )
+                            import traceback
 
-                            def press(self, key, n, down_time=0.05, up_time=0.1):
-                                import time
+                            log.error(traceback.format_exc())
+                            return False
 
-                                try:
-                                    for i in range(n):
-                                        self.key_down(key)
-                                        time.sleep(down_time)
-                                        self.key_up(key)
-                                        if i < n - 1:
-                                            time.sleep(up_time)
-                                except Exception as e:
-                                    log.error(
-                                        f"[VKEYS] Error in ArduinoOutputWrapper.press: {e}"
-                                    )
-                                    import traceback
+                    def press(self, key, n, down_time=0.05, up_time=0.1):
+                        import time
 
-                                    log.error(traceback.format_exc())
+                        try:
+                            for i in range(n):
+                                self.key_down(key)
+                                time.sleep(down_time)
+                                self.key_up(key)
+                                if i < n - 1:
+                                    time.sleep(up_time)
+                        except Exception as e:
+                            log.error(
+                                f"[VKEYS] Error in ArduinoOutputWrapper.press: {e}"
+                            )
+                            import traceback
 
-                        _arduino_output = ArduinoOutputWrapper(shared_conn)
-                        log.info(
-                            "Arduino output initialized successfully (using SharedArduinoConnection)"
-                        )
-                except Exception as e:
-                    log.warning(
-                        f"Failed to initialize Arduino output: {e}, falling back to SendInput"
-                    )
-                    _arduino_output = False  # Mark as unavailable
+                            log.error(traceback.format_exc())
+
+                _arduino_output = ArduinoOutputWrapper(shared_conn)
+                log.info(
+                    "Arduino output initialized successfully (using SharedArduinoConnection)"
+                )
             else:
-                # Arduino not enabled
-                _arduino_output = False
-        except ImportError:
-            # Config module not available
-            _arduino_output = False
-        except Exception as e:
-            log.warning(f"Error checking Arduino config: {e}")
-            _arduino_output = False
+                # Reuse existing wrapper, but update connected status
+                _arduino_output.connected = shared_conn.connected
 
-    return _arduino_output
+            return _arduino_output
+        except Exception as e:
+            log.warning(
+                f"Failed to initialize Arduino output: {e}, falling back to SendInput"
+            )
+            # Don't cache False - return None to allow retry
+            return None
+    except ImportError:
+        # Config module not available - return None to allow retry
+        return None
+    except Exception as e:
+        log.warning(f"Error checking Arduino config: {e}")
+        # Don't cache False - return None to allow retry
+        return None
 
 
 def _key_down_sendinput(key):
