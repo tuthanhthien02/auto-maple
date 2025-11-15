@@ -653,16 +653,28 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         direction_key = getattr(Key, direction)
 
         if distance > hold_threshold:
-            # Distance xa → Hold key với random timing (human-like)
+            # Distance xa → Hold key với timing dựa trên distance (human-like)
+            # Tính toán hold time dựa trên distance: distance càng xa, hold càng lâu
+            # Base hold time: 0.2s, thêm 0.15s cho mỗi 0.1 distance vượt threshold
+            base_hold_time = 0.2
+            extra_distance = distance - hold_threshold
+            # Scale extra time: 0.15s per 0.1 distance, max 0.8s extra
+            extra_hold_time = min(extra_distance * 1.5, 0.8)  # Max 0.8s extra
+            hold_time = base_hold_time + extra_hold_time
+            hold_time = random.uniform(
+                hold_time * 0.85, hold_time * 1.15
+            )  # Add randomness
+
             log.debug(
-                "🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s",
+                "🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s for %.3fs",
                 distance,
                 hold_threshold,
                 direction,
+                hold_time,
             )
             try:
                 key_down(direction_key)
-                time.sleep(random.uniform(0.08, 0.15))
+                time.sleep(hold_time)
             finally:
                 key_up(direction_key)
             time.sleep(random.uniform(0.03, 0.08))
