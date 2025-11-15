@@ -9,6 +9,14 @@
  * - Lower latency processing
  * - Better memory management
  * - Optimized command processing
+ * 
+ * New Features & Optimizations:
+ * - Bit array for key states (saves 224 bytes RAM: 256 bytes -> 32 bytes)
+ * - Binary search for key lookup (O(log n) instead of O(n))
+ * - Batch serial reading (reads up to 16 bytes at once for better throughput)
+ * - Key combo support (e.g., "combo:ctrl+c", "combo:shift+a", "combo:ctrl+shift+x")
+ * - Batch commands support (e.g., "batch:down:a,up:a,down:b,up:b")
+ * - Anti-detection: Human-like timing with random jitter to prevent fixed pattern detection
  */
 
 #include <Keyboard.h>
@@ -17,10 +25,21 @@
 #include <string.h>
 #include <avr/pgmspace.h>
 
+// SHA-256 context structure - must be defined early for all SHA-256 functions
+typedef struct {
+  uint32_t state[8];
+  uint64_t bitcount;
+  uint8_t buffer[64];
+} SHA256_CTX;
+
 // Serial buffer - optimized for fast parsing
 #define SERIAL_BUFFER_SIZE 32
 char serialBuffer[SERIAL_BUFFER_SIZE];
 uint8_t bufferIndex = 0;
+
+// Optimization: Batch serial reading buffer
+#define SERIAL_BATCH_SIZE 16  // Read up to 16 bytes at once
+uint8_t serialBatchBuffer[SERIAL_BATCH_SIZE];
 
 // Obfuscated serial constants
 const uint8_t FRAME_START_BYTE = 0x7E;
@@ -37,10 +56,86 @@ uint8_t sessionKey[HANDSHAKE_LENGTH];
 unsigned long lastReceiveMs = 0;
 const unsigned long WATCHDOG_TIMEOUT_MS = 3000; // 3 giây (reduced từ 5s để faster response)
 
+// Anti-detection: Pseudo-random jitter generator
+// Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
+// Note: A0, A1 pins should be floating (not connected) for best noise
+uint16_t getRandomJitter(uint16_t min, uint16_t max) {
+  // Read from floating analog pins for noise
+  uint16_t raw = analogRead(A0);
+  // Add variation by reading multiple sources
+  raw ^= analogRead(A1);
+  raw ^= (millis() & 0xFF);
+  raw ^= (micros() & 0xFF);
+  // Bug fix: Prevent overflow and division by zero
+  if (max > min) {
+    // Calculate range safely to prevent overflow
+    uint16_t range = max - min;
+    // Prevent division by zero (range + 1 could overflow if range == UINT16_MAX)
+    if (range < UINT16_MAX) {
+      return min + (raw % (range + 1));
+    } else {
+      // Edge case: range is UINT16_MAX, use modulo with range only
+      return min + (raw % (range));
+    }
+  }
+  return min;
+}
+
+// Anti-detection: Human-like delay with jitter (microseconds)
+// Adds natural variation to prevent detection of fixed timing patterns
+void humanDelayMicroseconds(uint16_t base, uint16_t jitterRange) {
+  // Bug fix: Use delayUs instead of delay to avoid shadowing delay() function
+  uint16_t jitter = getRandomJitter(0, jitterRange);
+  // Bug fix: Prevent overflow when adding base + jitter
+  uint32_t delayUs = (uint32_t)base + (uint32_t)jitter;
+  // delayMicroseconds max is 16383, use delay() for longer times
+  if (delayUs > 16383) {
+    delay((uint16_t)(delayUs / 1000));
+    delayMicroseconds((uint16_t)(delayUs % 1000));
+  } else {
+    delayMicroseconds((uint16_t)delayUs);
+  }
+}
+
+// Anti-detection: Human-like delay with jitter (milliseconds)
+void humanDelay(uint16_t base, uint16_t jitterRange) {
+  // Bug fix: Use delayMs instead of delay to avoid shadowing delay() function
+  uint16_t jitter = getRandomJitter(0, jitterRange);
+  // Bug fix: Prevent overflow when adding base + jitter
+  uint32_t delayMs = (uint32_t)base + (uint32_t)jitter;
+  // delay() accepts uint32_t, but we'll cap it to reasonable value
+  if (delayMs > 65535) {
+    delayMs = 65535;  // Max safe value for delay()
+  }
+  delay((uint16_t)delayMs);
+}
+
 // Key state tracking: track các phím đang được giữ
 // Tăng lên 256 để support arrow keys và control keys (keyCode > 127)
 #define MAX_KEYS 256
-bool keyStates[MAX_KEYS] = {false};  // Track state của mỗi key code
+// Optimization: Use bit array instead of bool array to save RAM (256 bytes -> 32 bytes)
+#define KEY_STATES_SIZE ((MAX_KEYS + 7) / 8)  // 32 bytes for 256 keys
+uint8_t keyStates[KEY_STATES_SIZE] = {0};  // Bit array: 1 bit per key
+
+// Bit array helper functions
+inline void setKeyState(uint8_t keyCode) {
+  if (keyCode < MAX_KEYS) {
+    keyStates[keyCode / 8] |= (1 << (keyCode % 8));
+  }
+}
+
+inline void clearKeyState(uint8_t keyCode) {
+  if (keyCode < MAX_KEYS) {
+    keyStates[keyCode / 8] &= ~(1 << (keyCode % 8));
+  }
+}
+
+inline bool getKeyState(uint8_t keyCode) {
+  if (keyCode < MAX_KEYS) {
+    return (keyStates[keyCode / 8] & (1 << (keyCode % 8))) != 0;
+  }
+  return false;
+}
 
 enum FrameParseState {
   FRAME_WAIT_START = 0,
@@ -57,6 +152,8 @@ uint8_t frameChecksum = 0;
 uint8_t framePayload[MAX_FRAME_PAYLOAD];
 uint8_t frameIndex = 0;
 bool frameParsing = false;
+unsigned long frameStartMs = 0;  // Bug fix: Track frame parsing start time for timeout
+const unsigned long FRAME_TIMEOUT_MS = 100;  // 100ms timeout for frame parsing
 
 // Key name to HID keycode mapping - optimized lookup
 struct KeyMapping {
@@ -65,9 +162,13 @@ struct KeyMapping {
   uint8_t keyCode;
 };
 
-// Sorted by name length và alphabetically để faster lookup
+// Sorted by name length first, then alphabetically for binary search optimization
+// Binary search requires sorted array by nameLen, then by name
 KeyMapping keyMap[] = {
-  // Single char keys (fastest lookup)
+  // Single char keys (sorted alphabetically)
+  {"0", 1, '0'}, {"1", 1, '1'}, {"2", 1, '2'}, {"3", 1, '3'},
+  {"4", 1, '4'}, {"5", 1, '5'}, {"6", 1, '6'}, {"7", 1, '7'},
+  {"8", 1, '8'}, {"9", 1, '9'},
   {"a", 1, 'a'}, {"b", 1, 'b'}, {"c", 1, 'c'}, {"d", 1, 'd'},
   {"e", 1, 'e'}, {"f", 1, 'f'}, {"g", 1, 'g'}, {"h", 1, 'h'},
   {"i", 1, 'i'}, {"j", 1, 'j'}, {"k", 1, 'k'}, {"l", 1, 'l'},
@@ -75,50 +176,48 @@ KeyMapping keyMap[] = {
   {"q", 1, 'q'}, {"r", 1, 'r'}, {"s", 1, 's'}, {"t", 1, 't'},
   {"u", 1, 'u'}, {"v", 1, 'v'}, {"w", 1, 'w'}, {"x", 1, 'x'},
   {"y", 1, 'y'}, {"z", 1, 'z'},
-  {"0", 1, '0'}, {"1", 1, '1'}, {"2", 1, '2'}, {"3", 1, '3'},
-  {"4", 1, '4'}, {"5", 1, '5'}, {"6", 1, '6'}, {"7", 1, '7'},
-  {"8", 1, '8'}, {"9", 1, '9'},
   
-  // 2-char keys
-  {"up", 2, KEY_UP_ARROW},
-  // 3-char keys  
-  // 4-char keys
-  {"down", 4, KEY_DOWN_ARROW}, {"left", 4, KEY_LEFT_ARROW},
-  // 5-char keys
-  {"right", 5, KEY_RIGHT_ARROW},
-  
-  // Common keys (3-4 chars)
-  {"esc", 3, KEY_ESC}, {"tab", 3, KEY_TAB}, {"alt", 3, KEY_LEFT_ALT},
+  // 2-char keys (sorted alphabetically)
   {"f1", 2, KEY_F1}, {"f2", 2, KEY_F2}, {"f3", 2, KEY_F3}, {"f4", 2, KEY_F4},
   {"f5", 2, KEY_F5}, {"f6", 2, KEY_F6}, {"f7", 2, KEY_F7}, {"f8", 2, KEY_F8},
-  {"f9", 2, KEY_F9}, {"f10", 3, KEY_F10}, {"f11", 3, KEY_F11}, {"f12", 3, KEY_F12},
-  {"end", 3, KEY_END}, {"pgup", 4, KEY_PAGE_UP}, {"pgdn", 4, KEY_PAGE_DOWN},
-  {"home", 4, KEY_HOME}, {"delete", 6, KEY_DELETE}, {"insert", 6, KEY_INSERT},
+  {"f9", 2, KEY_F9}, {"up", 2, KEY_UP_ARROW},
   
-  // 4+ char keys
-  {"space", 5, ' '}, {"enter", 5, KEY_RETURN}, {"shift", 5, KEY_LEFT_SHIFT},
-  {"ctrl", 4, KEY_LEFT_CTRL}, {"caps", 4, KEY_CAPS_LOCK},
-  {"backspace", 9, KEY_BACKSPACE},
-  
-  // Special chars
-  {"semicolon", 9, ';'}, {"equals", 6, '='}, {"comma", 5, ','},
-  {"minus", 5, '-'}, {"period", 6, '.'}, {"slash", 5, '/'},
-  {"grave", 5, '`'}, {"lbracket", 8, '['}, {"backslash", 9, '\\'},
-  {"rbracket", 8, ']'}, {"quote", 5, '\''},
-  
-  // GUI / Windows keys
-  {"l_gui", 5, KEY_LEFT_GUI}, {"r_gui", 5, KEY_RIGHT_GUI},
-  
-  // Numpad fallback
+  // 3-char keys (sorted alphabetically)
+  {"alt", 3, KEY_LEFT_ALT}, {"end", 3, KEY_END}, {"esc", 3, KEY_ESC},
+  {"f10", 3, KEY_F10}, {"f11", 3, KEY_F11}, {"f12", 3, KEY_F12},
   {"np0", 3, '0'}, {"np1", 3, '1'}, {"np2", 3, '2'}, {"np3", 3, '3'},
   {"np4", 3, '4'}, {"np5", 3, '5'}, {"np6", 3, '6'}, {"np7", 3, '7'},
-  {"np8", 3, '8'}, {"np9", 3, '9'},
-  {"np_add", 6, '+'}, {"np_sub", 6, '-'}, {"np_mul", 6, '*'}, {"np_div", 6, '/'},
-  {"np_dec", 6, '.'},
+  {"np8", 3, '8'}, {"np9", 3, '9'}, {"tab", 3, KEY_TAB},
   
-  // Unsupported keys (keyCode = 0)
-  {"printscreen", 11, 0}, {"scroll", 6, 0}, {"pause", 5, 0}, 
-  {"menu", 4, 0}, {"numlock", 7, 0}
+  // 4-char keys (sorted alphabetically)
+  {"caps", 4, KEY_CAPS_LOCK}, {"ctrl", 4, KEY_LEFT_CTRL},
+  {"down", 4, KEY_DOWN_ARROW}, {"home", 4, KEY_HOME},
+  {"left", 4, KEY_LEFT_ARROW}, {"menu", 4, 0}, {"pgdn", 4, KEY_PAGE_DOWN},
+  {"pgup", 4, KEY_PAGE_UP},
+  
+  // 5-char keys (sorted alphabetically)
+  {"comma", 5, ','}, {"enter", 5, KEY_RETURN}, {"grave", 5, '`'},
+  {"l_gui", 5, KEY_LEFT_GUI}, {"minus", 5, '-'}, {"pause", 5, 0},
+  {"quote", 5, '\''}, {"r_gui", 5, KEY_RIGHT_GUI}, {"right", 5, KEY_RIGHT_ARROW},
+  {"shift", 5, KEY_LEFT_SHIFT}, {"slash", 5, '/'}, {"space", 5, ' '},
+  
+  // 6-char keys (sorted alphabetically)
+  {"delete", 6, KEY_DELETE}, {"equals", 6, '='}, {"insert", 6, KEY_INSERT},
+  {"np_add", 6, '+'}, {"np_dec", 6, '.'}, {"np_div", 6, '/'},
+  {"np_mul", 6, '*'}, {"np_sub", 6, '-'}, {"period", 6, '.'}, {"scroll", 6, 0},
+  
+  // 7-char keys
+  {"numlock", 7, 0},
+  
+  // 8-char keys (sorted alphabetically)
+  {"lbracket", 8, '['}, {"rbracket", 8, ']'},
+  
+  // 9-char keys (sorted alphabetically)
+  {"backslash", 9, '\\'}, {"backspace", 9, KEY_BACKSPACE},
+  {"semicolon", 9, ';'},
+  
+  // 11-char keys
+  {"printscreen", 11, 0}
 };
 
 const uint8_t KEY_MAP_SIZE = sizeof(keyMap) / sizeof(KeyMapping);
@@ -127,13 +226,10 @@ const uint8_t KEY_MAP_SIZE = sizeof(keyMap) / sizeof(KeyMapping);
  *  SHA-256 / HMAC   *
  **********************/
 
+// Forward declarations
 void processCommand(const char* command, uint8_t cmdLen);
-
-typedef struct {
-  uint32_t state[8];
-  uint64_t bitcount;
-  uint8_t buffer[64];
-} SHA256_CTX;
+void handleKeyCombo(const char* combo, uint8_t comboLen);
+void handleBatchCommands(const char* batch, uint8_t batchLen);
 
 const uint32_t sha256_init_state[8] = {
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -361,6 +457,7 @@ void resetFrameParser() {
   frameCounter = 0;
   frameLength = 0;
   frameChecksum = 0;
+  frameStartMs = 0;  // Bug fix: Reset frame timeout tracking
 }
 
 void handleAsciiByte(uint8_t byteVal) {
@@ -371,7 +468,8 @@ void handleAsciiByte(uint8_t byteVal) {
       processCommand(serialBuffer, bufferIndex);
       bufferIndex = 0;
     }
-  } else if (inChar != '\r') {
+  } else if (inChar != '\r' && bufferIndex < SERIAL_BUFFER_SIZE - 1) {
+    // Bug fix: Check buffer bounds before writing to prevent overflow
     serialBuffer[bufferIndex++] = inChar;
   }
 }
@@ -396,6 +494,11 @@ void parseFrameByte(uint8_t value) {
       }
       break;
     case FRAME_READ_PAYLOAD:
+      // Bug fix: Check bounds before writing to prevent buffer overflow
+      if (frameIndex >= MAX_FRAME_PAYLOAD) {
+        resetFrameParser();
+        break;
+      }
       framePayload[frameIndex++] = value;
       if (frameIndex >= frameLength) {
         frameState = FRAME_READ_CHECKSUM;
@@ -403,9 +506,11 @@ void parseFrameByte(uint8_t value) {
       break;
     case FRAME_READ_CHECKSUM: {
       frameChecksum = value;
+      // Bug fix: Use uint16_t with automatic wrap-around, then cast to uint8_t for comparison
+      // This handles overflow correctly (uint16_t wraps, then we compare only lower 8 bits)
       uint16_t checksum = frameCounter;
       for (uint8_t i = 0; i < frameLength; ++i) {
-        checksum += framePayload[i];
+        checksum = (uint16_t)(checksum + framePayload[i]);  // Explicit cast for clarity
       }
       if (((uint8_t)checksum) == frameChecksum) {
         handleFrame(frameCounter, framePayload, frameLength);
@@ -426,12 +531,17 @@ void setup() {
   // Initialize Keyboard library
   Keyboard.begin();
   
-  // Initialize key states (all released)
-  memset(keyStates, false, MAX_KEYS);
+  // Initialize key states (all released) - bit array
+  memset(keyStates, 0, KEY_STATES_SIZE);
   resetObfuscation();
   
   // Initialize watchdog timer
   lastReceiveMs = millis();
+  
+  // Anti-detection: Initialize analog pins for random jitter generation
+  // Set A0, A1 as INPUT (floating) to generate noise for entropy
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
   
   // Disable LED to avoid annoying blinking
   pinMode(LED_BUILTIN, OUTPUT);
@@ -463,10 +573,11 @@ void setup() {
 
 void releaseAllKeys() {
   // Emergency: release all keys (cleanup) - support up to 256 keys
+  // Optimization: Use bit array for faster iteration
   for (uint16_t i = 0; i < MAX_KEYS; i++) {
-    if (keyStates[i]) {
+    if (getKeyState(i)) {
       Keyboard.release(i);
-      keyStates[i] = false;
+      clearKeyState(i);
     }
   }
 }
@@ -486,16 +597,240 @@ bool strEq(const char* str1, const char* str2, uint8_t len) {
   return true;
 }
 
-// Fast key lookup - optimized for performance
+// Binary search helper: compare key name
+int8_t compareKeyName(const char* name1, uint8_t len1, const char* name2, uint8_t len2) {
+  uint8_t minLen = (len1 < len2) ? len1 : len2;
+  for (uint8_t i = 0; i < minLen; i++) {
+    char c1 = name1[i];
+    char c2 = name2[i];
+    // Case-insensitive compare
+    if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+    if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+    if (c1 < c2) return -1;
+    if (c1 > c2) return 1;
+  }
+  if (len1 < len2) return -1;
+  if (len1 > len2) return 1;
+  return 0;
+}
+
+// Fast key lookup - optimized with binary search (O(log n) instead of O(n))
 uint8_t getKeyCode(const char* keyName, uint8_t keyLen) {
-  // Binary search could be faster, but linear search is simpler
-  // and fast enough for small map size
-  for (uint8_t i = 0; i < KEY_MAP_SIZE; i++) {
-    if (keyMap[i].nameLen == keyLen && strEq(keyMap[i].name, keyName, keyLen)) {
-      return keyMap[i].keyCode;
+  // Binary search: find range with matching nameLen first
+  uint8_t left = 0;
+  uint8_t right = KEY_MAP_SIZE;
+  uint8_t startIdx = 0;
+  uint8_t endIdx = KEY_MAP_SIZE;
+  
+  // Find start of nameLen range
+  while (left < right) {
+    // Bug fix: Prevent overflow in mid calculation
+    uint8_t mid = left + ((right - left) / 2);
+    if (keyMap[mid].nameLen < keyLen) {
+      left = mid + 1;
+    } else {
+      right = mid;
     }
   }
+  startIdx = left;
+  
+  // Find end of nameLen range
+  left = startIdx;
+  right = KEY_MAP_SIZE;
+  while (left < right) {
+    // Bug fix: Prevent overflow in mid calculation
+    uint8_t mid = left + ((right - left) / 2);
+    if (keyMap[mid].nameLen <= keyLen) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  endIdx = left;
+  
+  // Binary search within nameLen range
+  left = startIdx;
+  right = endIdx;
+  while (left < right) {
+    // Bug fix: Prevent overflow in mid calculation
+    uint8_t mid = left + ((right - left) / 2);
+    int8_t cmp = compareKeyName(keyName, keyLen, keyMap[mid].name, keyMap[mid].nameLen);
+    if (cmp < 0) {
+      right = mid;
+    } else if (cmp > 0) {
+      left = mid + 1;
+    } else {
+      return keyMap[mid].keyCode;
+    }
+  }
+  
   return 0; // Not found
+}
+
+// New feature: Handle key combo (e.g., "ctrl+c", "shift+a", "ctrl+shift+x")
+void handleKeyCombo(const char* combo, uint8_t comboLen) {
+  if (comboLen == 0) return;
+  
+  // Parse combo: "modifier+key" or "mod1+mod2+key"
+  // Find all '+' separators
+  uint8_t maxModifiers = 4;  // Support up to 4 modifiers
+  uint8_t modifiers[maxModifiers];
+  uint8_t modifierCount = 0;
+  uint8_t mainKeyCode = 0;
+  
+  const char* current = combo;
+  uint8_t remaining = comboLen;
+  
+  while (remaining > 0 && modifierCount < maxModifiers) {
+    // Find next '+' or end
+    const char* plus = current;
+    uint8_t segmentLen = 0;
+    while (segmentLen < remaining && *plus != '+') {
+      plus++;
+      segmentLen++;
+    }
+    
+    // Get key code for this segment
+    uint8_t keyCode = getKeyCode(current, segmentLen);
+    if (keyCode == 0) {
+      // Invalid key, skip combo
+      return;
+    }
+    
+    // Check if this is a modifier key
+    bool isModifier = (keyCode == KEY_LEFT_CTRL || keyCode == KEY_RIGHT_CTRL ||
+                       keyCode == KEY_LEFT_SHIFT || keyCode == KEY_RIGHT_SHIFT ||
+                       keyCode == KEY_LEFT_ALT || keyCode == KEY_RIGHT_ALT ||
+                       keyCode == KEY_LEFT_GUI || keyCode == KEY_RIGHT_GUI);
+    
+    // Bug fix: Check if there's a '+' after this segment (not just segmentLen < remaining)
+    // If segmentLen == remaining, this is the last segment (no '+'), so it must be main key
+    // Also check that plus pointer is still within bounds
+    bool hasNextSegment = (segmentLen < remaining && plus < (combo + comboLen) && *plus == '+');
+    
+    if (isModifier && hasNextSegment) {
+      // This is a modifier, continue to next segment
+      modifiers[modifierCount++] = keyCode;
+      current = plus + 1;
+      remaining -= segmentLen + 1;
+    } else {
+      // This is the main key (either not a modifier, or no more segments)
+      mainKeyCode = keyCode;
+      break;
+    }
+  }
+  
+  // Bug fix: Check if we have a valid main key (not just a modifier)
+  if (mainKeyCode == 0) {
+    // No main key found - invalid combo
+    return;
+  }
+  
+  // Bug fix: Ensure combo has at least one non-modifier key OR multiple modifiers
+  // Allow "combo:ctrl+shift" (multiple modifiers) but reject "combo:ctrl" (single modifier)
+  bool mainKeyIsModifier = (mainKeyCode == KEY_LEFT_CTRL || mainKeyCode == KEY_RIGHT_CTRL ||
+                             mainKeyCode == KEY_LEFT_SHIFT || mainKeyCode == KEY_RIGHT_SHIFT ||
+                             mainKeyCode == KEY_LEFT_ALT || mainKeyCode == KEY_RIGHT_ALT ||
+                             mainKeyCode == KEY_LEFT_GUI || mainKeyCode == KEY_RIGHT_GUI);
+  if (mainKeyIsModifier && modifierCount == 0) {
+    // Only one modifier without other keys - invalid combo (use "down:ctrl" instead)
+    return;
+  }
+  
+  // Press all modifiers first
+  for (uint8_t i = 0; i < modifierCount; i++) {
+    if (modifiers[i] < MAX_KEYS && !getKeyState(modifiers[i])) {
+      Keyboard.press(modifiers[i]);
+      setKeyState(modifiers[i]);
+    }
+  }
+  
+  // Anti-detection: Small delay with jitter to ensure modifiers are registered
+  humanDelayMicroseconds(1000, 300);  // 1000-1300us (1.0-1.3ms) with variation
+  
+  // Press main key
+  if (mainKeyCode < MAX_KEYS && !getKeyState(mainKeyCode)) {
+    Keyboard.press(mainKeyCode);
+    setKeyState(mainKeyCode);
+  }
+  
+  // Anti-detection: Hold time with jitter for human-like key combo timing
+  humanDelay(45, 15);  // 45-60ms with variation
+  
+  // Release main key first
+  if (mainKeyCode < MAX_KEYS && getKeyState(mainKeyCode)) {
+    Keyboard.release(mainKeyCode);
+    clearKeyState(mainKeyCode);
+  }
+  
+  // Release all modifiers
+  for (uint8_t i = 0; i < modifierCount; i++) {
+    if (modifiers[i] < MAX_KEYS && getKeyState(modifiers[i])) {
+      Keyboard.release(modifiers[i]);
+      clearKeyState(modifiers[i]);
+    }
+  }
+}
+
+// New feature: Handle batch commands (e.g., "down:a,up:a,down:b,up:b")
+void handleBatchCommands(const char* batch, uint8_t batchLen) {
+  if (batchLen == 0) return;
+  
+  const char* current = batch;
+  uint8_t remaining = batchLen;
+  
+  while (remaining > 0) {
+    // Find next ',' or end
+    const char* comma = current;
+    uint8_t cmdLen = 0;
+    while (cmdLen < remaining && *comma != ',') {
+      comma++;
+      cmdLen++;
+    }
+    
+    // Process this command
+    if (cmdLen > 0) {
+      // Trim whitespace
+      const char* cmdStart = current;
+      uint8_t cmdLenTrimmed = cmdLen;
+      while (cmdLenTrimmed > 0 && *cmdStart == ' ') {
+        cmdStart++;
+        cmdLenTrimmed--;
+      }
+      while (cmdLenTrimmed > 0 && (cmdStart[cmdLenTrimmed - 1] == ' ' || cmdStart[cmdLenTrimmed - 1] == '\r' || cmdStart[cmdLenTrimmed - 1] == '\n')) {
+        cmdLenTrimmed--;
+      }
+      
+      if (cmdLenTrimmed > 0) {
+        // Create temporary null-terminated string for processCommand
+        // Bug fix: Ensure we don't overflow tempCmd buffer
+        char tempCmd[SERIAL_BUFFER_SIZE];
+        if (cmdLenTrimmed < SERIAL_BUFFER_SIZE) {
+          memcpy(tempCmd, cmdStart, cmdLenTrimmed);
+          tempCmd[cmdLenTrimmed] = '\0';
+          processCommand(tempCmd, cmdLenTrimmed);
+        } else {
+          // Command too long - skip it to prevent buffer overflow
+          // This can happen if batch command contains very long individual commands
+        }
+      }
+    }
+    
+    // Bug fix: Prevent infinite loop - check if we can advance
+    if (cmdLen < remaining) {
+      // There's a comma, move to next command
+      uint8_t advance = cmdLen + 1;
+      if (advance > remaining) {
+        // Safety check: prevent underflow
+        break;
+      }
+      current = comma + 1;
+      remaining -= advance;
+    } else {
+      // No comma found, this is the last command
+      break;
+    }
+  }
 }
 
 // Process command - optimized for low latency
@@ -517,6 +852,20 @@ void processCommand(const char* command, uint8_t cmdLen) {
   // Special command: all_up
   if (cmdLen == 6 && strEq(start, "all_up", 6)) {
     releaseAllKeys();
+    return;
+  }
+  
+  // New feature: Key combo support - "combo:modifier+key" or "combo:mod1+mod2+key"
+  // Example: "combo:ctrl+c", "combo:shift+a", "combo:ctrl+shift+x"
+  if (cmdLen >= 6 && strEq(start, "combo:", 6)) {
+    handleKeyCombo(start + 6, cmdLen - 6);
+    return;
+  }
+  
+  // New feature: Batch commands - "batch:cmd1,cmd2,cmd3"
+  // Example: "batch:down:a,up:a,down:b,up:b"
+  if (cmdLen >= 6 && strEq(start, "batch:", 6)) {
+    handleBatchCommands(start + 6, cmdLen - 6);
     return;
   }
   
@@ -558,24 +907,24 @@ void processCommand(const char* command, uint8_t cmdLen) {
   if (actionLen == 4 && strEq(action, "down", 4)) {
     // Key down - support all keys including arrows and modifiers (keyCode can be > 127)
     if (keyCode < MAX_KEYS) {
-      if (keyStates[keyCode]) {
+      if (getKeyState(keyCode)) {
         // Key already held - release and press again for key repeat
         Keyboard.release(keyCode);
-        // Use shorter delay for faster response (1ms -> minimal)
-        delayMicroseconds(500); // 0.5ms instead of 1ms
+        // Anti-detection: Short delay with jitter for key repeat (human-like variation)
+        humanDelayMicroseconds(500, 200); // 500-700us (0.5-0.7ms) with variation
         Keyboard.press(keyCode);
         // Key remains pressed
       } else {
         // Key not held - press it
         Keyboard.press(keyCode);
-        keyStates[keyCode] = true;
+        setKeyState(keyCode);
       }
     }
   } else if (actionLen == 2 && strEq(action, "up", 2)) {
     // Key up - support all keys including arrows and modifiers
-    if (keyCode < MAX_KEYS && keyStates[keyCode]) {
+    if (keyCode < MAX_KEYS && getKeyState(keyCode)) {
       Keyboard.release(keyCode);
-      keyStates[keyCode] = false;
+      clearKeyState(keyCode);
     }
   }
 }
@@ -584,34 +933,60 @@ void loop() {
   // Ensure LED stays off (prevent any automatic blinking)
   digitalWrite(LED_BUILTIN, LOW);
   
-  // Fast serial reading - no String class overhead
-  while (Serial.available()) {
-    uint8_t byteVal = (uint8_t)Serial.read();
+  // Bug fix: Check frame parsing timeout
+  if (frameParsing && frameStartMs > 0) {
+    unsigned long currentMs = millis();
+    unsigned long elapsed = (currentMs >= frameStartMs) 
+      ? (currentMs - frameStartMs) 
+      : ((4294967295UL - frameStartMs) + currentMs + 1);  // Handle millis() overflow
+    if (elapsed > FRAME_TIMEOUT_MS) {
+      resetFrameParser();
+    }
+  }
+  
+  // Optimization: Batch serial reading for better throughput
+  // Read multiple bytes at once to reduce overhead
+  uint8_t bytesAvailable = Serial.available();
+  if (bytesAvailable > 0) {
     lastReceiveMs = millis(); // Update watchdog
+    
+    // Read up to SERIAL_BATCH_SIZE bytes at once
+    uint8_t bytesToRead = (bytesAvailable > SERIAL_BATCH_SIZE) ? SERIAL_BATCH_SIZE : bytesAvailable;
+    uint8_t bytesRead = Serial.readBytes(serialBatchBuffer, bytesToRead);
+    
+    // Process each byte
+    for (uint8_t i = 0; i < bytesRead; i++) {
+      uint8_t byteVal = serialBatchBuffer[i];
+      
+      if (!frameParsing) {
+        if (byteVal == FRAME_START_BYTE) {
+          frameParsing = true;
+          frameState = FRAME_READ_COUNTER;
+          frameStartMs = millis();  // Bug fix: Track frame parsing start time
+          continue;
+        }
 
-    if (!frameParsing) {
-      if (byteVal == FRAME_START_BYTE) {
-        frameParsing = true;
-        frameState = FRAME_READ_COUNTER;
+        if (!obfuscationActive) {
+          handleAsciiByte(byteVal);
+        }
         continue;
       }
 
-      if (!obfuscationActive) {
-        handleAsciiByte(byteVal);
-      }
-      continue;
+      parseFrameByte(byteVal);
     }
-
-    parseFrameByte(byteVal);
   }
   
   // Watchdog: auto-release nếu quá timeout
   unsigned long currentMs = millis();
-  if ((currentMs - lastReceiveMs) > WATCHDOG_TIMEOUT_MS) {
-    // Check if any keys are held - support up to 256 keys
+  // Bug fix: Handle millis() overflow (happens after ~49 days)
+  unsigned long elapsed = (currentMs >= lastReceiveMs) 
+    ? (currentMs - lastReceiveMs) 
+    : ((4294967295UL - lastReceiveMs) + currentMs + 1);
+  if (elapsed > WATCHDOG_TIMEOUT_MS) {
+    // Check if any keys are held - optimization: check bit array quickly
     bool anyHeld = false;
-    for (uint16_t i = 0; i < MAX_KEYS; i++) {
-      if (keyStates[i]) {
+    for (uint8_t i = 0; i < KEY_STATES_SIZE; i++) {
+      if (keyStates[i] != 0) {
         anyHeld = true;
         break;
       }
