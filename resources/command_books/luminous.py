@@ -65,12 +65,12 @@ class TimingConfig:
 
     # Step movement configuration
     STEP_MOVEMENT = {
-        "hold_threshold_multiplier": 3.0,  # Multiplier for move_tolerance to determine hold vs press
+        "hold_threshold_multiplier": 2.0,  # Multiplier for move_tolerance to determine hold vs press
         # Distance > (move_tolerance * multiplier) → hold key (xa)
         # Distance ≤ (move_tolerance * multiplier) → press key (gần)
         # Có thể chỉnh multiplier này nếu test thực tế không work:
-        # - Tăng multiplier (vd: 4.0, 5.0) → nhiều trường hợp dùng press key hơn
-        # - Giảm multiplier (vd: 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
+        # - Tăng multiplier (vd: 3.0, 4.0, 5.0) → nhiều trường hợp dùng press key hơn
+        # - Giảm multiplier (vd: 1.5, 2.0, 2.5) → nhiều trường hợp dùng hold key hơn
     }
 
 
@@ -657,13 +657,18 @@ def step(direction, target, distance=None, waypoint_jumped=False):
             # Tính toán hold time dựa trên distance: distance càng xa, hold càng lâu
             # Base hold time: 0.2s, thêm 0.15s cho mỗi 0.1 distance vượt threshold
             base_hold_time = 0.2
-            extra_distance = distance - hold_threshold
+            extra_distance = max(
+                0.0, distance - hold_threshold
+            )  # Bug fix: Ensure non-negative
             # Scale extra time: 0.15s per 0.1 distance, max 0.8s extra
             extra_hold_time = min(extra_distance * 1.5, 0.8)  # Max 0.8s extra
             hold_time = base_hold_time + extra_hold_time
             hold_time = random.uniform(
                 hold_time * 0.85, hold_time * 1.15
             )  # Add randomness
+            # Bug fix: Ensure minimum hold_time to prevent too-short key presses
+            # Minimum 0.05s to ensure key is registered properly
+            hold_time = max(0.05, hold_time)
 
             log.debug(
                 "🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s for %.3fs",
