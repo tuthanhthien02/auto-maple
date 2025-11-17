@@ -72,7 +72,7 @@ class TimingConfig:
 
     # Step movement configuration
     STEP_MOVEMENT = {
-        "hold_threshold_multiplier": 1.5,  # Multiplier for move_tolerance to determine hold vs press
+        "hold_threshold_multiplier": 1.1,  # Multiplier for move_tolerance to determine hold vs press
         # Distance > (move_tolerance * multiplier) → hold key (xa)
         # Distance ≤ (move_tolerance * multiplier) → press key (gần)
         # Có thể chỉnh multiplier này nếu test thực tế không work:
@@ -204,13 +204,15 @@ class Reflection_Mix_Random(Command):
                 if floor2_indices and current_index in floor2_indices:
                     self._last_face_right = False
                     return False, "floor2"
-            floor_direction = getattr(routine, "floor_direction", None)
-            if floor_direction == "reverse":
-                self._last_face_right = False
-                return False, "routine.reverse"
-            if floor_direction in {"forward", "right"}:
-                self._last_face_right = True
-                return True, "routine.forward"
+            current_variant = getattr(routine, "current_variant", "normal")
+            if current_variant in {"floor1_only", "floor2_only"}:
+                floor_direction = getattr(routine, "floor_direction", None)
+                if floor_direction == "reverse":
+                    self._last_face_right = False
+                    return False, "routine.reverse"
+                if floor_direction in {"forward", "right"}:
+                    self._last_face_right = True
+                    return True, "routine.forward"
         player_pos = getattr(config, "player_pos", None)
         if player_pos:
             player_y = player_pos[1]
