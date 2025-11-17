@@ -145,7 +145,7 @@ all_up\n      - Release all keys
 -   ✅ **100% compatible** với `host_sender.py`
 -   ✅ **100% compatible** với protocol hiện tại
 -   ✅ **Không cần thay đổi** Python code
-
+c:\Users\Thanh Thien\Desktop\New folder\auto-maple\arduino_hid_keyboard_tcp\arduino_hid_keyboard_tcp.ino
 ## 🔄 Migration
 
 Nếu đang dùng `arduino_hid_keyboard.ino`:

@@ -10,8 +10,6 @@ Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.097) ===
 
 *,0.143,0.097,adjust=False,frequency=1
 Label,f1_pos_0
-buff
-buff_secondary
 face_right
 reflection_mix_random
 wait_random,0.1,0.3
