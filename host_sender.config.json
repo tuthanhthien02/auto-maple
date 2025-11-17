@@ -1,8 +1,17 @@
 {
-    "vmware_ip": "192.168.19.130",
-    "vmware_port": 12345,
-    "reconnect_interval": 1.0,
-    "enable_logging": false,
-    "block_original_input": false,
-    "forwarding_enabled": false
+    "settings": {
+        "enable_logging": false,
+        "block_original_input": false,
+        "forwarding_enabled": true
+    },
+    "receivers": [
+        {
+            "name": "VMware #1",
+            "vmware_ip": "192.168.19.130",
+            "vmware_port": 12345,
+            "reconnect_interval": 1.0,
+            "forwarding_enabled": true,
+            "auto_connect": false
+        }
+    ]
 }

@@ -1,0 +1,48 @@
+{
+    "id": "tree_3_floor_descriptor_v3",
+    "name": "Tree 3-Floor Training Path (v3)",
+    "description": "Expanded routine with refreshed coordinates for three stacked floors at y≈0.097/0.043/0.007. Only positions differ from the v2 template.",
+    "version": "3.0.0",
+    "floors": 3,
+    "source": "tree_2_floor_descriptor_v2.csv",
+    "floor_descriptors": [
+        {
+            "id": "floor1",
+            "labels": [
+                "f1_pos_0",
+                "f1_pos_1",
+                "f1_pos_2",
+                "f1_pos_3",
+                "f1_pos_4",
+                "f1_pos_5",
+                "f1_pos_6",
+                "f1_pos_7"
+            ],
+            "y_range": [0.08, 0.12],
+            "priority": 10
+        },
+        {
+            "id": "floor2",
+            "labels": [
+                "f2_pos_0",
+                "f2_pos_1",
+                "f2_pos_2",
+                "f2_pos_3",
+                "f2_pos_4",
+                "f2_pos_5"
+            ],
+            "y_range": [0.02, 0.06],
+            "priority": 20
+        },
+        {
+            "id": "floor3",
+            "labels": [
+                "f3_pos_0",
+                "f3_pos_1"
+            ],
+            "y_range": [-0.01, 0.02],
+            "priority": 30
+        }
+    ]
+}
+

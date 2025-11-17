@@ -1,0 +1,144 @@
+# Routine: Tree 3-Floor Training Path (v3)
+# Based on tree_2_floor_descriptor_v2.csv with refreshed coordinates and
+# an extra traversal floor (y ≈ 0.007).
+#
+# NOTE:
+# - Only the positions were changed; command sequencing/skills remain the same.
+# - Floor order follows top → bottom (Floor 1 → Floor 2 → Floor 3).
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT → RIGHT (y ≈ 0.097)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.097) ===
+
+*,0.064,0.097,adjust=False,frequency=1
+Label,f1_pos_0
+face_right
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.105,0.097,adjust=False,frequency=1
+Label,f1_pos_1
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.145,0.097,adjust=False,frequency=1
+Label,f1_pos_2
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.183,0.097,adjust=False,frequency=1
+Label,f1_pos_3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.221,0.097,adjust=False,frequency=1
+Label,f1_pos_4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.261,0.097,adjust=False,frequency=1
+Label,f1_pos_5
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.299,0.097,adjust=False,frequency=1
+Label,f1_pos_6
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,right,1
+wait_random,0.2,0.5
+
+*,0.325,0.097,adjust=True,frequency=1
+Label,f1_pos_7
+Comment,Floor 1 Pos 7: Reflection Mix Random (drop to Floor 2 via Adjust)
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# FLOOR 2: RIGHT → LEFT (y ≈ 0.043)
+# ========================================
+Comment,=== FLOOR 2 START: Move Right → Left (y ≈ 0.043) ===
+
+*,0.325,0.043,adjust=False,frequency=1
+Label,f2_pos_0
+face_left
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.299,0.043,adjust=False,frequency=1
+Label,f2_pos_1
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.259,0.043,adjust=False,frequency=1
+Label,f2_pos_2
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.216,0.043,adjust=False,frequency=1
+Label,f2_pos_3
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.178,0.043,adjust=False,frequency=1
+Label,f2_pos_4
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.143,0.043,adjust=True,frequency=1
+Label,f2_pos_5
+Comment,Floor 2 Pos 5: Reflection Mix Random (drop to Floor 3 via Adjust)
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# FLOOR 3: RIGHT → LEFT SHORT LOOP (y ≈ 0.007)
+# ========================================
+Comment,=== FLOOR 3 START: Tight loop on lower ledge (y ≈ 0.007) ===
+
+*,0.325,0.007,adjust=False,frequency=1
+Label,f3_pos_0
+face_left
+reflection_mix_random
+wait_random,0.1,0.3
+teleport,left,1
+wait_random,0.2,0.5
+
+*,0.299,0.007,adjust=True,frequency=1
+Label,f3_pos_1
+Comment,Floor 3 Pos 1: Reflection Mix Random (teleport up to Floor 1)
+reflection_mix_random
+wait_random,0.1,0.3
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
+
+

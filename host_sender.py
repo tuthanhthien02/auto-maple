@@ -3,17 +3,18 @@ Host Sender - Mirror keyboard input từ Host đến VMware qua TCP
 Nhận keyboard input thực và gửi qua TCP đến VMware receiver
 """
 
-import socket
-import json
-import os
-import sys
-import time
-import threading
 import ctypes
 import ctypes.wintypes
+import json
+import os
+import socket
+import sys
+import threading
+import time
+import tkinter as tk
 import winsound
-from typing import Optional
 from ctypes import wintypes
+from typing import Any, Callable, Dict, List, Optional
 
 # Windows API constants
 WH_KEYBOARD_LL = 13
@@ -157,6 +158,306 @@ VK_TO_KEY = {
 }
 
 
+class ReceiverSession:
+    """Manage a single VMware receiver connection."""
+
+    def __init__(self, host, config: Dict[str, Any]):
+        self.host = host
+        self.name = (
+            config.get("name")
+            or f"{config.get('vmware_ip', '?')}:{config.get('vmware_port', 12345)}"
+        )
+        self.vmware_ip = config.get("vmware_ip")
+        self.vmware_port = int(config.get("vmware_port", 12345))
+        self.reconnect_interval = float(config.get("reconnect_interval", 1.0))
+        self.forwarding_enabled = bool(config.get("forwarding_enabled", True))
+        self.auto_connect = config.get("auto_connect", True)
+        self.enable_logging = config.get("enable_logging", host.enable_logging)
+
+        self.socket: Optional[socket.socket] = None
+        self.connected = False
+        self.connecting = False
+        self.desired_connection = bool(self.auto_connect)
+        self.running = True
+
+        self.stats = {
+            "total_sent": 0,
+            "total_errors": 0,
+            "total_reconnects": 0,
+        }
+
+        self._ui_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        self._lock = threading.Lock()
+        self._loop_thread = threading.Thread(target=self._connection_loop, daemon=True)
+        self._loop_thread.start()
+
+    # ------------------------------------------------------------------ utils
+    def _notify_ui(self):
+        if self._ui_callback:
+            state = self.get_state_snapshot()
+            self.host.call_in_gui_thread(self._ui_callback, state)
+
+    def register_ui_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        self._ui_callback = callback
+        self._notify_ui()
+
+    def get_state_snapshot(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "connected": self.connected,
+            "connecting": self.connecting,
+            "forwarding_enabled": self.forwarding_enabled,
+            "desired_connection": self.desired_connection,
+        }
+
+    # ------------------------------------------------------------ loop/threads
+    def _connection_loop(self):
+        while self.running:
+            if self.desired_connection and not self.connected and not self.connecting:
+                self._attempt_connect()
+            elif not self.desired_connection and self.connected:
+                self._disconnect()
+            time.sleep(self.reconnect_interval)
+
+    def _attempt_connect(self):
+        if not self.vmware_ip:
+            self.host.log(f"[CONFIG] Receiver '{self.name}' missing vmware_ip")
+            self.desired_connection = False
+            self._notify_ui()
+            return
+
+        self.connecting = True
+        self._notify_ui()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5.0)
+            sock.connect((self.vmware_ip, self.vmware_port))
+            sock.settimeout(None)
+            with self._lock:
+                self.socket = sock
+                self.connected = True
+                self.stats["total_reconnects"] += 1
+            self.host.log(
+                f"[{self.name}] Connected to {self.vmware_ip}:{self.vmware_port}"
+            )
+        except Exception as exc:
+            self.host.log(f"[{self.name}] Connect error: {exc}")
+            with self._lock:
+                if self.socket:
+                    try:
+                        self.socket.close()
+                    except Exception:
+                        pass
+                    self.socket = None
+                self.connected = False
+        finally:
+            self.connecting = False
+            self._notify_ui()
+
+    def _disconnect(self):
+        with self._lock:
+            if self.socket:
+                try:
+                    self.socket.close()
+                except Exception:
+                    pass
+            self.socket = None
+            was_connected = self.connected
+            self.connected = False
+        if was_connected:
+            self.host.log(f"[{self.name}] Disconnected")
+        self._notify_ui()
+
+    # ---------------------------------------------------------------- commands
+    def toggle_connection(self):
+        self.desired_connection = not self.desired_connection
+        if not self.desired_connection:
+            self._disconnect()
+        self._notify_ui()
+
+    def toggle_forwarding(self):
+        self.forwarding_enabled = not self.forwarding_enabled
+        self._notify_ui()
+
+    def send_key(self, key: str, action: str) -> bool:
+        with self._lock:
+            sock = self.socket
+        if not self.connected or sock is None:
+            return False
+        try:
+            command = f"{action}:{key}\n"
+            sock.sendall(command.encode("utf-8"))
+            self.stats["total_sent"] += 1
+            return True
+        except Exception as exc:
+            self.stats["total_errors"] += 1
+            self.host.log(f"[{self.name}] Send error: {exc}")
+            self.connected = False
+            self._notify_ui()
+            return False
+
+    def send_command(self, text: str) -> bool:
+        with self._lock:
+            sock = self.socket
+        if not self.connected or sock is None:
+            self.host.log(f"[{self.name}] Cannot send '{text.strip()}': not connected")
+            return False
+        try:
+            payload = f"{text.strip()}\n"
+            sock.sendall(payload.encode("utf-8"))
+            return True
+        except Exception as exc:
+            self.stats["total_errors"] += 1
+            self.host.log(f"[{self.name}] Command send error: {exc}")
+            self.connected = False
+            self._notify_ui()
+            return False
+
+    def send_all_up(self):
+        with self._lock:
+            sock = self.socket
+        if not self.connected or sock is None:
+            return
+        try:
+            sock.sendall(b"all_up\n")
+        except Exception:
+            self.connected = False
+            self._notify_ui()
+
+    def stop(self):
+        self.running = False
+        self.desired_connection = False
+        self._disconnect()
+        if self._loop_thread.is_alive():
+            self._loop_thread.join(timeout=1.0)
+
+    def to_config(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "vmware_ip": self.vmware_ip,
+            "vmware_port": self.vmware_port,
+            "reconnect_interval": self.reconnect_interval,
+            "forwarding_enabled": self.forwarding_enabled,
+            "auto_connect": self.desired_connection,
+        }
+
+
+class ReceiverRow(tk.Frame):
+    """GUI row for a receiver session."""
+
+    def __init__(self, master, session: ReceiverSession):
+        super().__init__(master, bd=1, relief=tk.GROOVE, padx=8, pady=6)
+        self.session = session
+        self.label = tk.Label(self, text=session.name, font=("Segoe UI", 10, "bold"))
+        self.label.grid(row=0, column=0, sticky="w", padx=(0, 10))
+
+        self.toggle_bot_btn = tk.Button(
+            self,
+            text="Toggle Bot",
+            bg="#2563eb",
+            fg="white",
+            width=12,
+            command=self._on_toggle_bot,
+        )
+        self.toggle_bot_btn.grid(row=0, column=1, padx=4)
+
+        self.mirror_btn = tk.Button(
+            self,
+            text="Mirror ON",
+            bg="#16a34a",
+            fg="white",
+            width=12,
+            command=self._on_toggle_mirror,
+        )
+        self.mirror_btn.grid(row=0, column=2, padx=4)
+
+        self.connect_btn = tk.Button(
+            self,
+            text="Disconnect",
+            bg="#16a34a",
+            fg="white",
+            width=14,
+            command=self._on_toggle_connection,
+        )
+        self.connect_btn.grid(row=0, column=3, padx=4)
+
+        self.status_label = tk.Label(self, text="", fg="gray")
+        self.status_label.grid(row=1, column=0, columnspan=4, sticky="w", pady=(4, 0))
+
+        session.register_ui_callback(self.update_state)
+
+    def update_state(self, state: Dict[str, Any]):
+        forwarding = state.get("forwarding_enabled", False)
+        connected = state.get("connected", False)
+        connecting = state.get("connecting", False)
+        desired = state.get("desired_connection", False)
+
+        self.mirror_btn.configure(
+            text="Mirror ON" if forwarding else "Mirror OFF",
+            bg="#16a34a" if forwarding else "#f97316",
+        )
+
+        if connecting:
+            self.connect_btn.configure(
+                text="Connecting...", state=tk.DISABLED, bg="#facc15"
+            )
+        else:
+            self.connect_btn.configure(
+                text="Disconnect" if connected else "Connect",
+                state=tk.NORMAL,
+                bg="#16a34a" if connected else "#dc2626",
+            )
+
+        if connected:
+            status = "Connected"
+        elif connecting:
+            status = "Connecting..."
+        else:
+            status = "Disconnected"
+        status += " | Mirror ON" if forwarding else " | Mirror OFF"
+        status += " | Auto" if desired else " | Manual"
+        self.status_label.configure(text=status)
+
+    def _on_toggle_bot(self):
+        self.session.send_command("toggle_bot")
+
+    def _on_toggle_mirror(self):
+        self.session.toggle_forwarding()
+
+    def _on_toggle_connection(self):
+        self.session.toggle_connection()
+
+
+class HostSenderGUI(tk.Tk):
+    """Simple Tkinter GUI to manage multiple VMware receivers."""
+
+    def __init__(self, host, sessions: List[ReceiverSession]):
+        super().__init__()
+        self.host = host
+        self.sessions = sessions
+        self.title("Host Sender - Multi VMware Controller")
+        self.geometry("620x{}".format(max(140, 100 + len(sessions) * 80)))
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        header = tk.Label(
+            self,
+            text="VMware Receivers",
+            font=("Segoe UI", 12, "bold"),
+        )
+        header.pack(pady=(10, 6))
+
+        container = tk.Frame(self)
+        container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        for session in sessions:
+            row = ReceiverRow(container, session)
+            row.pack(fill="x", pady=4)
+
+    def _on_close(self):
+        self.host.stop()
+        self.destroy()
+
+
 class KBDLLHOOKSTRUCT(ctypes.Structure):
     _fields_ = [
         ("vkCode", wintypes.DWORD),
@@ -168,7 +469,7 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
 
 
 class HostSender:
-    """Mirror keyboard input từ Host đến VMware qua TCP"""
+    """Mirror hardware input to multiple VMware receivers with GUI control."""
 
     def __init__(
         self,
@@ -179,21 +480,25 @@ class HostSender:
         block_original_input: bool = False,
         forwarding_enabled: bool = True,
     ):
-        self.vmware_ip = vmware_ip
-        self.vmware_port = vmware_port
-        self.reconnect_interval = reconnect_interval
+        self.cli_override_ip = vmware_ip
+        self.cli_override_port = vmware_port
+        self.cli_override_reconnect = reconnect_interval
+
         self.enable_logging = enable_logging
         self.block_original_input = block_original_input
-        self.forwarding_enabled = forwarding_enabled
+        self.global_forwarding_enabled = forwarding_enabled
 
-        self.socket: Optional[socket.socket] = None
-        self.connected = False
+        self.sessions: List[ReceiverSession] = []
+        self.receiver_configs: List[Dict[str, Any]] = []
         self.running = False
+        self.gui_root: Optional[HostSenderGUI] = None
 
         # Keyboard hook
         self.hook = None
         self.user32 = None
         self.kernel32 = None
+        self.hook_thread: Optional[threading.Thread] = None
+        self._hook_running = threading.Event()
 
         # Key state tracking
         self.key_states = {}
@@ -201,16 +506,12 @@ class HostSender:
 
         # Hotkeys
         self.VK_PGDN = 0x22  # Page Down -> toggle blocking
-        self.VK_PGUP = 0x21  # Page Up -> toggle forwarding
-        # VK_END removed - now handled by receiver for toggle remapping
+        self.VK_PGUP = 0x21  # Page Up -> toggle global forwarding
         self.VK_HOME = 0x24  # Home -> show stats
 
         # Stats
         self.stats = {
             "total_hardware_keys": 0,
-            "total_sent": 0,
-            "total_errors": 0,
-            "total_reconnects": 0,
             "total_unmapped": 0,
         }
 
@@ -218,25 +519,112 @@ class HostSender:
         self.CONFIG_PATH = os.path.join(
             os.path.dirname(__file__), "host_sender.config.json"
         )
-        self._config_snapshot = {}
+        self._config_snapshot: Dict[str, Any] = {}
         self._load_config()
+        self._create_sessions()
 
-        # Initialize Windows API
+        # Initialize Windows API / hook definitions
         self._init_windows_api()
 
-        # Auto-reconnect thread
-        self.reconnect_thread = None
+    # ------------------------------------------------------------------ Config
+    def log(self, message: str):
+        if self.enable_logging:
+            print(message)
 
+    def call_in_gui_thread(self, func: Callable, *args, **kwargs):
+        if self.gui_root and self.gui_root.winfo_exists():
+            self.gui_root.after(0, lambda: func(*args, **kwargs))
+
+    def _create_sessions(self):
+        self.sessions = []
+        for cfg in self.receiver_configs:
+            session = ReceiverSession(self, cfg)
+            self.sessions.append(session)
+
+    def _load_config(self):
+        data: Dict[str, Any] = {}
+        if os.path.exists(self.CONFIG_PATH):
+            try:
+                with open(self.CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception as exc:
+                print(f"[CONFIG] Failed to parse {self.CONFIG_PATH}: {exc}")
+
+        settings = data.get("settings", {})
+        self.enable_logging = settings.get("enable_logging", self.enable_logging)
+        self.block_original_input = settings.get(
+            "block_original_input", self.block_original_input
+        )
+        self.global_forwarding_enabled = settings.get(
+            "forwarding_enabled", self.global_forwarding_enabled
+        )
+
+        receivers = data.get("receivers")
+        if not isinstance(receivers, list):
+            # Back-compat: single receiver format
+            legacy_entry = {
+                "name": data.get("name"),
+                "vmware_ip": data.get("vmware_ip"),
+                "vmware_port": data.get("vmware_port", self.cli_override_port or 12345),
+                "reconnect_interval": data.get(
+                    "reconnect_interval", self.cli_override_reconnect or 1.0
+                ),
+                "forwarding_enabled": data.get("forwarding_enabled", True),
+                "auto_connect": True,
+            }
+            receivers = [legacy_entry] if legacy_entry.get("vmware_ip") else []
+
+        if self.cli_override_ip:
+            override = {
+                "name": receivers[0].get("name") if receivers else "Receiver 1",
+                "vmware_ip": self.cli_override_ip,
+                "vmware_port": self.cli_override_port,
+                "reconnect_interval": self.cli_override_reconnect,
+                "forwarding_enabled": True,
+                "auto_connect": True,
+            }
+            if receivers:
+                receivers[0].update(
+                    {k: v for k, v in override.items() if v is not None}
+                )
+            else:
+                receivers.append(override)
+
+        self.receiver_configs = receivers or []
+        self._config_snapshot = {
+            "settings": {
+                "enable_logging": self.enable_logging,
+                "block_original_input": self.block_original_input,
+                "forwarding_enabled": self.global_forwarding_enabled,
+            },
+            "receivers": self.receiver_configs,
+        }
+
+    def _save_config(self):
+        payload = {
+            "settings": {
+                "enable_logging": self.enable_logging,
+                "block_original_input": self.block_original_input,
+                "forwarding_enabled": self.global_forwarding_enabled,
+            },
+            "receivers": [session.to_config() for session in self.sessions],
+        }
+        if payload == self._config_snapshot:
+            return
+        try:
+            with open(self.CONFIG_PATH, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=4)
+            self._config_snapshot = payload
+        except Exception as exc:
+            print(f"[CONFIG] Save error: {exc}")
+
+    # ------------------------------------------------------------- Hook/WinAPI
     def _init_windows_api(self):
-        """Initialize Windows API"""
         self.user32 = ctypes.windll.user32
         self.kernel32 = ctypes.windll.kernel32
-
-        # Define SetWindowsHookExW signature
         HOOKPROC = ctypes.WINFUNCTYPE(
             ctypes.c_int, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
         )
-
         self.user32.SetWindowsHookExW.argtypes = [
             ctypes.c_int,
             HOOKPROC,
@@ -245,7 +633,6 @@ class HostSender:
         ]
         self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
 
-        # Define CallNextHookEx
         self.user32.CallNextHookEx.argtypes = [
             wintypes.HHOOK,
             ctypes.c_int,
@@ -254,15 +641,12 @@ class HostSender:
         ]
         self.user32.CallNextHookEx.restype = ctypes.c_int
 
-        # Define UnhookWindowsHookEx
         self.user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
         self.user32.UnhookWindowsHookEx.restype = wintypes.BOOL
 
-        # Define GetModuleHandleW
         self.kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
         self.kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
 
-        # Define PeekMessageW
         self.user32.PeekMessageW.argtypes = [
             ctypes.POINTER(wintypes.MSG),
             wintypes.HWND,
@@ -271,485 +655,205 @@ class HostSender:
             wintypes.UINT,
         ]
         self.user32.PeekMessageW.restype = wintypes.BOOL
-
-        # Define TranslateMessage and DispatchMessageW
         self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        self.user32.TranslateMessage.restype = wintypes.BOOL
-
         self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        # DispatchMessageW.restype not set (returns default c_long on Windows)
 
-        # Define PostQuitMessage
         self.user32.PostQuitMessage.argtypes = [ctypes.c_int]
         self.user32.PostQuitMessage.restype = None
-
-        # Store hook proc type for later use
         self.HOOKPROC = HOOKPROC
 
-    def _get_config_dict(self):
-        return {
-            "vmware_ip": self.vmware_ip,
-            "vmware_port": self.vmware_port,
-            "reconnect_interval": self.reconnect_interval,
-            "enable_logging": self.enable_logging,
-            "block_original_input": self.block_original_input,
-            "forwarding_enabled": self.forwarding_enabled,
-        }
-
-    def _load_config(self):
-        """Load config from JSON file"""
-        try:
-            if os.path.exists(self.CONFIG_PATH):
-                with open(self.CONFIG_PATH, "r", encoding="utf-8") as f:
-                    config = json.load(f)
-                    self.vmware_ip = config.get("vmware_ip", self.vmware_ip)
-                    self.vmware_port = config.get("vmware_port", self.vmware_port)
-                    self.reconnect_interval = config.get(
-                        "reconnect_interval", self.reconnect_interval
-                    )
-                    self.enable_logging = config.get(
-                        "enable_logging", self.enable_logging
-                    )
-                    self.block_original_input = config.get(
-                        "block_original_input", self.block_original_input
-                    )
-                    self.forwarding_enabled = config.get(
-                        "forwarding_enabled", self.forwarding_enabled
-                    )
-                    if self.enable_logging:
-                        print(
-                            f"[CONFIG] Loaded: vmware_ip={self.vmware_ip}, "
-                            f"vmware_port={self.vmware_port}, block_input={self.block_original_input}"
-                        )
-            self._config_snapshot = self._get_config_dict()
-        except Exception as e:
-            if self.enable_logging:
-                print(f"[CONFIG] Load error: {e}")
-
-    def _save_config(self):
-        """Save config to JSON file"""
-        try:
-            config = self._get_config_dict()
-            if config == self._config_snapshot:
-                if self.enable_logging:
-                    print("[CONFIG] No changes detected; skipping save")
-                return
-            with open(self.CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=4)
-            self._config_snapshot = config.copy()
-        except Exception as e:
-            if self.enable_logging:
-                print(f"[CONFIG] Save error: {e}")
-
-    def _update_key_state(self, key_name: str, is_down: bool) -> bool:
-        """Update key state và return True nếu state changed"""
-        with self.key_states_lock:
-            if is_down:
-                if key_name in self.key_states and self.key_states[key_name]:
-                    return False  # Already down
-                self.key_states[key_name] = True
-                return True
-            else:
-                if key_name in self.key_states and self.key_states[key_name]:
-                    self.key_states[key_name] = False
-                    return True
-                return False  # Already up
-
-    def _low_level_keyboard_proc(self, nCode, wParam, lParam):
-        """Low-level keyboard hook callback - capture keyboard input"""
-        if nCode >= HC_ACTION:
-            kb_data = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            vk_code = kb_data.vkCode
-
-            # Hotkeys - MUST be checked BEFORE mapping to key names
-            # This ensures hotkeys are not forwarded and are handled immediately
-            if wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
-                if vk_code == self.VK_PGDN:
-                    # Toggle block original input
-                    self.block_original_input = not self.block_original_input
-                    status = "ON (BLOCK)" if self.block_original_input else "OFF (PASS)"
-                    print(f"[HOTKEY] PageDown → Block original input: {status}")
-                    # Beep: High pitch for ON, Low pitch for OFF
-                    if self.block_original_input:
-                        winsound.Beep(800, 150)  # ON - Higher pitch
-                    else:
-                        winsound.Beep(400, 150)  # OFF - Lower pitch
-                    self._save_config()
-                    return 1  # Block hotkey - prevent forwarding
-                elif vk_code == self.VK_PGUP:
-                    # Toggle forwarding (mirror input on/off)
-                    self.forwarding_enabled = not self.forwarding_enabled
-                    status = "ENABLED" if self.forwarding_enabled else "DISABLED"
-                    print(f"[HOTKEY] PageUp → Mirror input: {status}")
-                    # Beep: High pitch for ON, Low pitch for OFF
-                    if self.forwarding_enabled:
-                        winsound.Beep(784, 333)  # G5 - Mirror ON
-                    else:
-                        winsound.Beep(523, 333)  # C5 - Mirror OFF
-                    self._save_config()
-                    return 1  # Block hotkey - prevent forwarding
-                # End key removed - now handled by receiver for toggle remapping
-                elif vk_code == self.VK_HOME:
-                    # Show statistics
-                    self._print_statistics()
-                    winsound.Beep(600, 100)  # Quick beep for stats
-                    return 1  # Block hotkey
-
-            # Map VK code to key name
-            key_name = VK_TO_KEY.get(vk_code)
-
-            # Track hardware keyboard events
-            if wParam in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
-                self.stats["total_hardware_keys"] += 1
-
-            # Process hardware input - forward via TCP (MIRROR mode)
-            # ALWAYS forward ALL keys to receiver (full keyboard mirroring)
-            # Backspace, Space, Alt, F1-F12, Arrow keys, and ALL other keys are mirrored
-            if key_name and self.forwarding_enabled:
-                if wParam == WM_KEYDOWN or wParam == WM_SYSKEYDOWN:
-                    if self._update_key_state(key_name, True):
-                        success = self.send_key(key_name, "down")
-                        if success:
-                            self.stats["total_sent"] += 1
-                        else:
-                            self.stats["total_errors"] += 1
-                elif wParam == WM_KEYUP or wParam == WM_SYSKEYUP:
-                    if self._update_key_state(key_name, False):
-                        success = self.send_key(key_name, "up")
-                        if success:
-                            self.stats["total_sent"] += 1
-                        else:
-                            self.stats["total_errors"] += 1
-            elif not key_name:
-                self.stats["total_unmapped"] += 1
-                if self.enable_logging:
-                    print(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
-
-            # ALWAYS allow original input to pass through (MIRROR mode)
-            # Input is forwarded to VMware receiver AND passed through to Host
-            # Set block_original_input=True in config if you want to block original input
-            if self.block_original_input:
-                return 1  # Block hardware input (only if explicitly enabled)
-
-        # Allow input to pass through (default behavior - MIRROR mode)
-        return self.user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
-
-    def _print_statistics(self):
-        """Print statistics"""
-        print(f"\n{'=' * 50}")
-        print("=== STATISTICS ===")
-        print(f"{'=' * 50}")
-        print(f"Connection: {'CONNECTED' if self.connected else 'DISCONNECTED'}")
-        print(f"Hardware keys captured: {self.stats['total_hardware_keys']}")
-        print(f"Total sent: {self.stats['total_sent']}")
-        print(f"Total errors: {self.stats['total_errors']}")
-        print(f"Total reconnects: {self.stats['total_reconnects']}")
-        print(f"Unmapped keys: {self.stats['total_unmapped']}")
-        if self.stats["total_hardware_keys"] > 0:
-            sent_rate = (
-                self.stats["total_sent"] / self.stats["total_hardware_keys"] * 100
-            )
-            print(f"Sent rate: {sent_rate:.1f}%")
-        print(f"{'=' * 50}\n")
-
-    def connect(self) -> bool:
-        """Kết nối đến VMware receiver"""
-        if not self.vmware_ip:
-            print(
-                "[ERROR] VMware IP not set. Please configure vmware_ip in config file."
-            )
-            return False
-
-        try:
-            print(f"[CONNECT] Connecting to {self.vmware_ip}:{self.vmware_port}...")
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(5.0)  # 5s timeout for connect
-            self.socket.connect((self.vmware_ip, self.vmware_port))
-            self.socket.settimeout(None)  # No timeout after connect
-            self.connected = True
-
-            print(
-                f"[CONNECT] ✓ Connected successfully to {self.vmware_ip}:{self.vmware_port}"
-            )
-            return True
-        except socket.timeout:
-            print(f"[ERROR] Connection timeout to {self.vmware_ip}:{self.vmware_port}")
-            print(
-                "[ERROR] Check if VMware receiver is running and firewall allows connection"
-            )
-            self.connected = False
-            if self.socket:
-                try:
-                    self.socket.close()
-                except Exception:
-                    pass
-                self.socket = None
-            return False
-        except Exception as e:
-            print(
-                f"[ERROR] Failed to connect to {self.vmware_ip}:{self.vmware_port}: {e}"
-            )
-            print(f"[ERROR] Error type: {type(e).__name__}")
-            self.connected = False
-            if self.socket:
-                try:
-                    self.socket.close()
-                except Exception:
-                    pass
-                self.socket = None
-            return False
-
-    def disconnect(self):
-        """Ngắt kết nối"""
-        self.connected = False
-        if self.socket:
-            try:
-                self.socket.close()
-            except Exception:
-                pass
-            self.socket = None
-        print("[DISCONNECT] Disconnected from VMware")
-
-    def _auto_reconnect_loop(self):
-        """Auto-reconnect thread"""
-        while self.running:
-            if not self.connected:
-                print(
-                    f"[RECONNECT] Attempting to reconnect... (next try in {self.reconnect_interval}s)"
-                )
-                if self.connect():
-                    self.stats["total_reconnects"] += 1
-                    print(
-                        f"[RECONNECT] ✓ Reconnected successfully (total reconnects: {self.stats['total_reconnects']})"
-                    )
-            time.sleep(self.reconnect_interval)
-
-    def send_key(self, key: str, action: str) -> bool:
-        """
-        Gửi key command đến VMware
-        Args:
-            key: Tên phím (vd: 'a', 'space', 'ctrl')
-            action: 'down' hoặc 'up'
-        Returns:
-            True if sent successfully, False otherwise
-        """
-        if not self.connected or not self.socket:
-            if self.enable_logging:
-                print(f"[ERROR] Not connected: {action}:{key}")
-            return False
-
-        try:
-            command = f"{action}:{key}\n"
-            bytes_sent = self.socket.send(command.encode("utf-8"))
-
-            if bytes_sent == 0:
-                if self.enable_logging:
-                    print(f"[ERROR] Failed to send: {action}:{key}")
-                self.connected = False
-                return False
-
-            self.stats["total_sent"] += 1
-            if self.enable_logging:
-                print(f"[SEND] {action}:{key} ({bytes_sent} bytes) → VMware")
-            return True
-
-        except Exception as e:
-            print(f"[ERROR] Send error: {e}")
-            self.connected = False
-            self.stats["total_errors"] += 1
-            return False
-
-    def send_all_up(self) -> bool:
-        """Gửi lệnh release tất cả keys"""
-        if not self.connected or not self.socket:
-            if self.enable_logging:
-                print("[ERROR] Not connected: all_up")
-            return False
-
-        try:
-            command = "all_up\n"
-            bytes_sent = self.socket.send(command.encode("utf-8"))
-
-            if bytes_sent == 0:
-                if self.enable_logging:
-                    print("[ERROR] Failed to send: all_up")
-                self.connected = False
-                return False
-
-            self.stats["total_sent"] += 1
-            if self.enable_logging:
-                print(f"[SEND] all_up ({bytes_sent} bytes)")
-            return True
-
-        except Exception as e:
-            print(f"[ERROR] Send error: {e}")
-            self.connected = False
-            self.stats["total_errors"] += 1
-            return False
-
-    def install_hook(self):
-        """Install keyboard hook"""
-        # Create hook proc callback (must store to prevent garbage collection)
+    def _install_hook(self):
         self.hook_proc = self.HOOKPROC(self._low_level_keyboard_proc)
-        hMod = self.kernel32.GetModuleHandleW(None)
-
+        module_handle = self.kernel32.GetModuleHandleW(None)
         self.hook = self.user32.SetWindowsHookExW(
-            WH_KEYBOARD_LL, self.hook_proc, hMod, 0
+            WH_KEYBOARD_LL, self.hook_proc, module_handle, 0
         )
-
         if not self.hook:
             error_code = self.kernel32.GetLastError()
-            raise Exception(
+            raise RuntimeError(
                 f"Failed to install keyboard hook. Error code: {error_code}"
             )
-
         print("[HOOK] Keyboard hook installed")
 
-    def message_loop(self):
-        """Windows message loop for keyboard hook"""
+    def _hook_loop(self):
+        try:
+            self._install_hook()
+        except Exception as exc:
+            print(f"[HOOK] Failed to install keyboard hook: {exc}")
+            return
+
         msg = wintypes.MSG()
-
-        while self.running:
+        while self._hook_running.is_set():
             ret = self.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE)
-
             if ret:
                 if msg.message == 0x0012:  # WM_QUIT
                     break
-                else:
-                    self.user32.TranslateMessage(ctypes.byref(msg))
-                    self.user32.DispatchMessageW(ctypes.byref(msg))
+                self.user32.TranslateMessage(ctypes.byref(msg))
+                self.user32.DispatchMessageW(ctypes.byref(msg))
             else:
-                time.sleep(0)  # Yield to other threads
+                time.sleep(0.001)
 
-    def start(self):
-        """Bắt đầu sender với keyboard hook và auto-reconnect"""
-        if not self.vmware_ip:
-            print(
-                "[ERROR] VMware IP not configured. Please set vmware_ip in config file."
-            )
-            input("\nPress Enter to close...")
-            return
-
-        self.running = True
-
-        print(f"\n[CONFIG] VMware IP: {self.vmware_ip}")
-        print(f"[CONFIG] VMware Port: {self.vmware_port}")
-        print(f"[CONFIG] Reconnect Interval: {self.reconnect_interval}s")
-        print(
-            f"[CONFIG] Block original input: {self.block_original_input} (MIRROR mode: forward + allow through)"
-        )
-        print(f"[CONFIG] Forwarding enabled: {self.forwarding_enabled}")
-        print(f"[CONFIG] Logging: {self.enable_logging}")
-
-        # Initial connect
-        print(
-            f"\n[CONNECT] Attempting to connect to {self.vmware_ip}:{self.vmware_port}..."
-        )
-        if not self.connect():
-            print(
-                f"[WARN] Initial connection failed. Auto-reconnect will attempt every {self.reconnect_interval}s"
-            )
-
-        # Start auto-reconnect thread
-        self.reconnect_thread = threading.Thread(
-            target=self._auto_reconnect_loop, daemon=True
-        )
-        self.reconnect_thread.start()
-
-        # Install keyboard hook
-        try:
-            self.install_hook()
-            print("[START] Host sender started - mirroring keyboard input to VMware")
-            print(
-                f"[STATUS] Connection: {'CONNECTED' if self.connected else 'DISCONNECTED'}"
-            )
-            print(
-                "[HOTKEYS] PageDown = toggle blocking, PageUp = toggle forwarding, Home = stats"
-            )
-            print("[STATUS] Press Ctrl+C to exit\n")
-
-            # Start message loop
-            self.message_loop()
-        except Exception as e:
-            print(f"[ERROR] Failed to install keyboard hook: {e}")
-            import traceback
-
-            traceback.print_exc()
-        finally:
-            self.stop()
-
-    def stop(self):
-        """Dừng sender"""
-        self.running = False
-
-        # Remove keyboard hook
         if self.hook:
             self.user32.UnhookWindowsHookEx(self.hook)
             self.hook = None
             print("[HOOK] Keyboard hook removed")
 
-        if self.reconnect_thread and self.reconnect_thread.is_alive():
-            self.reconnect_thread.join(timeout=2.0)
+    # ----------------------------------------------------------- Input routing
+    def _update_key_state(self, key_name: str, is_down: bool) -> bool:
+        with self.key_states_lock:
+            current = self.key_states.get(key_name, False)
+            if is_down and current:
+                return False
+            if not is_down and not current:
+                return False
+            self.key_states[key_name] = is_down
+            return True
 
-        self.disconnect()
+    def _broadcast_key(self, key: str, action: str):
+        if not self.global_forwarding_enabled:
+            return
+        for session in self.sessions:
+            if session.forwarding_enabled:
+                session.send_key(key, action)
 
-        # Release all keys
-        if self.connected:
-            self.send_all_up()
+    def _broadcast_all_up(self):
+        for session in self.sessions:
+            session.send_all_up()
 
-        # Print stats
-        self._print_statistics()
+    def _handle_hotkey(self, vk_code: int) -> bool:
+        if vk_code == self.VK_PGDN:
+            self.block_original_input = not self.block_original_input
+            status = "BLOCK" if self.block_original_input else "PASS"
+            print(f"[HOTKEY] PageDown → Block original input: {status}")
+            winsound.Beep(800 if self.block_original_input else 400, 150)
+            self._save_config()
+            return True
+        if vk_code == self.VK_PGUP:
+            self.global_forwarding_enabled = not self.global_forwarding_enabled
+            status = "ENABLED" if self.global_forwarding_enabled else "DISABLED"
+            print(f"[HOTKEY] PageUp → Mirror input: {status}")
+            winsound.Beep(784 if self.global_forwarding_enabled else 523, 200)
+            self._save_config()
+            return True
+        if vk_code == self.VK_HOME:
+            self._print_statistics()
+            winsound.Beep(600, 120)
+            return True
+        return False
 
-        # Save config
+    def _track_hardware_event(self, message: int):
+        if message in (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP):
+            self.stats["total_hardware_keys"] += 1
+
+    def _forward_key(self, key_name: str, message: int):
+        if not self.global_forwarding_enabled:
+            return
+        if message in (WM_KEYDOWN, WM_SYSKEYDOWN):
+            if self._update_key_state(key_name, True):
+                self._broadcast_key(key_name, "down")
+        elif message in (WM_KEYUP, WM_SYSKEYUP):
+            if self._update_key_state(key_name, False):
+                self._broadcast_key(key_name, "up")
+
+    def _low_level_keyboard_proc(self, n_code, w_param, l_param):
+        if n_code >= HC_ACTION:
+            kb_data = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            vk_code = kb_data.vkCode
+
+            if w_param in (WM_KEYDOWN, WM_SYSKEYDOWN) and self._handle_hotkey(vk_code):
+                return 1
+
+            key_name = VK_TO_KEY.get(vk_code)
+            self._track_hardware_event(w_param)
+
+            if key_name:
+                self._forward_key(key_name, w_param)
+            elif not key_name:
+                self.stats["total_unmapped"] += 1
+                self.log(f"[WARNING] Unmapped key: VK 0x{vk_code:02X}")
+
+            if self.block_original_input:
+                return 1
+
+        return self.user32.CallNextHookEx(self.hook, n_code, w_param, l_param)
+
+    def _print_statistics(self):
+        print(f"\n{'=' * 50}")
+        print("=== HOST SENDER STATS ===")
+        print(f"Hardware keys captured: {self.stats['total_hardware_keys']}")
+        print(f"Unmapped keys: {self.stats['total_unmapped']}")
+        for session in self.sessions:
+            state = "Connected" if session.connected else "Disconnected"
+            print(
+                f"- {session.name}: {state}, sent={session.stats['total_sent']}, "
+                f"errors={session.stats['total_errors']}, reconnects={session.stats['total_reconnects']}"
+            )
+        print(f"{'=' * 50}\n")
+
+    # ---------------------------------------------------------------- Lifecycle
+    def start(self):
+        if not self.sessions:
+            print(
+                "[WARN] No receivers configured. Update host_sender.config.json to add entries."
+            )
+
+        self.running = True
+        self._hook_running.set()
+        self.hook_thread = threading.Thread(target=self._hook_loop, daemon=True)
+        self.hook_thread.start()
+
+        print(
+            "[START] Host sender running. Hotkeys: PageDown=Block input, PageUp=Toggle mirror, Home=Stats"
+        )
+
+        try:
+            self.gui_root = HostSenderGUI(self, self.sessions)
+            self.gui_root.mainloop()
+        finally:
+            self.stop()
+
+    def stop(self):
+        if not self.running:
+            return
+        self.running = False
+        self._hook_running.clear()
+        if self.hook_thread and self.hook_thread.is_alive():
+            self.hook_thread.join(timeout=2.0)
+
+        for session in self.sessions:
+            session.stop()
+        self._broadcast_all_up()
         self._save_config()
+        if self.gui_root and self.gui_root.winfo_exists():
+            self.gui_root.after(0, self.gui_root.destroy)
+        print("[STOP] Host sender stopped.")
 
-    def print_stats(self):
-        """Print statistics"""
-        print("\n=== STATISTICS ===")
-        print(f"Connected: {self.connected}")
-        print(f"Total sent: {self.stats['total_sent']}")
-        print(f"Total errors: {self.stats['total_errors']}")
-        print(f"Total reconnects: {self.stats['total_reconnects']}")
+    # ------------------------------------------------------------ CLI helpers
+    def run_cli(self):
+        try:
+            self.start()
+        except KeyboardInterrupt:
+            print("\n[INTERRUPT] Keyboard interrupt received")
+            self.stop()
 
 
-# Example usage
-if __name__ == "__main__":
-    import sys
-
-    # Parse command line arguments
+def main():
     vmware_ip = None
+    vmware_port = 12345
+    enable_logging = False
+
     if len(sys.argv) > 1:
         vmware_ip = sys.argv[1]
-
-    vmware_port = 12345
     if len(sys.argv) > 2:
         vmware_port = int(sys.argv[2])
-
-    enable_logging = False
     if len(sys.argv) > 3:
-        enable_logging = sys.argv[3].lower() in ["true", "1", "yes", "on"]
+        enable_logging = sys.argv[3].lower() in {"true", "1", "yes", "on"}
 
-    try:
-        sender = HostSender(
-            vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
-        )
-        sender.start()
+    sender = HostSender(
+        vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
+    )
+    sender.run_cli()
 
-    except KeyboardInterrupt:
-        print("\n[INTERRUPT] Keyboard interrupt received")
-        if "sender" in locals():
-            sender.stop()
-        print("[EXIT] Shutting down...")
-    except Exception as e:
-        import traceback
 
-        print(f"\n{'=' * 50}")
-        print("=== INITIALIZATION ERROR ===")
-        print(f"{'=' * 50}")
-        print(f"Error: {e}")
-        print(f"Error type: {type(e).__name__}")
-        print("\n=== Error Details ===")
-        traceback.print_exc()
-        print("=== End Error Details ===\n")
-        print(f"{'=' * 50}\n")
-        input("Press Enter to close...")
+if __name__ == "__main__":
+    main()
