@@ -153,6 +153,33 @@ class Reflection_Mix_Random(Command):
             self.min_times, self.max_times = self.max_times, self.min_times
 
     def main(self):
+        # Always validate buffs before executing attack rotation
+        buff_casted = Buff().main()
+        if buff_casted:
+            buff_delay = random.uniform(2.0, 4.0)
+            log.debug(
+                "Reflection_Mix_Random: buff_main cast → sleeping %.2fs before attacks",
+                buff_delay,
+            )
+            time.sleep(buff_delay)
+        else:
+            log.debug(
+                "Reflection_Mix_Random: buff_main skipped (cooldown still active)"
+            )
+
+        secondary_casted = Buff_Secondary().main()
+        if secondary_casted:
+            secondary_delay = random.uniform(1.0, 1.5)
+            log.debug(
+                "Reflection_Mix_Random: buff_secondary cast → sleeping %.2fs",
+                secondary_delay,
+            )
+            time.sleep(secondary_delay)
+        else:
+            log.debug(
+                "Reflection_Mix_Random: buff_secondary skipped (cooldown still active)"
+            )
+
         roll = random.random()
         if roll < 0.93:
             # Reflection: 93% chance, Use min_times/max_times with minimum 2 casts
@@ -503,19 +530,18 @@ class Buff(Command):
         if Buff._next_buff_time <= 0.0 or now >= Buff._next_buff_time:
             press(Key.buff_main, 1)
             time.sleep(random.uniform(0.1, 0.2))
-            # Temporarily disable secondary buff per request
-            # press(Key.buff_secondary, 1)
-            # time.sleep(0.1)
             # Lên lịch lần buff tiếp theo
             Buff._next_buff_time = now + random.uniform(120.0, 170.0)
             log.debug(
                 "Buff casted, next buff in %.1f seconds",
                 Buff._next_buff_time - now,
             )
+            return True
         else:
             # Log when buff is skipped due to cooldown
             remaining = Buff._next_buff_time - now
             log.debug("Buff skipped (cooldown: %.1f seconds remaining)", remaining)
+        return False
 
 
 class Adjust(Command):
@@ -755,6 +781,16 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         finally:
             # ALWAYS Release direction key
             key_up(direction_key)
+            # Allow time for floor transition to register after vertical teleport
+            if direction in ("up", "down"):
+                transition_delay = random.uniform(0.15, 0.25)
+                log.debug(
+                    "step: vertical transition delay %.3fs applied (direction=%s, waypoint_jumped=%s)",
+                    transition_delay,
+                    direction,
+                    waypoint_jumped,
+                )
+                time.sleep(transition_delay)
 
 
 # ==================== RANDOM ACTIONS ====================
@@ -895,9 +931,11 @@ class Buff_Secondary(Command):
                 "Buff Secondary casted, next buff in %.1f seconds",
                 Buff_Secondary._next_buff_time - now,
             )
+            return True
         else:
             # Log when buff is skipped due to cooldown
             remaining = Buff_Secondary._next_buff_time - now
             log.debug(
                 "Buff Secondary skipped (cooldown: %.1f seconds remaining)", remaining
             )
+        return False

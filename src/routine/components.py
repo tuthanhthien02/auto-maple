@@ -569,8 +569,44 @@ class Move(Command):
             teleport_cmd_instance = teleport_cmd_class(direction, num_teleports)
             teleport_cmd_instance.execute()
 
-            # Wait for teleport to complete
-            time.sleep(0.2)
+            # Wait for teleport to complete (longer for vertical teleports / floor changes)
+            is_vertical_direction = direction in ("up", "down")
+            if is_vertical_direction:
+                settle_delay = random.uniform(0.4, 0.6)
+                action_log.debug(
+                    "Move: Vertical teleport settle delay %.3fs (direction=%s, num_teleports=%d)",
+                    settle_delay,
+                    direction,
+                    num_teleports,
+                )
+                time.sleep(settle_delay)
+                # Poll player position to ensure floor transition completed
+                initial_position = tuple(config.player_pos)
+                waited = 0.0
+                max_wait = 1.0
+                position_delta = 0.0
+                while waited < max_wait:
+                    time.sleep(0.1)
+                    waited += 0.1
+                    position_delta = utils.distance(
+                        tuple(config.player_pos), initial_position
+                    )
+                    if position_delta > 0.05:
+                        break
+                if position_delta > 0.05:
+                    action_log.debug(
+                        "Move: Floor transition confirmed (delta=%.3f after %.2fs)",
+                        position_delta,
+                        waited,
+                    )
+                else:
+                    action_log.debug(
+                        "Move: Floor transition not confirmed after %.2fs (delta=%.3f) – continuing",
+                        waited,
+                        position_delta,
+                    )
+            else:
+                time.sleep(0.2)
 
             # Check if we're close enough to target
             remaining_distance = utils.distance(config.player_pos, self.target)
