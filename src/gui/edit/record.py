@@ -41,6 +41,22 @@ class Record(LabelFrame):
 
         self.scroll.config(command=self.listbox.yview)
 
+        self.record_live_var = tk.BooleanVar(
+            value=getattr(config, "record_position_live_update", False)
+        )
+        self.record_live_checkbox = tk.Checkbutton(
+            self,
+            text="Bật cập nhật vị trí khi record (tăng CPU)",
+            variable=self.record_live_var,
+            command=self.on_toggle_record_live_update,
+            anchor="w",
+            wraplength=180,
+            justify="left",
+        )
+        self.record_live_checkbox.pack(
+            side=tk.BOTTOM, fill="x", padx=5, pady=(0, 5), anchor="w"
+        )
+
     def add_entry(self, time, location):
         """
         Adds a new recorded location to the Listbox. Pops the oldest entry if
@@ -75,3 +91,6 @@ class Record(LabelFrame):
 
     def clear_selection(self):
         self.listbox.selection_clear(0, "end")
+
+    def on_toggle_record_live_update(self):
+        config.record_position_live_update = bool(self.record_live_var.get())

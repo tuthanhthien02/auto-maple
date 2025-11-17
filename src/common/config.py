@@ -14,6 +14,9 @@ RESOURCES_DIR = "resources"
 # The player's position relative to the minimap
 player_pos = (0, 0)
 
+# Enable/disable việc cập nhật vị trí liên tục phục vụ record (tắt = giữ tối ưu CPU)
+record_position_live_update = False
+
 # Describes whether the main bot loop is currently running or not
 enabled = False
 

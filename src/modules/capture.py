@@ -541,7 +541,11 @@ class Capture:
                                 # CPU Optimization: Skip position detection if position is stable
                                 # and we're not in active bot mode
                                 skip_detection = False
-                                if not bot_active and self.last_player_pos is not None:
+                                if (
+                                    not bot_active
+                                    and not config.record_position_live_update
+                                    and self.last_player_pos is not None
+                                ):
                                     time_since_change = (
                                         current_time - self.last_position_change_time
                                     )
