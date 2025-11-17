@@ -13,18 +13,18 @@
         "never_skip_transitions": true
       },
       "routine_pattern": {
-        "enabled": false,
-        "variant_switch_probability": 0.15,
+        "enabled": true,
+        "variant_switch_probability": 0.12,
         "min_loops_before_switch": 3,
-        "floor_variant_chance": 0.1,
+        "floor_variant_chance": 0.15,
         "variants": {
           "normal": {
-            "weight": 0.7,
+            "weight": 0.55,
             "description": "Normal routine execution"
           },
-          "reverse": { "weight": 0.15, "description": "Reverse floor order" },
-          "floor1_only": { "weight": 0.1, "description": "Floor 1 only" },
-          "floor2_only": { "weight": 0.05, "description": "Floor 2 only" }
+          "reverse": { "weight": 0.2, "description": "Reverse floor order" },
+          "floor1_only": { "weight": 0.15, "description": "Floor 1 only" },
+          "floor2_only": { "weight": 0.1, "description": "Floor 2 only" }
         }
       },
       "command_sequence": {
