@@ -373,8 +373,8 @@ class ReceiverRow(tk.Frame):
 
         self.connect_btn = tk.Button(
             self,
-            text="Disconnect",
-            bg="#16a34a",
+            text="Connect",
+            bg="#dc2626",
             fg="white",
             width=14,
             command=self._on_toggle_connection,
