@@ -3,6 +3,7 @@
 import math
 import random
 import time
+from typing import Optional, Tuple
 
 from src.common import config, settings, utils
 from src.common.logger import get_logger
@@ -141,6 +142,10 @@ class Reflection_Random(Command):
 
 
 class Reflection_Mix_Random(Command):
+    # Skill press timing ranges (down_time, up_time)
+    REFLECTION_PRESS = ((0.08, 0.12), (0.03, 0.06))
+    HEAVY_PRESS = ((0.10, 0.15), (0.04, 0.07))
+
     """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast)."""
 
     def __init__(self, min_times=2, max_times=3):
@@ -151,8 +156,89 @@ class Reflection_Mix_Random(Command):
         if self.min_times > self.max_times:
             # Swap if min > max to prevent errors
             self.min_times, self.max_times = self.max_times, self.min_times
+        # Track last facing direction (True = facing right)
+        self._last_face_right: Optional[bool] = True
+        # Next direction to face before casting (will be set each run)
+        self._next_face_right: Optional[bool] = True
+
+    def _determine_baseline_facing(self) -> Tuple[bool, str]:
+        """Determine initial facing direction for this rotation."""
+        routine = getattr(config, "routine", None)
+        if routine:
+            floor_direction = getattr(routine, "floor_direction", None)
+            if floor_direction == "reverse":
+                self._last_face_right = False
+                return False, "routine.reverse"
+            if floor_direction in {"forward", "right"}:
+                self._last_face_right = True
+                return True, "routine.forward"
+        # Fallback to previous state if available
+        if self._last_face_right is not None:
+            return self._last_face_right, "state"
+        # Default to facing right
+        return True, "default"
+
+    def _next_facing_direction(self) -> bool:
+        """Return the next facing direction (True = right) and toggle state."""
+        if self._next_face_right is None:
+            self._next_face_right = True
+        face_right = self._next_face_right
+        self._last_face_right = face_right
+        self._next_face_right = not face_right
+        return face_right
+
+    def _face_direction(
+        self, skill_name: str, cast_index: int, total_casts: int
+    ) -> str:
+        """Tap the direction key to face before casting a skill."""
+        face_right = self._next_facing_direction()
+        direction = "right" if face_right else "left"
+        key = Key.right if face_right else Key.left
+        down_time = random.uniform(0.04, 0.07)
+        up_time = random.uniform(0.02, 0.05)
+        log.debug(
+            "Reflection_Mix_Random: Facing %s before %s (cast %d/%d, down=%.3fs, up=%.3fs)",
+            direction,
+            skill_name,
+            cast_index,
+            total_casts,
+            down_time,
+            up_time,
+        )
+        press(key, 1, down_time=down_time, up_time=up_time)
+        return direction
+
+    def _press_skill(
+        self,
+        key: str,
+        skill_name: str,
+        cast_index: int,
+        total_casts: int,
+        down_range: Tuple[float, float],
+        up_range: Tuple[float, float],
+    ) -> None:
+        """Press a skill key with human-like random timing."""
+        down_time = random.uniform(*down_range)
+        up_time = random.uniform(*up_range)
+        log.debug(
+            "Reflection_Mix_Random: Casting %s (cast %d/%d, down=%.3fs, up=%.3fs)",
+            skill_name,
+            cast_index,
+            total_casts,
+            down_time,
+            up_time,
+        )
+        press(key, 1, down_time=down_time, up_time=up_time)
 
     def main(self):
+        baseline_face_right, baseline_source = self._determine_baseline_facing()
+        self._next_face_right = baseline_face_right
+        log.debug(
+            "Reflection_Mix_Random: baseline facing %s (source=%s, last_state=%s)",
+            "right" if baseline_face_right else "left",
+            baseline_source,
+            "right" if self._last_face_right else "left",
+        )
         # Always validate buffs before executing attack rotation
         buff_casted = Buff().main()
         if buff_casted:
@@ -181,13 +267,32 @@ class Reflection_Mix_Random(Command):
             )
 
         roll = random.random()
+        log.debug(
+            "Reflection_Mix_Random: skill roll=%.3f (min_times=%d, max_times=%d)",
+            roll,
+            self.min_times,
+            self.max_times,
+        )
         if roll < 0.93:
             # Reflection: 93% chance, Use min_times/max_times with minimum 2 casts
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
-            for _ in range(times):
-                press(Key.reflection, 1, down_time=0.1, up_time=0.1)
+            log.debug(
+                "Reflection_Mix_Random: executing Reflection %d times (range %d-%d)",
+                times,
+                min_casts,
+                max_casts,
+            )
+            for cast_idx in range(1, times + 1):
+                self._face_direction("reflection", cast_idx, times)
+                self._press_skill(
+                    Key.reflection,
+                    "reflection",
+                    cast_idx,
+                    times,
+                    *self.REFLECTION_PRESS,
+                )
                 time.sleep(
                     random.uniform(*TimingConfig.REFLECTION["long_between_casts"])
                 )
@@ -196,13 +301,34 @@ class Reflection_Mix_Random(Command):
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
-            for _ in range(times):
-                press(Key.apocalypse, 1, down_time=0.1, up_time=0.1)
+            log.debug(
+                "Reflection_Mix_Random: executing Apocalypse %d times (range %d-%d)",
+                times,
+                min_casts,
+                max_casts,
+            )
+            for cast_idx in range(1, times + 1):
+                self._face_direction("apocalypse", cast_idx, times)
+                self._press_skill(
+                    Key.apocalypse,
+                    "apocalypse",
+                    cast_idx,
+                    times,
+                    *self.HEAVY_PRESS,
+                )
                 time.sleep(random.uniform(*TimingConfig.HEAVY["long_between_casts"]))
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
         else:
             # Death Scythe: 2% chance, 1 cast (fixed)
-            press(Key.death_scythe, 1, down_time=0.1, up_time=0.1)
+            log.debug("Reflection_Mix_Random: executing Death Scythe once")
+            self._face_direction("death_scythe", 1, 1)
+            self._press_skill(
+                Key.death_scythe,
+                "death_scythe",
+                1,
+                1,
+                *self.HEAVY_PRESS,
+            )
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
 
 
