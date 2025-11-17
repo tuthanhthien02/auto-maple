@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 import winsound
 from ctypes import wintypes
 from typing import Any, Callable, Dict, List, Optional
@@ -429,15 +430,43 @@ class ReceiverRow(tk.Frame):
         self.session.toggle_connection()
 
 
+def configure_high_dpi_scaling(widget: tk.Misc, scale: float = 1.4) -> None:
+    """Best-effort DPI awareness & font scaling for high-resolution displays."""
+    try:
+        if sys.platform.startswith("win"):
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        pass
+
+    try:
+        widget.tk.call("tk", "scaling", scale)
+    except tk.TclError:
+        pass
+
+    try:
+        for name in (
+            "TkDefaultFont",
+            "TkTextFont",
+            "TkFixedFont",
+            "TkMenuFont",
+            "TkHeadingFont",
+            "TkTooltipFont",
+        ):
+            try:
+                font = tkfont.nametofont(name)
+                font.configure(size=max(10, int(font.cget("size") * scale / 1.1)))
+            except tk.TclError:
+                continue
+    except Exception:
+        pass
+
+
 class HostSenderGUI(tk.Tk):
     """Simple Tkinter GUI to manage multiple VMware receivers."""
 
     def __init__(self, host, sessions: List[ReceiverSession]):
         super().__init__()
-        try:
-            self.tk.call("tk", "scaling", 1.25)
-        except tk.TclError:
-            pass
+        configure_high_dpi_scaling(self)
         self.host = host
         self.sessions = sessions
         self.title("Host Sender - Multi VMware Controller")
@@ -530,13 +559,6 @@ class HostSender:
 
         # Initialize Windows API / hook definitions
         self._init_windows_api()
-        try:
-            tkinter_root = tk.Tk()
-            tkinter_root.withdraw()
-            tkinter_root.tk.call("tk", "scaling", 1.25)
-            tkinter_root.destroy()
-        except tk.TclError:
-            pass
 
     # ------------------------------------------------------------------ Config
     def log(self, message: str):

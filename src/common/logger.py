@@ -260,19 +260,42 @@ def _clone_handlers(source: logging.Logger, target: logging.Logger) -> None:
         target.addHandler(handler)
 
 
+def _resolve_action_log_level() -> Optional[int]:
+    env_value = os.getenv("AUTO_MAPLE_ACTION_LOG_LEVEL")
+    if not env_value:
+        return _ROOT_LOGGER.level
+
+    level_name = env_value.strip().upper()
+    if level_name in {"NONE", "OFF", "DISABLE", "DISABLED"}:
+        return None
+
+    return getattr(logging, level_name, _ROOT_LOGGER.level)
+
+
 _ACTION_LOGGER = logging.getLogger("auto_maple.action")
-# By default, action logger follows the root logger level
-_ACTION_LOGGER.setLevel(_ROOT_LOGGER.level)
 _ACTION_LOGGER.propagate = False
-_clone_handlers(_ROOT_LOGGER, _ACTION_LOGGER)
+_default_action_level = _resolve_action_log_level()
+if _default_action_level is None:
+    _ACTION_LOGGER.disabled = True
+else:
+    _ACTION_LOGGER.setLevel(_default_action_level)
+    _clone_handlers(_ROOT_LOGGER, _ACTION_LOGGER)
 
 
 def set_action_logging(enabled: bool) -> None:
     """Enable or disable verbose per-action logging."""
 
     # When enabled, force DEBUG; otherwise mirror root logger level
-    level = logging.DEBUG if enabled else _ROOT_LOGGER.level
-    _ACTION_LOGGER.setLevel(level)
+    if enabled:
+        _ACTION_LOGGER.disabled = False
+        _ACTION_LOGGER.setLevel(logging.DEBUG)
+    else:
+        level = _resolve_action_log_level()
+        if level is None:
+            _ACTION_LOGGER.disabled = True
+        else:
+            _ACTION_LOGGER.disabled = False
+            _ACTION_LOGGER.setLevel(level)
     state = "enabled" if enabled else "disabled"
     _ROOT_LOGGER.info("Action logging %s", state)
 
