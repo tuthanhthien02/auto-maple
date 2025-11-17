@@ -51,6 +51,32 @@ class Settings(Tab):
             fg="gray",
         )
         self.listener_hint.pack(side=tk.TOP, fill="x", pady=(4, 0))
+
+        self.record_settings = LabelFrame(
+            self.column1, "Record Position", padding=(5, 5, 5, 5)
+        )
+        self.record_settings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+        self.record_live_var = tk.BooleanVar(
+            value=getattr(config, "record_position_live_update", False)
+        )
+        self.record_live_checkbox = tk.Checkbutton(
+            self.record_settings,
+            text="Bật cập nhật vị trí khi record (tăng CPU)",
+            variable=self.record_live_var,
+            command=self._on_record_live_toggle,
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=260,
+        )
+        self.record_live_checkbox.pack(side=tk.TOP, anchor="w")
+        self.record_hint = tk.Label(
+            self.record_settings,
+            text="Chỉ bật khi cần ghi nhiều vị trí liên tiếp. Có thể tăng tải CPU.",
+            wraplength=260,
+            justify=tk.LEFT,
+            fg="gray",
+        )
+        self.record_hint.pack(side=tk.TOP, fill="x", pady=(4, 0))
         self.common_bindings = KeyBindings(
             self.column1, "In-game Keybindings", config.bot
         )
@@ -158,3 +184,6 @@ class Settings(Tab):
                     config.gui.view.status.update_input_method_status()
         except Exception:
             pass
+
+    def _on_record_live_toggle(self):
+        config.record_position_live_update = bool(self.record_live_var.get())
