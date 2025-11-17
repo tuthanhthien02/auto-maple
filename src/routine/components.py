@@ -572,6 +572,13 @@ class Move(Command):
             # Wait for teleport to complete (longer for vertical teleports / floor changes)
             is_vertical_direction = direction in ("up", "down")
             if is_vertical_direction:
+                action_log.debug(
+                    "Move: Vertical teleport start (player_y=%.3f → target_y=%.3f, distance=%.3f, reverse=%s)",
+                    config.player_pos[1],
+                    self.target[1],
+                    distance,
+                    reverse_direction,
+                )
                 settle_delay = random.uniform(0.4, 0.6)
                 action_log.debug(
                     "Move: Vertical teleport settle delay %.3fs (direction=%s, num_teleports=%d)",

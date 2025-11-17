@@ -165,6 +165,21 @@ class Reflection_Mix_Random(Command):
         """Determine initial facing direction for this rotation."""
         routine = getattr(config, "routine", None)
         if routine:
+            try:
+                current_index = getattr(routine, "index", None)
+                floor1_indices = list(getattr(routine, "floor1_indices", []) or [])
+                floor2_indices = list(getattr(routine, "floor2_indices", []) or [])
+            except Exception:
+                current_index = None
+                floor1_indices = []
+                floor2_indices = []
+            if current_index is not None:
+                if floor1_indices and current_index in floor1_indices:
+                    self._last_face_right = True
+                    return True, "floor1"
+                if floor2_indices and current_index in floor2_indices:
+                    self._last_face_right = False
+                    return False, "floor2"
             floor_direction = getattr(routine, "floor_direction", None)
             if floor_direction == "reverse":
                 self._last_face_right = False
@@ -851,15 +866,17 @@ def step(direction, target, distance=None, waypoint_jumped=False):
             # Large Y change indicates floor transition - jump before teleport (like Kanna)
             if direction == "down":
                 log.debug(
-                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping down before teleport",
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping down before teleport (waypoint_jumped=%s)",
                     d_y,
+                    waypoint_jumped,
                 )
                 press(Key.jump, 3)
                 has_auto_jumped = True
             elif direction == "up":
                 log.debug(
-                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping up before teleport",
+                    "🔄 Auto-jump: Large Y change (%.3f) detected, jumping up before teleport (waypoint_jumped=%s)",
                     d_y,
+                    waypoint_jumped,
                 )
                 press(Key.jump, 1)
                 has_auto_jumped = True
@@ -871,6 +888,14 @@ def step(direction, target, distance=None, waypoint_jumped=False):
 
             if direction in ("up", "down"):
                 # Vertical teleport: Hold direction + Press ALT + Press W
+                log.debug(
+                    "step: vertical move start → dir=%s target_y=%.3f current_y=%.3f d_y=%.3f large_change=%s",
+                    direction,
+                    target[1],
+                    config.player_pos[1],
+                    d_y,
+                    large_y_change,
+                )
                 # NOTE: Skip jump in teleport combo if already auto-jumped OR waypoint_jumped
                 # to avoid duplicate jumps when step() is called multiple times in Move loop
                 if not has_auto_jumped and not waypoint_jumped:
@@ -886,7 +911,13 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                         random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
                     )
 
-                num_presses = 1  # Vertical = 1 press
+                num_presses = 2 if large_y_change else 1
+                log.debug(
+                    "step: executing %d vertical teleports (direction=%s, large_change=%s)",
+                    num_presses,
+                    direction,
+                    large_y_change,
+                )
                 for _ in range(num_presses):
                     key_down(Key.teleport)
                     time.sleep(random.uniform(*TimingConfig.TELEPORT["teleport_hold"]))
@@ -917,6 +948,28 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                     waypoint_jumped,
                 )
                 time.sleep(transition_delay)
+                remaining_y = abs(target[1] - config.player_pos[1])
+                log.debug(
+                    "step: post-teleport y delta=%.4f (target_y=%.3f, current_y=%.3f)",
+                    remaining_y,
+                    target[1],
+                    config.player_pos[1],
+                )
+                if large_y_change and remaining_y > settings.move_tolerance * 1.2:
+                    log.warning(
+                        "step: vertical transition incomplete (delta=%.4f>threshold). Retrying teleport %s.",
+                        remaining_y,
+                        direction,
+                    )
+                    try:
+                        Teleport(direction, 1).main()
+                    except Exception as retry_error:
+                        log.error(
+                            "step: retry teleport failed for direction %s: %s",
+                            direction,
+                            retry_error,
+                            exc_info=True,
+                        )
 
 
 # ==================== RANDOM ACTIONS ====================
