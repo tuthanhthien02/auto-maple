@@ -3,18 +3,12 @@
 import math
 import random
 import time
-from typing import Optional, Tuple
+from typing import Tuple
 
 from src.common import config, settings, utils
 from src.common.logger import get_logger
 from src.common.vkeys import key_down, key_up, press
 from src.routine.components import Command
-
-FLOOR1_LABEL_PREFIX = ("f1_", "floor1", "f1 ")
-FLOOR2_LABEL_PREFIX = ("f2_", "floor2", "f2 ")
-FLOOR1_Y_THRESHOLD = 0.07  # y >= 0.07 → floor 1 (move right)
-FLOOR2_Y_THRESHOLD = 0.06  # y <= 0.06 → floor 2 (move left)
-
 
 log = get_logger(__name__)
 
@@ -162,101 +156,6 @@ class Reflection_Mix_Random(Command):
         if self.min_times > self.max_times:
             # Swap if min > max to prevent errors
             self.min_times, self.max_times = self.max_times, self.min_times
-        # Track last facing direction (True = facing right)
-        self._last_face_right: Optional[bool] = True
-        # Next direction to face before casting (will be set each run)
-        self._next_face_right: Optional[bool] = True
-
-    def _determine_baseline_facing(self) -> Tuple[bool, str]:
-        """Determine initial facing direction for this rotation."""
-        routine = getattr(config, "routine", None)
-        if routine:
-            label = None
-            current_index = getattr(routine, "index", None)
-            try:
-                sequence = getattr(routine, "sequence", None)
-                if (
-                    sequence
-                    and isinstance(current_index, int)
-                    and 0 <= current_index < len(sequence)
-                ):
-                    label = getattr(sequence[current_index], "label", None)
-            except Exception:
-                label = None
-            if isinstance(label, str):
-                label_lower = label.lower()
-                if label_lower.startswith(FLOOR1_LABEL_PREFIX):
-                    self._last_face_right = True
-                    return True, f"label:{label}"
-                if label_lower.startswith(FLOOR2_LABEL_PREFIX):
-                    self._last_face_right = False
-                    return False, f"label:{label}"
-            try:
-                floor1_indices = list(getattr(routine, "floor1_indices", []) or [])
-                floor2_indices = list(getattr(routine, "floor2_indices", []) or [])
-            except Exception:
-                floor1_indices = []
-                floor2_indices = []
-            if current_index is not None:
-                if floor1_indices and current_index in floor1_indices:
-                    self._last_face_right = True
-                    return True, "floor1"
-                if floor2_indices and current_index in floor2_indices:
-                    self._last_face_right = False
-                    return False, "floor2"
-            current_variant = getattr(routine, "current_variant", "normal")
-            if current_variant in {"floor1_only", "floor2_only"}:
-                floor_direction = getattr(routine, "floor_direction", None)
-                if floor_direction == "reverse":
-                    self._last_face_right = False
-                    return False, "routine.reverse"
-                if floor_direction in {"forward", "right"}:
-                    self._last_face_right = True
-                    return True, "routine.forward"
-        player_pos = getattr(config, "player_pos", None)
-        if player_pos:
-            player_y = player_pos[1]
-            if player_y >= FLOOR1_Y_THRESHOLD:
-                self._last_face_right = True
-                return True, f"player_y:{player_y:.3f}"
-            if player_y <= FLOOR2_Y_THRESHOLD:
-                self._last_face_right = False
-                return False, f"player_y:{player_y:.3f}"
-        # Fallback to previous state if available
-        if self._last_face_right is not None:
-            return self._last_face_right, "state"
-        # Default to facing right
-        return True, "default"
-
-    def _next_facing_direction(self) -> bool:
-        """Return the next facing direction (True = right) and toggle state."""
-        if self._next_face_right is None:
-            self._next_face_right = True
-        face_right = self._next_face_right
-        self._last_face_right = face_right
-        self._next_face_right = not face_right
-        return face_right
-
-    def _face_direction(
-        self, skill_name: str, cast_index: int, total_casts: int
-    ) -> str:
-        """Tap the direction key to face before casting a skill."""
-        face_right = self._next_facing_direction()
-        direction = "right" if face_right else "left"
-        key = Key.right if face_right else Key.left
-        down_time = random.uniform(0.04, 0.07)
-        up_time = random.uniform(0.02, 0.05)
-        log.debug(
-            "Reflection_Mix_Random: Facing %s before %s (cast %d/%d, down=%.3fs, up=%.3fs)",
-            direction,
-            skill_name,
-            cast_index,
-            total_casts,
-            down_time,
-            up_time,
-        )
-        press(key, 1, down_time=down_time, up_time=up_time)
-        return direction
 
     def _press_skill(
         self,
@@ -281,26 +180,6 @@ class Reflection_Mix_Random(Command):
         press(key, 1, down_time=down_time, up_time=up_time)
 
     def main(self):
-        # Check if alternate facing is enabled via bot_config (default: True)
-        face_alternate = True
-        try:
-            bot_cfg = getattr(config, "bot_config", None)
-            if bot_cfg is not None:
-                face_alternate = bool(
-                    bot_cfg.get("luminous.facing.alternate.enabled", True)
-                )
-        except Exception:
-            face_alternate = True
-
-        baseline_face_right, baseline_source = self._determine_baseline_facing()
-        self._next_face_right = baseline_face_right
-        log.debug(
-            "Reflection_Mix_Random: baseline facing %s (source=%s, last_state=%s, alternate=%s)",
-            "right" if baseline_face_right else "left",
-            baseline_source,
-            "right" if self._last_face_right else "left",
-            face_alternate,
-        )
         # Always validate buffs before executing attack rotation
         buff_casted = Buff().main()
         if buff_casted:
@@ -341,15 +220,12 @@ class Reflection_Mix_Random(Command):
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             log.debug(
-                "Reflection_Mix_Random: executing Reflection %d times (range %d-%d, alternate_facing=%s)",
+                "Reflection_Mix_Random: executing Reflection %d times (range %d-%d)",
                 times,
                 min_casts,
                 max_casts,
-                face_alternate,
             )
             for cast_idx in range(1, times + 1):
-                if face_alternate:
-                    self._face_direction("reflection", cast_idx, times)
                 self._press_skill(
                     Key.reflection,
                     "reflection",
@@ -366,15 +242,12 @@ class Reflection_Mix_Random(Command):
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             log.debug(
-                "Reflection_Mix_Random: executing Apocalypse %d times (range %d-%d, alternate_facing=%s)",
+                "Reflection_Mix_Random: executing Apocalypse %d times (range %d-%d)",
                 times,
                 min_casts,
                 max_casts,
-                face_alternate,
             )
             for cast_idx in range(1, times + 1):
-                if face_alternate:
-                    self._face_direction("apocalypse", cast_idx, times)
                 self._press_skill(
                     Key.apocalypse,
                     "apocalypse",
@@ -386,12 +259,7 @@ class Reflection_Mix_Random(Command):
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
         else:
             # Death Scythe: 2% chance, 1 cast (fixed)
-            log.debug(
-                "Reflection_Mix_Random: executing Death Scythe once (alternate_facing=%s)",
-                face_alternate,
-            )
-            if face_alternate:
-                self._face_direction("death_scythe", 1, 1)
+            log.debug("Reflection_Mix_Random: executing Death Scythe once")
             self._press_skill(
                 Key.death_scythe,
                 "death_scythe",
