@@ -440,8 +440,40 @@ class VMwareReceiverIntegrated:
             result = self.send_key_to_arduino(key_name, action)
             if not result:
                 log.warning(f"[PROCESS] ✗ Failed to forward: {action}:{key_name}")
+        elif action == "command":
+            self._handle_command_action(key_name)
         else:
             log.warning(f"[WARN] Unknown action: {action} (command: {command})")
+
+    def _handle_command_action(self, command_name: str):
+        if command_name == "toggle_bot":
+            self._handle_remote_toggle()
+        else:
+            log.warning(f"[COMMAND] Unknown command: {command_name}")
+
+    def _handle_remote_toggle(self):
+        try:
+            from src.modules.listener import Listener
+
+            Listener.toggle_enabled()
+            log.info("[COMMAND] Remote toggle executed via Listener.toggle_enabled()")
+        except Exception as exc:
+            log.warning(
+                "[COMMAND] Listener.toggle_enabled() unavailable (%s); trying fallback",
+                exc,
+            )
+            try:
+                from src.common import config as global_config, utils
+
+                global_config.enabled = not global_config.enabled
+                utils.print_state()
+                log.info("[COMMAND] Remote toggle executed via config fallback")
+            except Exception as fallback_exc:
+                log.error(
+                    "[COMMAND] Remote toggle failed: %s",
+                    fallback_exc,
+                    exc_info=True,
+                )
 
     def _server_loop(self):
         """TCP server loop (runs in background thread)"""

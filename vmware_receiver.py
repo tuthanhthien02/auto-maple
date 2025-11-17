@@ -48,6 +48,32 @@ if SRC_DIR not in sys.path:
 from src.common.serial_obfuscation import SerialObfuscator  # noqa: E402
 
 
+def remote_toggle_bot():
+    """
+    Try to toggle the Auto Maple bot using the same logic as the GUI button.
+    Returns True on success, False otherwise.
+    """
+
+    try:
+        from src.modules.listener import Listener
+
+        Listener.toggle_enabled()
+        print("[COMMAND] Remote toggle executed via Listener.toggle_enabled()")
+        return True
+    except Exception as exc:
+        print(f"[COMMAND] Listener.toggle_enabled unavailable ({exc}); trying fallback")
+        try:
+            from src.common import config as global_config, utils
+
+            global_config.enabled = not global_config.enabled
+            utils.print_state()
+            print("[COMMAND] Remote toggle executed via config fallback")
+            return True
+        except Exception as fallback_exc:
+            print(f"[COMMAND] Remote toggle failed: {fallback_exc}")
+            return False
+
+
 class KBDLLHOOKSTRUCT(ctypes.Structure):
     _fields_ = [
         ("vkCode", wintypes.DWORD),
@@ -564,6 +590,12 @@ class VMwareReceiver:
             result = self.send_key_to_arduino(key_name, action)
             if not result:
                 print(f"[PROCESS] ✗ Failed to forward: {action}:{key_name}")
+        elif action == "command":
+            if key_name == "toggle_bot":
+                if not remote_toggle_bot():
+                    print("[PROCESS] ✗ Remote toggle command failed")
+            else:
+                print(f"[WARN] Unknown command: {key_name}")
         else:
             print(f"[WARN] Unknown action: {action} (command: {command})")
 

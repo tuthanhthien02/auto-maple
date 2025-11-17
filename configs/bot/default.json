@@ -28,13 +28,13 @@
         }
       },
       "command_sequence": {
-        "enabled": false,
+        "enabled": true,
         "shuffle_probability": 0.25,
         "skip_probability": 0.05,
         "extra_wait_probability": 0.15,
         "extra_wait_range": [0.05, 0.12],
-        "skip_blacklist": ["Teleport", "Adjust"],
-        "shuffle_blacklist": ["Teleport", "Adjust"]
+        "skip_blacklist": ["Adjust"],
+        "shuffle_blacklist": ["Adjust"]
       },
       "movement": {
         "position_offset": {

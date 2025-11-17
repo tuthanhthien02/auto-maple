@@ -998,7 +998,13 @@ class Conditional_Action(Command):
 class Face_Right(Command):
     """Tap right key briefly to ensure character faces right."""
 
+    def __init__(self, probability=100.0):
+        super().__init__(locals())
+        self.probability = float(probability)
+
     def main(self):
+        if not utils.bernoulli(self.probability / 100.0):
+            return
         press(Key.right, 1, down_time=0.05, up_time=0.05)
         time.sleep(random.uniform(0.03, 0.08))
 
@@ -1006,7 +1012,13 @@ class Face_Right(Command):
 class Face_Left(Command):
     """Tap left key briefly to ensure character faces left."""
 
+    def __init__(self, probability=100.0):
+        super().__init__(locals())
+        self.probability = float(probability)
+
     def main(self):
+        if not utils.bernoulli(self.probability / 100.0):
+            return
         press(Key.left, 1, down_time=0.05, up_time=0.05)
         time.sleep(random.uniform(0.03, 0.08))
 

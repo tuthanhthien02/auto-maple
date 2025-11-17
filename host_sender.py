@@ -419,7 +419,8 @@ class ReceiverRow(tk.Frame):
         self.status_label.configure(text=status)
 
     def _on_toggle_bot(self):
-        self.session.send_command("toggle_bot")
+        if not self.session.send_command("command:toggle_bot"):
+            print(f"[TOGGLE] Failed to trigger toggle on {self.session.name}.")
 
     def _on_toggle_mirror(self):
         self.session.toggle_forwarding()
