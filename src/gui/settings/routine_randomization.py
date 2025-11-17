@@ -23,6 +23,9 @@ DYNAMIC_PATHS_SWITCH_MIN_KEY = "Dynamic Paths Switch Min Loops"
 DYNAMIC_PATHS_SWITCH_MAX_KEY = "Dynamic Paths Switch Max Loops"
 DYNAMIC_PATHS_STAY_PROBABILITY_KEY = "Dynamic Paths Stay Probability"
 
+# Luminous-specific settings
+LUMINOUS_FACE_ALTERNATE_KEY = "Luminous Alternate Facing Enabled"
+
 SCROLL_HEIGHT = 400
 
 
@@ -278,6 +281,19 @@ class RoutineRandomization(LabelFrame):
             command=self._on_micro_gesture_change,
         )
         micro_check.pack(side=tk.TOP, anchor="w", padx=5, pady=2)
+
+        # Luminous-specific: Alternate facing before casting skills
+        luminous_face_enabled = self.settings.get(LUMINOUS_FACE_ALTERNATE_KEY)
+        if not isinstance(luminous_face_enabled, bool):
+            luminous_face_enabled = True  # Enabled by default for human-like behavior
+        self.luminous_face_var = tk.BooleanVar(value=luminous_face_enabled)
+        luminous_face_check = tk.Checkbutton(
+            self.movement_frame,
+            variable=self.luminous_face_var,
+            text="Luminous: Alternate facing left/right before casting skills",
+            command=self._on_luminous_face_change,
+        )
+        luminous_face_check.pack(side=tk.TOP, anchor="w", padx=5, pady=2)
 
         # Dynamic Paths Panel
         self.dynamic_paths_frame = LabelFrame(self._content, "Dynamic Paths")
@@ -630,6 +646,14 @@ class RoutineRandomization(LabelFrame):
         self._sync_to_anti_detect()
         self._sync_to_routine()
 
+    def _on_luminous_face_change(self):
+        """Handle Luminous alternate facing enable/disable change."""
+        enabled = self.luminous_face_var.get()
+        self.settings.set(LUMINOUS_FACE_ALTERNATE_KEY, enabled)
+        self.settings.save_config()
+        # Persist to bot_config so command_books can read it
+        self._set_bot_config_bool("luminous.facing.alternate.enabled", enabled)
+
     def _on_dynamic_paths_change(self):
         """Handle Dynamic Paths enable/disable change."""
         enabled = self.dynamic_paths_var.get()
@@ -824,6 +848,8 @@ class RoutineRandomizationSettings(Configurable):
         DYNAMIC_PATHS_SWITCH_MIN_KEY: 2,
         DYNAMIC_PATHS_SWITCH_MAX_KEY: 5,
         DYNAMIC_PATHS_STAY_PROBABILITY_KEY: 0.2,  # 20% stay, 80% switch
+        # Luminous: alternate facing left/right before casting skills (enabled by default)
+        LUMINOUS_FACE_ALTERNATE_KEY: True,
     }
 
     def get(self, key):
