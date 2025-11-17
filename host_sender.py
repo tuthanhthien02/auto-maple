@@ -434,6 +434,10 @@ class HostSenderGUI(tk.Tk):
 
     def __init__(self, host, sessions: List[ReceiverSession]):
         super().__init__()
+        try:
+            self.tk.call("tk", "scaling", 1.25)
+        except tk.TclError:
+            pass
         self.host = host
         self.sessions = sessions
         self.title("Host Sender - Multi VMware Controller")
@@ -526,6 +530,13 @@ class HostSender:
 
         # Initialize Windows API / hook definitions
         self._init_windows_api()
+        try:
+            tkinter_root = tk.Tk()
+            tkinter_root.withdraw()
+            tkinter_root.tk.call("tk", "scaling", 1.25)
+            tkinter_root.destroy()
+        except tk.TclError:
+            pass
 
     # ------------------------------------------------------------------ Config
     def log(self, message: str):
