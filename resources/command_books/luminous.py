@@ -149,7 +149,11 @@ class Reflection_Mix_Random(Command):
     REFLECTION_PRESS = ((0.08, 0.12), (0.03, 0.06))
     HEAVY_PRESS = ((0.10, 0.15), (0.04, 0.07))
 
-    """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast)."""
+    """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast).
+
+    Args:
+        probability: percentage chance to execute the rotation (0 = always skip, 100 = always run)
+    """
 
     def __init__(self, probability=100.0, min_times=2, max_times=3):
         super().__init__(locals())
@@ -181,7 +185,7 @@ class Reflection_Mix_Random(Command):
         if self.min_times > self.max_times:
             # Swap if min > max to prevent errors
             self.min_times, self.max_times = self.max_times, self.min_times
-        self.probability = float(probability)
+        self.execute_probability = max(0.0, min(100.0, float(probability)))
 
     def _press_skill(
         self,
@@ -206,11 +210,11 @@ class Reflection_Mix_Random(Command):
         press(key, 1, down_time=down_time, up_time=up_time)
 
     def main(self):
-        # Check probability - skip execution if not met
-        if not utils.bernoulli(self.probability / 100.0):
+        # Check execute probability
+        if not utils.bernoulli(self.execute_probability / 100.0):
             log.debug(
-                "Reflection_Mix_Random: skipped (probability=%.1f%%)",
-                self.probability,
+                "Reflection_Mix_Random: skipped (execute_probability=%.1f%%)",
+                self.execute_probability,
             )
             return
 
@@ -869,6 +873,11 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                             "step: combo1 → jump released, waiting %.3fs",
                             jump_release_time,
                         )
+                        combo_cooldown = random.uniform(0.3, 0.5)
+                        time.sleep(combo_cooldown)
+                        log.debug(
+                            "step: combo1 → cooldown after jump %.3fs", combo_cooldown
+                        )
                     else:
                         # Combo 2: Jump FIRST, then hold direction + teleport DURING jump
                         log.debug(
@@ -921,6 +930,12 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                         log.debug(
                             "step: combo2 → jump released, teleport waiting %.3fs",
                             teleport_release_time,
+                        )
+                        combo_cooldown = random.uniform(0.3, 0.5)
+                        time.sleep(combo_cooldown)
+                        log.debug(
+                            "step: combo2 → cooldown after teleport %.3fs",
+                            combo_cooldown,
                         )
                         teleport_done = True  # Teleport already executed in combo2
                 else:
