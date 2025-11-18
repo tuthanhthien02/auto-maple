@@ -873,18 +873,10 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                 jump_hold_time = random.uniform(
                     *TimingConfig.TELEPORT["vertical_jump_hold"]
                 )
-                partial_jump_time = jump_hold_time * random.uniform(0.3, 0.5)
-                time.sleep(partial_jump_time)
+                time.sleep(jump_hold_time)
                 log.debug(
-                    "step: combo2 → jump held for %.3fs, now holding direction",
-                    partial_jump_time,
-                )
-
-                remaining_jump_time = jump_hold_time - partial_jump_time
-                time.sleep(remaining_jump_time)
-                log.debug(
-                    "step: combo2 → direction held during jump (remaining %.3fs)",
-                    remaining_jump_time,
+                    "step: combo2 → jump held for %.3fs before teleport",
+                    jump_hold_time,
                 )
 
                 log.debug("step: combo2 → teleporting while jump+direction held")

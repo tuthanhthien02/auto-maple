@@ -37,6 +37,7 @@
         "shuffle_blacklist": ["Adjust"]
       },
       "movement": {
+        "log_details": false,
         "position_offset": {
           "enabled": false,
           "range": 0.003,

@@ -138,6 +138,7 @@ class Routine:
             "mirror_chance": 0.0,
             "duration_range": (0.02, 0.05),
         }
+        self.movement_logging_enabled = False
         self.observability_config = {"log_every_loops": 0}
         self.observability_metrics = {
             "offsets": 0,
@@ -306,6 +307,7 @@ class Routine:
         self._load_position_offset_defaults(movement_cfg.get("position_offset", {}))
         self._load_micro_gesture_defaults(movement_cfg.get("micro_gesture", {}))
         self._load_observability_defaults(movement_cfg.get("observability", {}))
+        self.movement_logging_enabled = bool(movement_cfg.get("log_details", False))
 
     def _load_position_offset_defaults(self, position_cfg):
         axes_cfg = position_cfg.get("axes", {})
@@ -571,7 +573,7 @@ class Routine:
         new_x = max(0.0, min(1.0, location[0] + offset_x))
         new_y = max(0.0, min(1.0, location[1] + offset_y))
 
-        if offset_x or offset_y:
+        if self.movement_logging_enabled and (offset_x or offset_y):
             log.info(
                 "PositionOffset: range=%.4f axes(x=%s,y=%s) src=(%.4f,%.4f) offset=(%.4f,%.4f) -> dst=(%.4f,%.4f)",
                 offset_range,

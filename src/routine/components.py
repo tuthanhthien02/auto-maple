@@ -872,15 +872,16 @@ class Move(Command):
         duration = random.uniform(
             min(duration_low, duration_high), max(duration_low, duration_high)
         )
-        log.info(
-            "MicroGesture: roll=%.3f <= chance=%.3f ⇒ mirror '%s' for %.3fs (range %.3f–%.3f)",
-            roll,
-            chance,
-            opposite,
-            duration,
-            min(duration_low, duration_high),
-            max(duration_low, duration_high),
-        )
+        if getattr(routine, "movement_logging_enabled", False):
+            log.info(
+                "MicroGesture: roll=%.3f <= chance=%.3f ⇒ mirror '%s' for %.3fs (range %.3f–%.3f)",
+                roll,
+                chance,
+                opposite,
+                duration,
+                min(duration_low, duration_high),
+                max(duration_low, duration_high),
+            )
         action_log.debug("Move: Micro gesture %s for %.3fs", opposite, duration)
         try:
             key_down(opposite)

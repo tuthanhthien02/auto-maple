@@ -227,6 +227,27 @@ def _build_handlers(log_file: Path) -> List[logging.Handler]:
     return handlers
 
 
+def _parse_log_level(env_value: str, default: int) -> int:
+    value = (env_value or "").strip().upper()
+    if not value:
+        return default
+    if hasattr(logging, value):
+        return getattr(logging, value)
+    temp_logger = logging.getLogger("auto_maple.logger_init")
+    temp_logger.warning(
+        "AUTO_MAPLE_LOG_LEVEL '%s' not recognised; falling back to %s",
+        value,
+        logging.getLevelName(default),
+    )
+    return default
+
+
+def _apply_log_level(logger: logging.Logger, level: int) -> None:
+    logger.setLevel(level)
+    for handler in logger.handlers:
+        handler.setLevel(level)
+
+
 def _configure_root_logger() -> logging.Logger:
     base = _resolve_base_path()
     log_dir = _ensure_log_directory(base)
@@ -237,15 +258,13 @@ def _configure_root_logger() -> logging.Logger:
         return logger
 
     # Allow level override via env AUTO_MAPLE_LOG_LEVEL (DEBUG/INFO/WARNING/ERROR/CRITICAL)
-    level_name = os.getenv("AUTO_MAPLE_LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
-    logger.setLevel(level)
+    level = _parse_log_level(os.getenv("AUTO_MAPLE_LOG_LEVEL", "INFO"), logging.INFO)
     for handler in _build_handlers(log_file):
-        # Bug fix: Set handler level to match logger level to properly filter logs
-        # Handler level NOTSET (0) means it respects logger level, but explicitly setting
-        # ensures proper filtering when AUTO_MAPLE_LOG_LEVEL is set to ERROR
         handler.setLevel(level)
         logger.addHandler(handler)
+    _apply_log_level(logger, level)
+    # Also mirror level to the global root logger so third-party loggers respect it
+    _apply_log_level(logging.getLogger(), level)
     logger.propagate = False
 
     logger.debug("Logger initialised. Writing logs to %s", log_file)
