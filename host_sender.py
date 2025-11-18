@@ -762,17 +762,6 @@ class HostSender:
             winsound.Beep(800 if self.block_original_input else 400, 150)
             self._save_config()
             return True
-        if vk_code == self.VK_PGUP:
-            self.global_forwarding_enabled = not self.global_forwarding_enabled
-            status = "ENABLED" if self.global_forwarding_enabled else "DISABLED"
-            print(f"[HOTKEY] PageUp → Mirror input: {status}")
-            winsound.Beep(784 if self.global_forwarding_enabled else 523, 200)
-            self._save_config()
-            return True
-        if vk_code == self.VK_HOME:
-            self._print_statistics()
-            winsound.Beep(600, 120)
-            return True
         return False
 
     def _track_hardware_event(self, message: int):
@@ -785,7 +774,7 @@ class HostSender:
         if message in (WM_KEYDOWN, WM_SYSKEYDOWN):
             if self._update_key_state(key_name, True):
                 self._broadcast_key(key_name, "down")
-        elif message in (WM_KEYUP, WM_SYSKEYUP):
+        if message in (WM_KEYUP, WM_SYSKEYUP):
             if self._update_key_state(key_name, False):
                 self._broadcast_key(key_name, "up")
 
@@ -883,9 +872,9 @@ def main():
     if len(sys.argv) > 3:
         enable_logging = sys.argv[3].lower() in {"true", "1", "yes", "on"}
 
-    sender = HostSender(
-        vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
-    )
+        sender = HostSender(
+            vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
+        )
     sender.run_cli()
 
 

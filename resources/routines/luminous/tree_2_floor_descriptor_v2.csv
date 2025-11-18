@@ -8,7 +8,7 @@ Label,start_routine
 # ========================================
 Comment,=== FLOOR 1 START: Move Left → Right (y ≈ 0.097) ===
 
-*,0.143,0.097,adjust=False,frequency=1
+*,0.143,0.097,adjust=True,frequency=1
 Label,f1_pos_0
 face_right
 reflection_mix_random,75
@@ -16,7 +16,7 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.181,0.097,adjust=False,frequency=1
+*,0.181,0.097,adjust=True,frequency=1
 Label,f1_pos_1
 face_left,25
 reflection_mix_random,75
@@ -24,7 +24,7 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.221,0.097,adjust=False,frequency=1
+*,0.221,0.097,adjust=True,frequency=1
 Label,f1_pos_2
 face_left,25
 reflection_mix_random,75
@@ -32,7 +32,7 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.259,0.097,adjust=False,frequency=1
+*,0.259,0.097,adjust=True,frequency=1
 Label,f1_pos_3
 face_left,25
 reflection_mix_random,75
@@ -40,7 +40,7 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.297,0.097,adjust=False,frequency=1
+*,0.297,0.097,adjust=True,frequency=1
 Label,f1_pos_4
 face_left,25
 reflection_mix_random,75
@@ -48,7 +48,7 @@ wait_random,0.1,0.3
 teleport,right,1
 wait_random,0.2,0.5
 
-*,0.325,0.097,adjust=False,frequency=1
+*,0.325,0.097,adjust=True,frequency=1
 Label,f1_pos_5
 face_left,25
 Comment,Floor 1 Pos 5: Reflection Mix Random (auto-jump to Floor 2 via Adjust)
@@ -60,7 +60,7 @@ wait_random,0.1,0.3
 # ========================================
 Comment,=== FLOOR 2 START: Move Right → Left (y ≈ 0.043) ===
 
-*,0.325,0.043,adjust=False,frequency=1
+*,0.325,0.043,adjust=True,frequency=1
 Label,f2_pos_0
 face_left
 reflection_mix_random,75
@@ -68,7 +68,7 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.283,0.043,adjust=False,frequency=1
+*,0.283,0.043,adjust=True,frequency=1
 Label,f2_pos_1
 face_right,25
 reflection_mix_random,75
@@ -76,7 +76,7 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.252,0.043,adjust=False,frequency=1
+*,0.252,0.043,adjust=True,frequency=1
 Label,f2_pos_2
 face_right,25
 reflection_mix_random,75
@@ -84,7 +84,7 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.211,0.043,adjust=False,frequency=1
+*,0.211,0.043,adjust=True,frequency=1
 Label,f2_pos_3
 face_right,25
 reflection_mix_random,75
@@ -92,7 +92,7 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.171,0.043,adjust=False,frequency=1
+*,0.171,0.043,adjust=True,frequency=1
 Label,f2_pos_4
 face_right,25
 reflection_mix_random,75
@@ -100,7 +100,7 @@ wait_random,0.1,0.3
 teleport,left,1
 wait_random,0.2,0.5
 
-*,0.140,0.043,adjust=False,frequency=1
+*,0.140,0.043,adjust=True,frequency=1
 Label,f2_pos_5
 face_right,25
 Comment,Floor 2 Pos 5: Reflection Mix Random (auto-jump to Floor 1 via Adjust)

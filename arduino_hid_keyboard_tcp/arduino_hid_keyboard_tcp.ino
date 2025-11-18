@@ -59,6 +59,10 @@ const unsigned long WATCHDOG_TIMEOUT_MS = 10000; // 10 giây (allow longer key h
 // Anti-detection: Pseudo-random jitter generator
 // Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
 // Note: A0, A1 pins should be floating (not connected) for best noise
+//
+// NOTE (TEMPORARY): Human-like random jitter is DISABLED by default for stability testing.
+// To re-enable anti-detect timing, set HUMAN_JITTER_ENABLED to true and re-upload.
+const bool HUMAN_JITTER_ENABLED = false;
 uint16_t getRandomJitter(uint16_t min, uint16_t max) {
   // Read from floating analog pins for noise
   uint16_t raw = analogRead(A0);
@@ -84,9 +88,9 @@ uint16_t getRandomJitter(uint16_t min, uint16_t max) {
 // Anti-detection: Human-like delay with jitter (microseconds)
 // Adds natural variation to prevent detection of fixed timing patterns
 void humanDelayMicroseconds(uint16_t base, uint16_t jitterRange) {
-  // Bug fix: Use delayUs instead of delay to avoid shadowing delay() function
-  uint16_t jitter = getRandomJitter(0, jitterRange);
-  // Bug fix: Prevent overflow when adding base + jitter
+  // When jitter is disabled, use fixed timing for maximum determinism (no anti-detect).
+  uint16_t jitter = HUMAN_JITTER_ENABLED ? getRandomJitter(0, jitterRange) : 0;
+  // Prevent overflow when adding base + jitter
   uint32_t delayUs = (uint32_t)base + (uint32_t)jitter;
   // delayMicroseconds max is 16383, use delay() for longer times
   if (delayUs > 16383) {
@@ -99,9 +103,9 @@ void humanDelayMicroseconds(uint16_t base, uint16_t jitterRange) {
 
 // Anti-detection: Human-like delay with jitter (milliseconds)
 void humanDelay(uint16_t base, uint16_t jitterRange) {
-  // Bug fix: Use delayMs instead of delay to avoid shadowing delay() function
-  uint16_t jitter = getRandomJitter(0, jitterRange);
-  // Bug fix: Prevent overflow when adding base + jitter
+  // When jitter is disabled, use fixed timing for maximum determinism (no anti-detect).
+  uint16_t jitter = HUMAN_JITTER_ENABLED ? getRandomJitter(0, jitterRange) : 0;
+  // Prevent overflow when adding base + jitter
   uint32_t delayMs = (uint32_t)base + (uint32_t)jitter;
   // delay() accepts uint32_t, but we'll cap it to reasonable value
   if (delayMs > 65535) {
