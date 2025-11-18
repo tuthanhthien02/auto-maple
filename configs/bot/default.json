@@ -13,7 +13,7 @@
         "never_skip_transitions": true
       },
       "routine_pattern": {
-        "enabled": true,
+        "enabled": false,
         "variant_switch_probability": 0.12,
         "min_loops_before_switch": 3,
         "floor_variant_chance": 0.15,
@@ -28,7 +28,7 @@
         }
       },
       "command_sequence": {
-        "enabled": true,
+        "enabled": false,
         "shuffle_probability": 0.25,
         "skip_probability": 0.05,
         "extra_wait_probability": 0.15,
