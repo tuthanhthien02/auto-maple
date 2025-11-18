@@ -939,20 +939,25 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         transition_delay = random.uniform(0.6, 0.8)
         time.sleep(transition_delay)
 
-    def check_vertical_success(direction_name: str):
+    def check_vertical_success(direction_name: str, initial_distance: float):
         remaining_y = target[1] - config.player_pos[1]
         threshold = (
             up_success_threshold if direction_name == "up" else down_success_threshold
         )
-        success = abs(remaining_y) <= threshold
+        current_distance = abs(remaining_y)
+        # Successful if absolute diff is below threshold or if improved strongly vs initial distance
+        success = current_distance <= threshold or (
+            initial_distance > 0 and current_distance <= initial_distance * 0.3
+        )
         log.debug(
-            "step: vertical check dir=%s pos=(%.3f, %.3f) target_y=%.3f remaining_y=%.4f threshold=%.4f status=%s",
+            "step: vertical check dir=%s pos=(%.3f, %.3f) target_y=%.3f remaining_y=%.4f threshold=%.4f initial_dist=%.4f status=%s",
             direction_name,
             config.player_pos[0],
             config.player_pos[1],
             target[1],
             remaining_y,
             threshold,
+            initial_distance,
             "success" if success else "retry",
         )
         return success, remaining_y
@@ -969,9 +974,10 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         attempts = 0
         success = False
         remaining_y = target[1] - config.player_pos[1]
+        initial_distance = abs(remaining_y)
         while attempts < max_vertical_attempts:
             perform_vertical_attempt(direction)
-            success, remaining_y = check_vertical_success(direction)
+            success, remaining_y = check_vertical_success(direction, initial_distance)
             if success:
                 break
             attempts += 1
@@ -993,9 +999,10 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         attempts = 0
         success = False
         remaining_y = target[1] - config.player_pos[1]
+        initial_distance = abs(remaining_y)
         while attempts < max_vertical_attempts:
             perform_vertical_attempt(direction)
-            success, remaining_y = check_vertical_success(direction)
+            success, remaining_y = check_vertical_success(direction, initial_distance)
             if success:
                 break
             attempts += 1
