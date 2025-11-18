@@ -747,8 +747,8 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         * TimingConfig.STEP_MOVEMENT["hold_threshold_multiplier"]
     )
     align_threshold = max(settings.move_tolerance * 0.6, 0.01)
-    up_success_threshold = max(settings.move_tolerance * 0.8, 0.01)
-    down_success_threshold = max(settings.move_tolerance * 0.8, 0.01)
+    up_success_threshold = max(settings.move_tolerance * 1.3, 0.02)
+    down_success_threshold = max(settings.move_tolerance * 1.0, 0.02)
     max_vertical_attempts = 3
 
     def horizontal_step(direction_name: str, dist: float):
@@ -936,7 +936,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                 execute_horizontal_teleport()
         finally:
             key_up(direction_key)
-        transition_delay = random.uniform(0.3, 0.45)
+        transition_delay = random.uniform(0.6, 0.8)
         time.sleep(transition_delay)
 
     def check_vertical_success(direction_name: str):
@@ -946,8 +946,11 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         )
         success = abs(remaining_y) <= threshold
         log.debug(
-            "step: vertical check dir=%s remaining_y=%.4f threshold=%.4f status=%s",
+            "step: vertical check dir=%s pos=(%.3f, %.3f) target_y=%.3f remaining_y=%.4f threshold=%.4f status=%s",
             direction_name,
+            config.player_pos[0],
+            config.player_pos[1],
+            target[1],
             remaining_y,
             threshold,
             "success" if success else "retry",
