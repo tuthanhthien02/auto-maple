@@ -52,7 +52,7 @@ class TimingConfig:
     # Reflection timing ranges (in seconds)
     REFLECTION = {
         "between_casts": (0.04, 0.09),  # Delay between consecutive casts
-        "long_between_casts": (0.18, 0.30),  # Dải sleep lớn hơn
+        "long_between_casts": (0.25, 0.40),  # Dải sleep lớn hơn
     }
 
     # Heavy skills timing ranges (in seconds)
@@ -873,6 +873,26 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                             "step: combo1 → jump released, waiting %.3fs",
                             jump_release_time,
                         )
+
+                        # Teleport while direction key is still held
+                        log.debug("step: combo1 → teleporting after jump")
+                        key_down(Key.teleport)
+                        teleport_hold_time = random.uniform(
+                            *TimingConfig.TELEPORT["teleport_hold"]
+                        )
+                        time.sleep(teleport_hold_time)
+                        log.debug(
+                            "step: combo1 → teleport held for %.3fs", teleport_hold_time
+                        )
+                        key_up(Key.teleport)
+                        teleport_release_time = random.uniform(
+                            *TimingConfig.TELEPORT["teleport_release"]
+                        )
+                        time.sleep(teleport_release_time)
+                        log.debug(
+                            "step: combo1 → teleport released, waiting %.3fs",
+                            teleport_release_time,
+                        )
                         combo_cooldown = random.uniform(0.3, 0.5)
                         time.sleep(combo_cooldown)
                         log.debug(
@@ -1062,41 +1082,8 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         finally:
             # ALWAYS Release direction key
             key_up(direction_key)
-            # Allow time for floor transition to register after vertical teleport (only for "up")
-            if direction == "up":
-                transition_delay = random.uniform(0.15, 0.25)
-                log.debug(
-                    "step: vertical transition delay %.3fs applied (direction=%s, waypoint_jumped=%s)",
-                    transition_delay,
-                    direction,
-                    waypoint_jumped,
-                )
-                time.sleep(transition_delay)
-                remaining_y = abs(target[1] - config.player_pos[1])
-                log.debug(
-                    "step: post-teleport y delta=%.4f (target_y=%.3f, current_y=%.3f)",
-                    remaining_y,
-                    target[1],
-                    config.player_pos[1],
-                )
-                if large_y_change and remaining_y > settings.move_tolerance * 1.2:
-                    log.warning(
-                        "step: vertical transition incomplete (delta=%.4f>threshold). Retrying teleport %s.",
-                        remaining_y,
-                        direction,
-                    )
-                    try:
-                        Teleport(direction, 1).main()
-                    except Exception as retry_error:
-                        log.error(
-                            "step: retry teleport failed for direction %s: %s",
-                            direction,
-                            retry_error,
-                            exc_info=True,
-                        )
-            elif direction == "down":
-                # Direction down: Short delay for movement to register
-                time.sleep(random.uniform(0.05, 0.10))
+            transition_delay = random.uniform(0.3, 0.45)
+            time.sleep(transition_delay)
 
 
 # ==================== RANDOM ACTIONS ====================
