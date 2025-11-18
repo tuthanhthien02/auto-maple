@@ -3,7 +3,7 @@
 import math
 import random
 import time
-from typing import Tuple
+from typing import Any, Tuple
 
 from src.common import config, settings, utils
 from src.common.logger import get_logger
@@ -179,12 +179,27 @@ class Reflection_Mix_Random(Command):
                 )
                 probability, min_times, max_times = max_times, prob_val, min_val
 
+        def _rounded_int(value: Any, fallback: int) -> int:
+            try:
+                return int(round(float(value)))
+            except (TypeError, ValueError):
+                return fallback
+
         # Bug fix: Ensure min_times <= max_times to prevent ValueError in random.randint
-        self.min_times = int(min_times)
-        self.max_times = int(max_times)
-        if self.min_times > self.max_times:
-            # Swap if min > max to prevent errors
-            self.min_times, self.max_times = self.max_times, self.min_times
+        rounded_min = _rounded_int(min_times, 2)
+        self.min_times = max(1, rounded_min)
+
+        rounded_max = _rounded_int(max_times, max(self.min_times, 2))
+        self.max_times = max(self.min_times, rounded_max)
+
+        log.debug(
+            "Reflection_Mix_Random: resolved min/max casts → min=%d (raw=%s) | max=%d (raw=%s)",
+            self.min_times,
+            min_times,
+            self.max_times,
+            max_times,
+        )
+
         self.execute_probability = max(0.0, min(100.0, float(probability)))
 
     def _press_skill(
@@ -217,6 +232,10 @@ class Reflection_Mix_Random(Command):
                 self.execute_probability,
             )
             return
+        log.debug(
+            "Reflection_Mix_Random: execute_probability roll passed (%.1f%%)",
+            self.execute_probability,
+        )
 
         # Always validate buffs before executing attack rotation
         buff_casted = Buff().main()
@@ -253,15 +272,16 @@ class Reflection_Mix_Random(Command):
             self.max_times,
         )
         if roll < 0.93:
+            log.debug("Reflection_Mix_Random: roll branch → Reflection (<=0.93)")
             # Reflection: 93% chance, Use min_times/max_times with minimum 2 casts
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             log.debug(
-                "Reflection_Mix_Random: executing Reflection %d times (range %d-%d)",
-                times,
+                "Reflection_Mix_Random: Reflection random.randint(%d, %d) -> %d casts",
                 min_casts,
                 max_casts,
+                times,
             )
             for cast_idx in range(1, times + 1):
                 self._press_skill(
@@ -275,15 +295,18 @@ class Reflection_Mix_Random(Command):
                     random.uniform(*TimingConfig.REFLECTION["long_between_casts"])
                 )
         elif roll < 0.98:
+            log.debug(
+                "Reflection_Mix_Random: roll branch → Apocalypse (0.93 ≤ roll < 0.98)"
+            )
             # Apocalypse: 5% chance, Use min_times/max_times with minimum 2 casts (consistent with Reflection)
             min_casts = max(2, self.min_times)
             max_casts = max(min_casts, self.max_times)  # Ensure max >= min
             times = random.randint(min_casts, max_casts)
             log.debug(
-                "Reflection_Mix_Random: executing Apocalypse %d times (range %d-%d)",
-                times,
+                "Reflection_Mix_Random: Apocalypse random.randint(%d, %d) -> %d casts",
                 min_casts,
                 max_casts,
+                times,
             )
             for cast_idx in range(1, times + 1):
                 self._press_skill(
@@ -297,6 +320,7 @@ class Reflection_Mix_Random(Command):
             time.sleep(random.uniform(*TimingConfig.HEAVY["between_actions"]))
         else:
             # Death Scythe: 2% chance, 1 cast (fixed)
+            log.debug("Reflection_Mix_Random: roll branch → Death Scythe (>=0.98)")
             log.debug("Reflection_Mix_Random: executing Death Scythe once")
             self._press_skill(
                 Key.death_scythe,
