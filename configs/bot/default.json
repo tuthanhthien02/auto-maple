@@ -38,12 +38,12 @@
       },
       "movement": {
         "position_offset": {
-          "enabled": false,
+          "enabled": true,
           "range": 0.003,
           "axes": { "x": true, "y": false }
         },
         "micro_gesture": {
-          "enabled": false,
+          "enabled": true,
           "mirror_chance": 0.08,
           "duration_range": [0.03, 0.08]
         },

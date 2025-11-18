@@ -862,7 +862,8 @@ class Move(Command):
         if not cfg.get("enabled"):
             return
         chance = cfg.get("mirror_chance", 0.0)
-        if random.random() >= chance:
+        roll = random.random()
+        if roll >= chance:
             return
         opposite = self._opposite_direction(current_direction)
         if not opposite:
@@ -870,6 +871,15 @@ class Move(Command):
         duration_low, duration_high = cfg.get("duration_range", (0.02, 0.05))
         duration = random.uniform(
             min(duration_low, duration_high), max(duration_low, duration_high)
+        )
+        log.info(
+            "MicroGesture: roll=%.3f <= chance=%.3f ⇒ mirror '%s' for %.3fs (range %.3f–%.3f)",
+            roll,
+            chance,
+            opposite,
+            duration,
+            min(duration_low, duration_high),
+            max(duration_low, duration_high),
         )
         action_log.debug("Move: Micro gesture %s for %.3fs", opposite, duration)
         try:
