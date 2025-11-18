@@ -44,6 +44,42 @@ class RAWINPUTDEVICELIST(ctypes.Structure):
     ]
 
 
+_PRAWINPUTDEVICELIST = ctypes.POINTER(RAWINPUTDEVICELIST)
+_PUINT = ctypes.POINTER(wintypes.UINT)
+
+user32.GetRawInputDeviceList.argtypes = (
+    _PRAWINPUTDEVICELIST,
+    _PUINT,
+    wintypes.UINT,
+)
+user32.GetRawInputDeviceList.restype = wintypes.UINT
+
+user32.GetRawInputDeviceInfoW.argtypes = (
+    wintypes.HANDLE,
+    wintypes.UINT,
+    ctypes.c_void_p,
+    _PUINT,
+)
+user32.GetRawInputDeviceInfoW.restype = wintypes.UINT
+
+
+def _normalize_handle(handle: wintypes.HANDLE) -> Optional[int]:
+    """
+    Convert a HANDLE-like object (int, c_void_p, etc.) into a Python int value.
+    """
+    if handle is None:
+        return None
+    if isinstance(handle, int):
+        return handle
+    value = getattr(handle, "value", None)
+    if value is None:
+        try:
+            value = int(handle)
+        except Exception:
+            return None
+    return int(value)
+
+
 class DeviceStealth:
     """
     Device Stealth - Bypass Raw Input API detection
@@ -62,7 +98,7 @@ class DeviceStealth:
             enabled: Enable/disable device stealth
         """
         self.enabled = enabled
-        self.device_handles: List[wintypes.HANDLE] = []
+        self.device_handles: List[int] = []
         self.spoofed_properties: Dict[str, str] = {}
 
         if self.enabled:
@@ -113,10 +149,14 @@ class DeviceStealth:
                 device = device_list[i]
 
                 if device.dwType == RIM_TYPEKEYBOARD:
-                    device_info = self._get_device_info(device.hDevice)
+                    handle_value = _normalize_handle(device.hDevice)
+                    if handle_value is None:
+                        continue
+
+                    device_info = self._get_device_info(handle_value)
                     if device_info:
                         devices.append(device_info)
-                        self.device_handles.append(device.hDevice)
+                        self.device_handles.append(handle_value)
 
         except Exception as e:
             log.error(f"Error getting Raw Input devices: {e}")
@@ -134,10 +174,16 @@ class DeviceStealth:
             Device info dictionary or None
         """
         try:
+            handle_value = _normalize_handle(device_handle)
+            if handle_value is None:
+                return None
+
+            handle = wintypes.HANDLE(handle_value)
+
             # Get device name size
             name_size = wintypes.UINT(0)
             result = user32.GetRawInputDeviceInfoW(
-                device_handle, RIDI_DEVICENAME, None, ctypes.byref(name_size)
+                handle, RIDI_DEVICENAME, None, ctypes.byref(name_size)
             )
 
             if result == 0xFFFFFFFF or name_size.value == 0:
@@ -146,7 +192,7 @@ class DeviceStealth:
             # Get device name
             name_buffer = ctypes.create_unicode_buffer(name_size.value)
             result = user32.GetRawInputDeviceInfoW(
-                device_handle, RIDI_DEVICENAME, name_buffer, ctypes.byref(name_size)
+                handle, RIDI_DEVICENAME, name_buffer, ctypes.byref(name_size)
             )
 
             if result == 0xFFFFFFFF:
@@ -161,7 +207,7 @@ class DeviceStealth:
             )
 
             return {
-                "handle": device_handle,
+                "handle": handle_value,
                 "name": device_name,
                 "is_arduino": is_arduino,
             }

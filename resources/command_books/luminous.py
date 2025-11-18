@@ -151,8 +151,30 @@ class Reflection_Mix_Random(Command):
 
     """Mix skills per call: 93% Reflection (2–3 casts), 5% Apocalypse (2–3 casts), 2% Death Scythe (1 cast)."""
 
-    def __init__(self, min_times=2, max_times=3, probability=100.0):
+    def __init__(self, probability=100.0, min_times=2, max_times=3):
         super().__init__(locals())
+
+        # Backward compatibility: older configs used positional order (min_times, max_times, probability).
+        try:
+            prob_val = float(probability)
+            min_val = float(min_times)
+            max_val = float(max_times)
+        except (TypeError, ValueError):
+            prob_val = probability
+            min_val = min_times
+            max_val = max_times
+        else:
+            if (
+                1 <= prob_val <= 5
+                and 1 <= min_val <= 5
+                and 0.0 <= max_val <= 100.0
+                and max_val > 5
+            ):
+                log.debug(
+                    "Reflection_Mix_Random: detected legacy argument order (min,max,probability) → reassigning"
+                )
+                probability, min_times, max_times = max_times, prob_val, min_val
+
         # Bug fix: Ensure min_times <= max_times to prevent ValueError in random.randint
         self.min_times = int(min_times)
         self.max_times = int(max_times)
