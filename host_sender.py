@@ -883,9 +883,9 @@ def main():
     if len(sys.argv) > 3:
         enable_logging = sys.argv[3].lower() in {"true", "1", "yes", "on"}
 
-    sender = HostSender(
-        vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
-    )
+        sender = HostSender(
+            vmware_ip=vmware_ip, vmware_port=vmware_port, enable_logging=enable_logging
+        )
     sender.run_cli()
 
 
