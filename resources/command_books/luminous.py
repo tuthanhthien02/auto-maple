@@ -794,11 +794,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                 direction_name,
                 hold_time,
             )
-            try:
-                key_down(direction_key)
-                time.sleep(hold_time)
-            finally:
-                key_up(direction_key)
+            press(direction_key, 1, down_time=max(0.05, hold_time), up_time=0.02)
             time.sleep(random.uniform(0.05, 0.12))
         else:
             log.debug(
@@ -825,10 +821,8 @@ def step(direction, target, distance=None, waypoint_jumped=False):
             )
 
     def tap_teleport():
-        key_down(Key.teleport)
         teleport_hold_time = random.uniform(*TimingConfig.TELEPORT["teleport_hold"])
-        time.sleep(teleport_hold_time)
-        key_up(Key.teleport)
+        press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.02)
         teleport_release_time = random.uniform(
             *TimingConfig.TELEPORT["teleport_release"]
         )
@@ -837,53 +831,22 @@ def step(direction, target, distance=None, waypoint_jumped=False):
     def execute_combo_up():
         teleport_done = False
         if not waypoint_jumped:
-            use_combo1 = random.random() < 0.5
-            if use_combo1:
-                log.debug("step: combo1 → holding direction key first")
-                direction_delay_time = random.uniform(
-                    *TimingConfig.TELEPORT["direction_delay"]
-                )
-                time.sleep(direction_delay_time)
-                log.debug(
-                    "step: combo1 → direction held for %.3fs",
-                    direction_delay_time,
-                )
+            log.debug("step: combo1 → holding direction key first")
+            direction_delay_time = random.uniform(
+                *TimingConfig.TELEPORT["direction_delay"]
+            )
+            time.sleep(direction_delay_time)
+            log.debug(
+                "step: combo1 → direction held for %.3fs",
+                direction_delay_time,
+            )
 
-                log.debug("step: combo1 → jumping")
-                key_down(Key.jump)
-                jump_hold_time = random.uniform(
-                    *TimingConfig.TELEPORT["vertical_jump_hold"]
-                )
-                time.sleep(jump_hold_time)
-                log.debug("step: combo1 → jump held for %.3fs", jump_hold_time)
-                key_up(Key.jump)
-                jump_release_time = random.uniform(
-                    *TimingConfig.TELEPORT["vertical_jump_release"]
-                )
-                time.sleep(jump_release_time)
-                log.debug(
-                    "step: combo1 → jump released, waiting %.3fs",
-                    jump_release_time,
-                )
-            else:
-                log.debug(
-                    "step: combo2 → jump first, then direction+teleport during jump"
-                )
-                key_down(Key.jump)
-                jump_hold_time = random.uniform(
-                    *TimingConfig.TELEPORT["vertical_jump_hold"]
-                )
-                time.sleep(jump_hold_time)
-                log.debug(
-                    "step: combo2 → jump held for %.3fs before teleport",
-                    jump_hold_time,
-                )
-
-                log.debug("step: combo2 → teleporting while jump+direction held")
-                tap_teleport()
-
-                key_up(Key.jump)
-                teleport_done = True
+            log.debug("step: combo1 → jumping")
+            jump_hold_time = random.uniform(
+                *TimingConfig.TELEPORT["vertical_jump_hold"]
+            )
+            press(Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02)
+            log.debug("step: combo1 → jump held for %.3fs", jump_hold_time)
         else:
             log.debug(
                 "step: waypoint_jumped=True → skipping jump, holding direction only"
@@ -916,11 +879,9 @@ def step(direction, target, distance=None, waypoint_jumped=False):
             return
 
         log.debug("step: direction down → jumping")
-        key_down(Key.jump)
         jump_hold_time = random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
-        time.sleep(jump_hold_time)
+        press(Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02)
         log.debug("step: direction down → jump held for %.3fs", jump_hold_time)
-        key_up(Key.jump)
         jump_release_time = random.uniform(
             *TimingConfig.TELEPORT["vertical_jump_release"]
         )
