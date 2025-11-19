@@ -44,7 +44,7 @@ class TimingConfig:
             0.015,
             0.025,
         ),  # Jump key release for vertical teleport
-        "teleport_hold": (0.025, 0.035),  # Teleport key hold
+        "teleport_hold": (0.10, 0.15),  # Teleport key hold
         "teleport_release": (0.015, 0.025),  # Teleport key release
         "combo_delay": (0.10, 0.15),  # Delay between combos
     }
@@ -407,26 +407,39 @@ class Teleport(Command):
                 # Check direction type for different combos
                 if self.direction in ["up", "down"]:
                     # Vertical teleport: Hold direction + Press ALT + Press W
-                    key_down(Key.jump)
-                    time.sleep(
-                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
+                    jump_hold_time = random.uniform(
+                        *TimingConfig.TELEPORT["vertical_jump_hold"]
                     )
-                    key_up(Key.jump)
+                    press(
+                        Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02
+                    )
                     time.sleep(
                         random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
                     )
 
-                    key_down(Key.teleport)
-                    time.sleep(random.uniform(*TimingConfig.TELEPORT["teleport_hold"]))
-                    key_up(Key.teleport)
+                    teleport_hold_time = random.uniform(
+                        *TimingConfig.TELEPORT["teleport_hold"]
+                    )
+                    press(
+                        Key.teleport,
+                        1,
+                        down_time=max(0.03, teleport_hold_time),
+                        up_time=0.02,
+                    )
                     time.sleep(
                         random.uniform(*TimingConfig.TELEPORT["teleport_release"])
                     )
                 else:
                     # Horizontal teleport: Hold direction + Press W (NO ALT)
-                    key_down(Key.teleport)
-                    time.sleep(random.uniform(*TimingConfig.TELEPORT["teleport_hold"]))
-                    key_up(Key.teleport)
+                    teleport_hold_time = random.uniform(
+                        *TimingConfig.TELEPORT["teleport_hold"]
+                    )
+                    press(
+                        Key.teleport,
+                        1,
+                        down_time=max(0.03, teleport_hold_time),
+                        up_time=0.02,
+                    )
                     time.sleep(
                         random.uniform(*TimingConfig.TELEPORT["teleport_release"])
                     )
@@ -567,7 +580,10 @@ class Jump_Teleport_Up(Command):
                     i + 1,
                     self.times,
                 )
-                press(Key.teleport, 1, down_time=0.1, up_time=0.1)
+                teleport_hold_time = random.uniform(
+                    *TimingConfig.TELEPORT["teleport_hold"]
+                )
+                press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.1)
                 teleport_delay = random.uniform(
                     *TimingConfig.JUMP_TELEPORT_UP["teleport_delay"]
                 )
@@ -1018,7 +1034,10 @@ class Random_Teleport(Command):
         # Roll the dice: only execute if random() < probability
         if utils.bernoulli(self.probability):
             for _ in range(self.count):
-                press(Key.teleport, 1, down_time=0.1, up_time=0.1)
+                teleport_hold_time = random.uniform(
+                    *TimingConfig.TELEPORT["teleport_hold"]
+                )
+                press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.1)
                 if self.direction == "right":
                     press(Key.right, 1)
                 elif self.direction == "left":
@@ -1088,14 +1107,20 @@ class Conditional_Action(Command):
             if self.action1 == "attack":
                 press(Key.reflection, 1)
             elif self.action1 == "teleport":
-                press(Key.teleport, 1)
+                teleport_hold_time = random.uniform(
+                    *TimingConfig.TELEPORT["teleport_hold"]
+                )
+                press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.02)
                 press(Key.right, 1)
         else:
             # Execute action2
             if self.action2 == "attack":
                 press(Key.reflection, 1)
             elif self.action2 == "teleport":
-                press(Key.teleport, 1)
+                teleport_hold_time = random.uniform(
+                    *TimingConfig.TELEPORT["teleport_hold"]
+                )
+                press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.02)
                 press(Key.up, 1)
 
         time.sleep(0.1)

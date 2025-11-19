@@ -326,11 +326,21 @@ def is_action_logging_enabled() -> bool:
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """Return the shared logger or a named child logger."""
+    """Return the shared logger or a named child logger.
+
+    Child loggers will inherit the level from the root logger to ensure
+    AUTO_MAPLE_LOG_LEVEL is respected across all modules.
+    """
 
     if not name:
         return _ROOT_LOGGER
-    return _ROOT_LOGGER.getChild(name)
+    child_logger = _ROOT_LOGGER.getChild(name)
+    # Ensure child logger always matches root logger level
+    # This ensures AUTO_MAPLE_LOG_LEVEL is respected for all loggers
+    # Child loggers propagate to root, so setting level ensures filtering happens
+    if child_logger.level != _ROOT_LOGGER.level:
+        child_logger.setLevel(_ROOT_LOGGER.level)
+    return child_logger
 
 
 # Convenience alias for modules that only need the default logger.

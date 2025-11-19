@@ -659,35 +659,8 @@ class Move(Command):
             or (is_floor_reverse and distance > self.teleport_threshold)
         )
 
-        # Log move decision (always log for observation)
-        action_log.info(
-            "📍 Move: Target (%.3f, %.3f), Distance: %.3f, Threshold: %.3f, Skipping: %s, Backwarding: %s, Reverse: %s, FloorReverse: %s",
-            self.target[0],
-            self.target[1],
-            distance,
-            self.teleport_threshold,
-            is_skipping,
-            is_backwarding,
-            is_reverse,
-            is_floor_reverse,
-        )
-
         if should_use_teleport and distance > self.teleport_threshold:
             # Always teleport when distance > threshold (100% chance for both normal and reverse)
-            if is_floor_reverse:
-                reason = "floor-only reverse"
-            elif is_reverse:
-                reason = "reverse variant"
-            elif is_backwarding:
-                reason = "backwarding"
-            else:
-                reason = "skipping"
-            action_log.info(
-                "🚀 Move: Attempting teleport (distance: %.3f > threshold: %.3f, reason: %s, chance: 100%%)",
-                distance,
-                self.teleport_threshold,
-                reason,
-            )
             # For floor-only reverse movement: Direction is already calculated correctly based on actual position
             # (e.g., moving from right to left = "left" direction). Do NOT reverse direction.
             # For normal reverse variant: Always reverse direction.
@@ -699,56 +672,25 @@ class Move(Command):
                 # Floor reverse: Direction is already correct (calculated from actual position movement)
                 # Do NOT reverse direction - the calculated direction (left/right) is already correct for reverse movement
                 reverse_teleport = False
-                action_log.debug(
-                    "Move: Floor reverse - using calculated direction (no reversal needed, direction already correct)"
-                )
-            action_log.debug(
-                "Move: reverse_teleport=%s, is_reverse=%s, is_floor_reverse=%s, floor_direction=%s",
-                reverse_teleport,
-                is_reverse,
-                is_floor_reverse,
-                floor_direction if is_floor_only else "N/A",
-            )
             if self._teleport_to_target(reverse_direction=reverse_teleport):
                 # Teleport successful, check if we need to adjust
                 remaining_distance = utils.distance(config.player_pos, self.target)
                 if remaining_distance > settings.move_tolerance:
                     # Still need to walk a bit to reach exact target
-                    action_log.info(
-                        "🚶 Move: Adjusting position after teleport (remaining: %.3f)",
-                        remaining_distance,
-                    )
                     # Continue with walk logic for fine adjustment
+                    pass
                 else:
                     # Close enough, no need to walk
-                    action_log.info("✅ Move: Teleport successful, reached target")
                     return
             else:
                 # Teleport failed, fall through to walk
-                action_log.warning("⚠️ Move: Teleport failed, falling back to walk")
+                pass
         elif should_use_teleport:
             # Should teleport but distance is close, walk normally
-            if is_floor_reverse:
-                reason = "floor-only reverse"
-            elif is_reverse:
-                reason = "reverse variant"
-            else:
-                reason = "skipping"
-            action_log.info(
-                "🚶 Move: %s but distance is close (%.3f <= %.3f), walking",
-                reason,
-                distance,
-                self.teleport_threshold,
-            )
+            pass
         else:
             # Not skipping and not reverse, walk normally
-            action_log.info(
-                "🚶 Move: Normal walk (distance: %.3f, skipping: %s, reverse: %s, floorReverse: %s)",
-                distance,
-                is_skipping,
-                is_reverse,
-                is_floor_reverse,
-            )
+            pass
 
         # Normal walk logic with human-like movement characteristics
         counter = self.max_steps
