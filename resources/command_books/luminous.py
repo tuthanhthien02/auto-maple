@@ -387,72 +387,36 @@ class Light_Reflection(Command):
 
 
 class Teleport(Command):
-    """Teleport in a direction - CONFIGURABLE RANDOM TIMING."""
+    """
+    Teleports in a given direction, jumping if specified. Adds the player's position
+    to the current Layout if necessary.
+    """
 
-    def __init__(self, direction="right", times=1):
+    def __init__(self, direction, jump="False"):
         super().__init__(locals())
-        self.direction = direction
-        self.times = int(times)
+        self.direction = settings.validate_arrows(direction)
+        self.jump = settings.validate_boolean(jump)
 
     def main(self):
-        # Luminous teleport with configurable random timing
-        direction_key = getattr(Key, self.direction)
-
-        for i in range(self.times):
-            try:
-                # Hold direction key FIRST with random timing
-                key_down(direction_key)
-                time.sleep(random.uniform(*TimingConfig.TELEPORT["direction_delay"]))
-
-                # Check direction type for different combos
-                if self.direction in ["up", "down"]:
-                    # Vertical teleport: Hold direction + Press ALT + Press W
-                    jump_hold_time = random.uniform(
-                        *TimingConfig.TELEPORT["vertical_jump_hold"]
-                    )
-                    press(
-                        Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02
-                    )
-                    time.sleep(
-                        random.uniform(*TimingConfig.TELEPORT["vertical_jump_release"])
-                    )
-
-                    teleport_hold_time = random.uniform(
-                        *TimingConfig.TELEPORT["teleport_hold"]
-                    )
-                    press(
-                        Key.teleport,
-                        1,
-                        down_time=max(0.03, teleport_hold_time),
-                        up_time=0.02,
-                    )
-                    time.sleep(
-                        random.uniform(*TimingConfig.TELEPORT["teleport_release"])
-                    )
-                else:
-                    # Horizontal teleport: Hold direction + Press W (NO ALT)
-                    teleport_hold_time = random.uniform(
-                        *TimingConfig.TELEPORT["teleport_hold"]
-                    )
-                    press(
-                        Key.teleport,
-                        1,
-                        down_time=max(0.03, teleport_hold_time),
-                        up_time=0.02,
-                    )
-                    time.sleep(
-                        random.uniform(*TimingConfig.TELEPORT["teleport_release"])
-                    )
-
-            finally:
-                # ALWAYS Release direction key (even if error occurs)
-                key_up(direction_key)
-                # Small delay after releasing direction key to ensure game processes input
-                if i < self.times - 1:
-                    time.sleep(random.uniform(*TimingConfig.TELEPORT["combo_delay"]))
-                elif i == self.times - 1:
-                    # Small delay after last combo to ensure smooth transition
-                    time.sleep(random.uniform(0.02, 0.05))
+        num_presses = 3
+        time.sleep(0.05)
+        if self.direction in ["up", "down"]:
+            num_presses = 2
+        if self.direction != "up":
+            key_down(self.direction)
+            time.sleep(0.05)
+        if self.jump:
+            if self.direction == "down":
+                press(Key.jump, 3, down_time=0.1)
+            else:
+                press(Key.jump, 1)
+        if self.direction == "up":
+            key_down(self.direction)
+            time.sleep(0.05)
+        press(Key.teleport, num_presses)
+        key_up(self.direction)
+        if settings.record_layout:
+            config.layout.add(*config.player_pos)
 
 
 class Teleport_Up(Command):
@@ -694,14 +658,7 @@ class Adjust(Command):
 
     def __init__(self, x, y, max_steps=5):
         super().__init__(locals())
-        # Chèn nudge random nhỏ vào position
-        nudge_x = random.uniform(*TimingConfig.NUDGE["x"]) * (
-            1 if random.random() < 0.5 else -1
-        )
-        nudge_y = random.uniform(*TimingConfig.NUDGE["y"]) * (
-            1 if random.random() < 0.5 else -1
-        )
-        self.target = (float(x) + nudge_x, float(y) + nudge_y)
+        self.target = (float(x), float(y))
         self.max_steps = settings.validate_nonnegative_int(max_steps)
 
     def main(self):
@@ -715,306 +672,63 @@ class Adjust(Command):
                 if abs(d_x) > threshold:
                     walk_counter = 0
                     if d_x < 0:
-                        try:
-                            key_down("left")
-                            while (
-                                config.enabled
-                                and d_x < -1 * threshold
-                                and walk_counter < 60
-                            ):
-                                time.sleep(0.05)
-                                walk_counter += 1
-                                d_x = self.target[0] - config.player_pos[0]
-                        finally:
-                            key_up("left")
+                        key_down("left")
+                        while (
+                            config.enabled
+                            and d_x < -1 * threshold
+                            and walk_counter < 60
+                        ):
+                            time.sleep(0.05)
+                            walk_counter += 1
+                            d_x = self.target[0] - config.player_pos[0]
+                        key_up("left")
                     else:
-                        try:
-                            key_down("right")
-                            while (
-                                config.enabled and d_x > threshold and walk_counter < 60
-                            ):
-                                time.sleep(0.05)
-                                walk_counter += 1
-                                d_x = self.target[0] - config.player_pos[0]
-                        finally:
-                            key_up("right")
+                        key_down("right")
+                        while config.enabled and d_x > threshold and walk_counter < 60:
+                            time.sleep(0.05)
+                            walk_counter += 1
+                            d_x = self.target[0] - config.player_pos[0]
+                        key_up("right")
                     counter -= 1
             else:
                 d_y = self.target[1] - config.player_pos[1]
-                # Handle Y adjustment (similar to Kanna)
-                # Only adjust for small fine-tuning, NOT large floor transitions
-                # Large floor transitions should be handled by Move/step() during movement
-                y_threshold = settings.adjust_tolerance / math.sqrt(2)
-                large_y_change = abs(d_y) > settings.move_tolerance * 1.5
-
-                # Only adjust Y for small fine-tuning, skip if large floor transition
-                # (large transitions are handled by step() during Move walk)
-                if abs(d_y) > y_threshold and not large_y_change:
+                if abs(d_y) > settings.adjust_tolerance / math.sqrt(2):
                     if d_y < 0:
-                        # Moving up: Use Luminous teleport up for small adjustments only
                         Teleport("up").main()
                     else:
-                        # Moving down: Use Luminous jump down for small adjustments only
-                        Jump_Down(1).main()
+                        key_down("down")
+                        time.sleep(0.05)
+                        press(Key.jump, 3, down_time=0.1)
+                        key_up("down")
+                        time.sleep(0.05)
                     counter -= 1
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
-
-        # Safety: ensure all movement keys are released
-        key_up("left")
-        key_up("right")
-        key_up("up")
-        key_up("down")
 
 
 def step(direction, target, distance=None, waypoint_jumped=False):
     """
     Performs one movement step in the given DIRECTION towards TARGET.
     Should not press any arrow keys, as those are handled by Auto Maple.
-    Based on Kanna's intelligent step() with Luminous improvements.
-
-    :param direction: Direction to move ('left', 'right', 'up', 'down')
-    :param target: Target location
-    :param distance: Optional distance to target. If None, will be calculated.
-    :param waypoint_jumped: If True, skip auto-jump to prevent duplicate jumps for same waypoint.
     """
 
-    if distance is None:
-        distance = utils.distance(config.player_pos, target)
+    _ = (distance, waypoint_jumped)  # Parameters kept for compatibility
 
-    hold_threshold = (
-        settings.move_tolerance
-        * TimingConfig.STEP_MOVEMENT["hold_threshold_multiplier"]
-    )
-    align_threshold = max(settings.move_tolerance * 0.6, 0.01)
-    up_success_threshold = max(settings.move_tolerance * 1.3, 0.02)
-    down_success_threshold = max(settings.move_tolerance * 1.0, 0.02)
-    max_vertical_attempts = 3
-
-    def horizontal_step(direction_name: str, dist: float):
-        direction_key = getattr(Key, direction_name)
-
-        if dist > hold_threshold:
-            base_hold_time = 0.3
-            extra_distance = max(0.0, dist - hold_threshold)
-            extra_hold_time = min(extra_distance * 2.0, 1.0)
-            extra_hold_time = max(0.05, extra_hold_time)
-            hold_time = base_hold_time + extra_hold_time
-            hold_time = random.uniform(hold_time * 0.90, hold_time * 1.10)
-            hold_time = max(0.1, hold_time)
-
-            log.debug(
-                "🚶 Human-like: distance xa (%.3f > %.3f) → hold key %s for %.3fs",
-                dist,
-                hold_threshold,
-                direction_name,
-                hold_time,
-            )
-            press(direction_key, 1, down_time=max(0.05, hold_time), up_time=0.02)
-            time.sleep(random.uniform(0.05, 0.12))
-        else:
-            log.debug(
-                "👆 Human-like: distance gần (%.3f ≤ %.3f) → press key %s",
-                dist,
-                hold_threshold,
-                direction_name,
-            )
-            press(direction_key, 1, down_time=random.uniform(0.05, 0.08), up_time=0.02)
-            time.sleep(random.uniform(0.02, 0.05))
-
-    def align_horizontal_for_vertical():
-        attempts = 0
-        dx = target[0] - config.player_pos[0]
-        while abs(dx) > align_threshold and attempts < 3:
-            horizontal_step("right" if dx > 0 else "left", abs(dx))
-            attempts += 1
-            dx = target[0] - config.player_pos[0]
-        if abs(dx) > align_threshold:
-            log.debug(
-                "step: align horizontal incomplete (dx=%.4f > %.4f)",
-                dx,
-                align_threshold,
-            )
-
-    def tap_teleport():
-        teleport_hold_time = random.uniform(*TimingConfig.TELEPORT["teleport_hold"])
-        press(Key.teleport, 1, down_time=teleport_hold_time, up_time=0.02)
-        teleport_release_time = random.uniform(
-            *TimingConfig.TELEPORT["teleport_release"]
-        )
-        time.sleep(teleport_release_time)
-
-    def execute_combo_up():
-        teleport_done = False
-        if not waypoint_jumped:
-            log.debug("step: combo1 → holding direction key first")
-            direction_delay_time = random.uniform(
-                *TimingConfig.TELEPORT["direction_delay"]
-            )
-            time.sleep(direction_delay_time)
-            log.debug(
-                "step: combo1 → direction held for %.3fs",
-                direction_delay_time,
-            )
-
-            log.debug("step: combo1 → jumping")
-            jump_hold_time = random.uniform(
-                *TimingConfig.TELEPORT["vertical_jump_hold"]
-            )
-            press(Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02)
-            log.debug("step: combo1 → jump held for %.3fs", jump_hold_time)
-        else:
-            log.debug(
-                "step: waypoint_jumped=True → skipping jump, holding direction only"
-            )
-            direction_delay_time = random.uniform(
-                *TimingConfig.TELEPORT["direction_delay"]
-            )
-            time.sleep(direction_delay_time)
-
-        if not teleport_done:
-            log.debug("step: executing vertical teleport (direction=up)")
-            tap_teleport()
-
-    def execute_combo_down():
-        log.debug(
-            "step: direction down → direction key + jump (target_y=%.3f current_y=%.3f waypoint_jumped=%s)",
-            target[1],
-            config.player_pos[1],
-            waypoint_jumped,
-        )
-        direction_delay_time = random.uniform(*TimingConfig.TELEPORT["direction_delay"])
-        time.sleep(direction_delay_time)
-        log.debug(
-            "step: direction down → direction held for %.3fs",
-            direction_delay_time,
-        )
-
-        if waypoint_jumped:
-            log.debug("step: direction down → jump skipped (waypoint_jumped=True)")
-            return
-
-        log.debug("step: direction down → jumping")
-        jump_hold_time = random.uniform(*TimingConfig.TELEPORT["vertical_jump_hold"])
-        press(Key.jump, 1, down_time=max(0.03, jump_hold_time), up_time=0.02)
-        log.debug("step: direction down → jump held for %.3fs", jump_hold_time)
-        jump_release_time = random.uniform(
-            *TimingConfig.TELEPORT["vertical_jump_release"]
-        )
-        time.sleep(jump_release_time)
-        log.debug(
-            "step: direction down → jump released, waiting %.3fs",
-            jump_release_time,
-        )
-
-    def execute_horizontal_teleport():
-        log.debug("step: horizontal teleport → holding direction key")
-        direction_delay_time = random.uniform(*TimingConfig.TELEPORT["direction_delay"])
-        time.sleep(direction_delay_time)
-        log.debug(
-            "step: horizontal teleport → direction held for %.3fs",
-            direction_delay_time,
-        )
-        tap_teleport()
-
-    def perform_vertical_attempt(direction_name: str):
-        direction_key = getattr(Key, direction_name)
-        key_down(direction_key)
-        try:
-            if direction_name == "up":
-                execute_combo_up()
-            elif direction_name == "down":
-                execute_combo_down()
-            else:
-                execute_horizontal_teleport()
-        finally:
-            key_up(direction_key)
-        transition_delay = random.uniform(0.6, 0.8)
-        time.sleep(transition_delay)
-
-    def check_vertical_success(direction_name: str, initial_distance: float):
-        remaining_y = target[1] - config.player_pos[1]
-        threshold = (
-            up_success_threshold if direction_name == "up" else down_success_threshold
-        )
-        current_distance = abs(remaining_y)
-        # Successful if absolute diff is below threshold or if improved strongly vs initial distance
-        success = current_distance <= threshold or (
-            initial_distance > 0 and current_distance <= initial_distance * 0.3
-        )
-        log.debug(
-            "step: vertical check dir=%s pos=(%.3f, %.3f) target_y=%.3f remaining_y=%.4f threshold=%.4f initial_dist=%.4f status=%s",
-            direction_name,
-            config.player_pos[0],
-            config.player_pos[1],
-            target[1],
-            remaining_y,
-            threshold,
-            initial_distance,
-            "success" if success else "retry",
-        )
-        return success, remaining_y
+    num_presses = 2
+    if direction in ("up", "down"):
+        num_presses = 1
 
     if config.stage_fright and direction != "up" and utils.bernoulli(0.75):
         time.sleep(utils.rand_float(0.1, 0.3))
 
-    if direction in ("left", "right"):
-        horizontal_step(direction, distance)
-        return
+    d_y = target[1] - config.player_pos[1]
+    if abs(d_y) > settings.move_tolerance * 1.5:
+        if direction == "down":
+            press(Key.jump, 3)
+        elif direction == "up":
+            press(Key.jump, 1)
 
-    if direction == "up":
-        align_horizontal_for_vertical()
-        attempts = 0
-        success = False
-        remaining_y = target[1] - config.player_pos[1]
-        initial_distance = abs(remaining_y)
-        while attempts < max_vertical_attempts:
-            perform_vertical_attempt(direction)
-            success, remaining_y = check_vertical_success(direction, initial_distance)
-            if success:
-                break
-            attempts += 1
-            log.warning(
-                "step: retry teleport up (%d/%d) remaining_y=%.4f",
-                attempts,
-                max_vertical_attempts,
-                remaining_y,
-            )
-        if not success:
-            log.warning(
-                "step: teleport up failed after %d attempts (remaining_y=%.4f)",
-                attempts,
-                remaining_y,
-            )
-        return
-
-    if direction == "down":
-        attempts = 0
-        success = False
-        remaining_y = target[1] - config.player_pos[1]
-        initial_distance = abs(remaining_y)
-        while attempts < max_vertical_attempts:
-            perform_vertical_attempt(direction)
-            success, remaining_y = check_vertical_success(direction, initial_distance)
-            if success:
-                break
-            attempts += 1
-            log.warning(
-                "step: retry jump down (%d/%d) remaining_y=%.4f",
-                attempts,
-                max_vertical_attempts,
-                remaining_y,
-            )
-        if not success:
-            log.warning(
-                "step: jump down failed after %d attempts (remaining_y=%.4f)",
-                attempts,
-                remaining_y,
-            )
-        return
-
-    # Horizontal teleport directions (e.g., move assist)
-    perform_vertical_attempt(direction)
+    press(Key.teleport, num_presses)
 
 
 # ==================== RANDOM ACTIONS ====================
