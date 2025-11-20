@@ -698,7 +698,7 @@ class Adjust(Command):
                     else:
                         key_down("down")
                         time.sleep(0.05)
-                        press(Key.jump, 3, down_time=0.1)
+                        press(Key.jump, 1, down_time=0.1)
                         key_up("down")
                         time.sleep(0.05)
                     counter -= 1
@@ -724,11 +724,33 @@ def step(direction, target, distance=None, waypoint_jumped=False):
     d_y = target[1] - config.player_pos[1]
     if abs(d_y) > settings.move_tolerance * 1.5:
         if direction == "down":
-            press(Key.jump, 3)
+            press(
+                Key.jump,
+                1,
+                down_time=random.uniform(0.08, 0.12),
+                up_time=random.uniform(0.02, 0.05),
+            )
         elif direction == "up":
-            press(Key.jump, 1)
+            press(
+                Key.jump,
+                1,
+                down_time=random.uniform(0.05, 0.08),
+                up_time=random.uniform(0.02, 0.04),
+            )
 
-    press(Key.teleport, num_presses)
+    press(
+        Key.teleport,
+        num_presses,
+        down_time=random.uniform(0.05, 0.10),
+        up_time=random.uniform(0.02, 0.04),
+    )
+
+    # Delay after teleport to allow game to update player position
+    # Vertical teleports need longer delay due to floor transitions
+    if direction in ("up", "down"):
+        time.sleep(random.uniform(0.3, 0.4))  # Longer delay for vertical movement
+    else:
+        time.sleep(random.uniform(0.15, 0.25))  # Shorter delay for horizontal movement
 
 
 # ==================== RANDOM ACTIONS ====================
