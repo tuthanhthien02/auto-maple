@@ -1,13 +1,15 @@
 """A module for simulating low-level keyboard and mouse key presses."""
 
 import ctypes
-from ctypes import wintypes
-from random import random, gauss, uniform, choice
 import time
-import win32con
+from ctypes import wintypes
+from random import choice, gauss, random, uniform
+
 import win32api
+import win32con
+
 from src.common import utils
-from src.common.logger import get_logger, get_action_logger
+from src.common.logger import get_action_logger, get_logger
 
 log = get_logger(__name__)
 action_log = get_action_logger()
@@ -177,8 +179,58 @@ user32.SendInput.argtypes = (wintypes.UINT, LPINPUT, ctypes.c_int)
 #           Functions           #
 #################################
 
+
+class _KeyStateTracker:
+    """Track key down/up state to avoid double-press and double-release."""
+
+    def __init__(self):
+        # key_name (lowercase str) -> bool (True if currently down)
+        self._is_down = {}
+
+    def is_down(self, key: str) -> bool:
+        return self._is_down.get(key.lower(), False)
+
+    def mark_down(self, key: str) -> None:
+        self._is_down[key.lower()] = True
+
+    def mark_up(self, key: str) -> None:
+        self._is_down[key.lower()] = False
+
+    def reset(self) -> None:
+        self._is_down.clear()
+
+    def keys_down(self):
+        return [k for k, v in self._is_down.items() if v]
+
+
+_key_state_tracker = _KeyStateTracker()
+
+
 # Arduino output instance (lazy import)
 _arduino_output = None
+
+
+def _handle_special_messages(shared_conn):
+    """Poll Arduino for special messages (e.g., RESET_KEYS) and react."""
+    if not shared_conn or not hasattr(shared_conn, "poll_special_messages"):
+        return
+
+    try:
+        messages = shared_conn.poll_special_messages()
+    except Exception as exc:
+        log.debug(f"[VKEYS] Failed to poll Arduino messages: {exc}")
+        return
+
+    for message in messages:
+        if message == "RESET_KEYS":
+            log.warning(
+                "[VKEYS] Received RESET_KEYS from Arduino, resetting key state tracker"
+            )
+            _key_state_tracker.reset()
+        elif message.startswith("LOG:"):
+            log.info("[VKEYS][Arduino] %s", message[4:])
+        else:
+            log.debug("[VKEYS] Received unhandled Arduino message: %s", message)
 
 
 def _get_arduino_output():
@@ -194,9 +246,7 @@ def _get_arduino_output():
             return None
 
         try:
-            from src.common.shared_arduino_connection import (
-                SharedArduinoConnection,
-            )
+            from src.common.shared_arduino_connection import SharedArduinoConnection
 
             # Use SharedArduinoConnection singleton
             shared_conn = SharedArduinoConnection()
@@ -209,6 +259,9 @@ def _get_arduino_output():
                     # Connection was available but now lost - reset to allow retry
                     _arduino_output = None
                 return None
+
+            # Poll for any special messages (e.g., RESET_KEYS) before continuing
+            _handle_special_messages(shared_conn)
 
             # Connection is available - create or reuse wrapper
             if _arduino_output is None or not hasattr(_arduino_output, "shared_conn"):
@@ -295,12 +348,13 @@ def _get_arduino_output():
 def _key_down_sendinput(key):
     """Original SendInput key_down implementation"""
     key = key.lower()
-    if key not in KEY_MAP.keys():
+    if key not in KEY_MAP:
         log.warning("Invalid keyboard input: '%s'", key)
-    else:
-        action_log.debug("key_down('%s')", key)
-        x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key]))
-        user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
+        return
+
+    action_log.debug("key_down('%s')", key)
+    x = Input(type=INPUT_KEYBOARD, ki=KeyboardInput(wVk=KEY_MAP[key]))
+    user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
 
 @utils.run_if_enabled
@@ -311,6 +365,13 @@ def key_down(key):
     :param key:     The key to press.
     :return:        None
     """
+    key = key.lower()
+
+    # Prevent double-press: if key is already marked down, ignore new request
+    if _key_state_tracker.is_down(key):
+        action_log.debug("key_down('%s') ignored (already down)", key)
+        return
+
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
@@ -322,6 +383,7 @@ def key_down(key):
                     f"Arduino key_down failed for '{key}', falling back to SendInput"
                 )
                 _key_down_sendinput(key)
+            _key_state_tracker.mark_down(key)
             return
         except Exception as e:
             # Bug fix: Fallback to SendInput on exception
@@ -329,24 +391,27 @@ def key_down(key):
                 f"Arduino key_down error for '{key}': {e}, falling back to SendInput"
             )
             _key_down_sendinput(key)
+            _key_state_tracker.mark_down(key)
             return
 
     # Fallback to SendInput
     _key_down_sendinput(key)
+    _key_state_tracker.mark_down(key)
 
 
 def _key_up_sendinput(key):
     """Original SendInput key_up implementation"""
     key = key.lower()
-    if key not in KEY_MAP.keys():
+    if key not in KEY_MAP:
         log.warning("Invalid keyboard input: '%s'", key)
-    else:
-        action_log.debug("key_up('%s')", key)
-        x = Input(
-            type=INPUT_KEYBOARD,
-            ki=KeyboardInput(wVk=KEY_MAP[key], dwFlags=KEYEVENTF_KEYUP),
-        )
-        user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
+        return
+
+    action_log.debug("key_up('%s')", key)
+    x = Input(
+        type=INPUT_KEYBOARD,
+        ki=KeyboardInput(wVk=KEY_MAP[key], dwFlags=KEYEVENTF_KEYUP),
+    )
+    user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
 
 def key_up(key):
@@ -357,6 +422,13 @@ def key_up(key):
     :param key:     The key to press.
     :return:        None
     """
+    key = key.lower()
+
+    # Prevent double-release: only release if we believe the key is down
+    if not _key_state_tracker.is_down(key):
+        action_log.debug("key_up('%s') ignored (already up)", key)
+        return
+
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:
@@ -368,6 +440,7 @@ def key_up(key):
                     f"Arduino key_up failed for '{key}', falling back to SendInput"
                 )
                 _key_up_sendinput(key)
+            _key_state_tracker.mark_up(key)
             return
         except Exception as e:
             # Bug fix: Fallback to SendInput on exception
@@ -375,10 +448,12 @@ def key_up(key):
                 f"Arduino key_up error for '{key}': {e}, falling back to SendInput"
             )
             _key_up_sendinput(key)
+            _key_state_tracker.mark_up(key)
             return
 
     # Fallback to SendInput
     _key_up_sendinput(key)
+    _key_state_tracker.mark_up(key)
 
 
 def _press_sendinput(key, n, down_time=0.05, up_time=0.1):
@@ -436,6 +511,13 @@ def press(key, n, down_time=0.05, up_time=0.1):
     :param up_time:     Duration of release (in seconds).
     :return:            None
     """
+    key = key.lower()
+
+    # If key is currently held down (via key_down), avoid conflicting press pattern.
+    if _key_state_tracker.is_down(key):
+        action_log.debug("press('%s', ...) ignored because key is already down", key)
+        return
+
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
     if arduino and arduino.connected:

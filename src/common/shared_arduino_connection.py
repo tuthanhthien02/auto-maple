@@ -180,6 +180,7 @@ class SharedArduinoConnection:
 
         # Statistics
         self.stats = {"total_sent": 0, "total_errors": 0, "total_remapped": 0}
+        self._incoming_buffer = bytearray()
 
         # Load config from vmware_receiver.config.json if exists
         self._load_config()
@@ -572,6 +573,45 @@ class SharedArduinoConnection:
     def send_all_up(self) -> bool:
         """Release all keys (emergency cleanup)"""
         return self.send_command("all_up")
+
+    def poll_special_messages(self) -> List[str]:
+        """
+        Poll incoming serial messages (non-blocking) for special signals.
+        Returns a list of decoded message strings without newlines.
+        """
+        messages: List[str] = []
+        if not self.serial or not self.serial.is_open:
+            return messages
+
+        try:
+            waiting = (
+                self.serial.in_waiting if hasattr(self.serial, "in_waiting") else 0
+            )
+            if waiting <= 0:
+                return messages
+
+            data = self.serial.read(waiting)
+            if not data:
+                return messages
+
+            self._incoming_buffer.extend(data)
+
+            while True:
+                newline_index = self._incoming_buffer.find(b"\n")
+                if newline_index == -1:
+                    break
+                line = self._incoming_buffer[:newline_index]
+                # Remove the processed line (+ newline)
+                self._incoming_buffer = self._incoming_buffer[newline_index + 1 :]
+                decoded = line.decode("utf-8", errors="ignore").strip()
+                if decoded:
+                    messages.append(decoded)
+        except serial.SerialException as exc:
+            log.debug(f"[SharedArduinoConnection] Error polling messages: {exc}")
+        except Exception as exc:
+            log.debug(f"[SharedArduinoConnection] Unexpected poll error: {exc}")
+
+        return messages
 
     def is_connected(self) -> bool:
         """

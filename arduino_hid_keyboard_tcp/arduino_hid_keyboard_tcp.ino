@@ -54,7 +54,7 @@ uint8_t sessionKey[HANDSHAKE_LENGTH];
 
 // Watchdog để auto-release nếu không nhận dữ liệu trong một khoảng thời gian
 unsigned long lastReceiveMs = 0;
-const unsigned long WATCHDOG_TIMEOUT_MS = 2000; // 2 giây
+const unsigned long WATCHDOG_TIMEOUT_MS = 8000; // 8 giây (an toàn hơn cho lag nhẹ)
 
 // Anti-detection: Pseudo-random jitter generator
 // Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
@@ -998,6 +998,10 @@ void loop() {
     
     if (anyHeld) {
       releaseAllKeys();
+      // Inform host so it can reset its key state tracker and log watchdog event
+      Serial.println("LOG:WATCHDOG_TIMEOUT_RELEASE");
+      Serial.println("RESET_KEYS");
+      Serial.flush();
     }
     
     // Reset watchdog timer (don't spam)

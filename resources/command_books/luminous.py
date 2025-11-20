@@ -13,6 +13,19 @@ from src.routine.components import Command
 log = get_logger(__name__)
 
 
+# Movement constants
+class MovementConstants:
+    """Constants for movement and floor transition logic"""
+
+    FLOOR_TRANSITION_THRESHOLD_MULTIPLIER = 1.5  # settings.move_tolerance * this
+    SUCCESS_Y_CHANGE_THRESHOLD = 0.03  # Minimum Y change to consider success
+    X_ADJUST_THRESHOLD = 0.01  # Minimum X difference to trigger adjustment
+    MAX_STUCK_ATTEMPTS = 10  # Max attempts before considering stuck
+    MAX_ADJUST_DURATION = 5.0  # Max seconds for Adjust operation
+    MAX_WALK_ITERATIONS = 60  # Max iterations in Adjust walk loop
+    WALK_SLEEP_INTERVAL = 0.05  # Sleep interval in Adjust walk loop
+
+
 # Global timing configuration for random delays
 class TimingConfig:
     """Global timing configuration for random delays in commands"""
@@ -665,54 +678,363 @@ class Adjust(Command):
         counter = self.max_steps
         toggle = True
         error = utils.distance(config.player_pos, self.target)
-        while config.enabled and counter > 0 and error > settings.adjust_tolerance:
+        start_time = time.time()
+
+        while (
+            config.enabled
+            and counter > 0
+            and error > settings.adjust_tolerance
+            and (time.time() - start_time) < MovementConstants.MAX_ADJUST_DURATION
+        ):
             if toggle:
                 d_x = self.target[0] - config.player_pos[0]
                 threshold = settings.adjust_tolerance / math.sqrt(2)
                 if abs(d_x) > threshold:
                     walk_counter = 0
                     if d_x < 0:
-                        key_down("left")
-                        while (
-                            config.enabled
-                            and d_x < -1 * threshold
-                            and walk_counter < 60
-                        ):
-                            time.sleep(0.05)
-                            walk_counter += 1
-                            d_x = self.target[0] - config.player_pos[0]
-                        key_up("left")
+                        try:
+                            key_down("left")
+                            while (
+                                config.enabled
+                                and d_x < -1 * threshold
+                                and walk_counter < MovementConstants.MAX_WALK_ITERATIONS
+                            ):
+                                time.sleep(MovementConstants.WALK_SLEEP_INTERVAL)
+                                walk_counter += 1
+                                d_x = self.target[0] - config.player_pos[0]
+                        except Exception as e:
+                            log.error(f"Adjust: Error in left movement: {e}")
+                        finally:
+                            key_up("left")
                     else:
-                        key_down("right")
-                        while config.enabled and d_x > threshold and walk_counter < 60:
-                            time.sleep(0.05)
-                            walk_counter += 1
-                            d_x = self.target[0] - config.player_pos[0]
-                        key_up("right")
+                        try:
+                            key_down("right")
+                            while (
+                                config.enabled
+                                and d_x > threshold
+                                and walk_counter < MovementConstants.MAX_WALK_ITERATIONS
+                            ):
+                                time.sleep(MovementConstants.WALK_SLEEP_INTERVAL)
+                                walk_counter += 1
+                                d_x = self.target[0] - config.player_pos[0]
+                        except Exception as e:
+                            log.error(f"Adjust: Error in right movement: {e}")
+                        finally:
+                            key_up("right")
                     counter -= 1
             else:
                 d_y = self.target[1] - config.player_pos[1]
                 if abs(d_y) > settings.adjust_tolerance / math.sqrt(2):
                     if d_y < 0:
-                        Teleport("up").main()
+                        try:
+                            Teleport("up").main()
+                        except Exception as e:
+                            log.error(f"Adjust: Error in teleport up: {e}")
                     else:
-                        key_down("down")
-                        time.sleep(0.05)
-                        press(Key.jump, 2, down_time=0.1)
-                        key_up("down")
-                        time.sleep(0.05)
+                        try:
+                            key_down("down")
+                            time.sleep(0.05)
+                            press(Key.jump, 2, down_time=0.1)
+                            key_up("down")
+                            time.sleep(0.05)
+                        except Exception as e:
+                            log.error(f"Adjust: Error in jump down: {e}")
+                            key_up("down")  # Ensure cleanup
                     counter -= 1
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
+
+        if (time.time() - start_time) >= MovementConstants.MAX_ADJUST_DURATION:
+            log.warning(
+                "Adjust: Timeout after %.1fs, breaking (error=%.4f)",
+                MovementConstants.MAX_ADJUST_DURATION,
+                error,
+            )
+
+
+class Move(Command):
+    """Moves to a given position using the shortest path based on the current Layout.
+    Includes floor transition retry logic with X-axis adjustment.
+    """
+
+    def __init__(self, x, y, max_steps=15, enable_repress=True):
+        super().__init__(locals())
+        self.target = (float(x), float(y))
+        self.max_steps = settings.validate_nonnegative_int(max_steps)
+        self.prev_direction = ""
+        # Track floor transition attempts per direction
+        self._floor_transition_attempts = {}
+        self._floor_transition_initial_y = {}
+        # Track last direction key press time to prevent watchdog timeout (2s)
+        self._last_direction_press_time = None
+        self._watchdog_safety_interval = (
+            1.5  # Repress before 2s timeout (safety margin)
+        )
+        # Enable/disable direction key repress to prevent watchdog timeout
+        self.enable_repress = bool(enable_repress)
+        # Stuck detection
+        self._stuck_position = None
+        self._stuck_attempts = 0
+        self._last_cleanup_time = time.time()
+
+    def _new_direction(self, new):
+        """Change direction with error handling."""
+        try:
+            if self.prev_direction and self.prev_direction != new:
+                key_up(self.prev_direction)
+            key_down(new)
+            self.prev_direction = new
+            self._last_direction_press_time = time.time()
+        except Exception as e:
+            log.error(f"Move: Error in _new_direction({new}): {e}")
+            # Ensure keys are released on error
+            if self.prev_direction:
+                try:
+                    key_up(self.prev_direction)
+                except Exception:
+                    pass
+            raise
+
+    def _repress_direction_if_needed(self):
+        """Repress current direction key if approaching watchdog timeout (2s)."""
+        if not self.enable_repress:
+            return
+
+        if self.prev_direction and self._last_direction_press_time is not None:
+            elapsed = time.time() - self._last_direction_press_time
+            if elapsed >= self._watchdog_safety_interval:
+                log.debug(
+                    "Move: Repressing direction key '%s' to prevent watchdog timeout (elapsed=%.2fs)",
+                    self.prev_direction,
+                    elapsed,
+                )
+                # Repress: release and press again
+                key_up(self.prev_direction)
+                time.sleep(0.01)  # Brief pause
+                key_down(self.prev_direction)
+                self._last_direction_press_time = time.time()
+
+    def _cleanup_old_tracking(self, max_age_seconds=300):
+        """Remove tracking entries older than max_age_seconds to prevent memory leak."""
+        current_time = time.time()
+        if current_time - self._last_cleanup_time < 60:  # Only cleanup every 60 seconds
+            return
+
+        # Cleanup is done by removing entries that haven't been accessed
+        # In practice, we'll just reset if dictionary gets too large
+        if len(self._floor_transition_attempts) > 100:
+            log.debug("Move: Cleaning up old tracking entries")
+            self._floor_transition_attempts.clear()
+            self._floor_transition_initial_y.clear()
+
+        self._last_cleanup_time = current_time
+
+    def _detect_stuck(self, point):
+        """Detect if bot is stuck at a position."""
+        current_pos = config.player_pos
+        if self._stuck_position is None:
+            self._stuck_position = current_pos
+            self._stuck_attempts = 0
+            return False
+
+        # Check if position hasn't changed significantly
+        distance = utils.distance(current_pos, self._stuck_position)
+        if distance < settings.move_tolerance:
+            self._stuck_attempts += 1
+            if self._stuck_attempts >= MovementConstants.MAX_STUCK_ATTEMPTS:
+                log.warning(
+                    "Move: Bot appears stuck at position (%.3f, %.3f) after %d attempts",
+                    current_pos[0],
+                    current_pos[1],
+                    self._stuck_attempts,
+                )
+                return True
+        else:
+            # Position changed, reset stuck detection
+            self._stuck_position = current_pos
+            self._stuck_attempts = 0
+
+        return False
+
+    def _handle_floor_transition_retry(self, direction, point):
+        """Handle floor transition retry logic with X-axis adjustment."""
+        # Cleanup old tracking periodically
+        self._cleanup_old_tracking()
+
+        direction_key = (
+            f"{direction}_{point[1]:.3f}"  # Unique key per direction+target_y
+        )
+
+        # Initialize tracking for this direction/target
+        if direction_key not in self._floor_transition_attempts:
+            self._floor_transition_attempts[direction_key] = 0
+            self._floor_transition_initial_y[direction_key] = config.player_pos[1]
+
+        attempts = self._floor_transition_attempts[direction_key]
+        initial_y = self._floor_transition_initial_y[direction_key]
+
+        # If 1 attempt failed, adjust X axis before retrying
+        if attempts >= 1:
+            log.debug(
+                "Move: Floor transition failed, adjusting X axis (current_y=%.3f, target_y=%.3f, direction=%s)",
+                config.player_pos[1],
+                point[1],
+                direction,
+            )
+            # Small horizontal adjustment to avoid getting stuck
+            d_x = point[0] - config.player_pos[0]
+            if abs(d_x) > MovementConstants.X_ADJUST_THRESHOLD:
+                adjust_direction = "right" if d_x > 0 else "left"
+                try:
+                    key_down(adjust_direction)
+                    time.sleep(random.uniform(0.05, 0.10))
+                    key_up(adjust_direction)
+                    time.sleep(random.uniform(0.05, 0.10))
+                except Exception as e:
+                    log.error(f"Move: Error in X-axis adjustment: {e}")
+                    try:
+                        key_up(adjust_direction)
+                    except Exception:
+                        pass
+            # Reset counter after adjustment
+            self._floor_transition_attempts[direction_key] = 0
+            self._floor_transition_initial_y[direction_key] = config.player_pos[1]
+
+        return initial_y
+
+    def _check_floor_transition_success(self, direction, point, initial_y):
+        """Check if floor transition was successful and update attempt counter."""
+        if initial_y is None:
+            return
+
+        direction_key = f"{direction}_{point[1]:.3f}"
+        y_change = abs(config.player_pos[1] - initial_y)
+
+        # Consider successful if Y changed significantly
+        if y_change > MovementConstants.SUCCESS_Y_CHANGE_THRESHOLD:
+            # Success - reset counter
+            self._floor_transition_attempts[direction_key] = 0
+            self._floor_transition_initial_y[direction_key] = None
+            log.debug(
+                "Move: Floor transition successful (y_change=%.3f, direction=%s)",
+                y_change,
+                direction,
+            )
+        else:
+            # Failed - increment counter
+            self._floor_transition_attempts[direction_key] += 1
+            log.debug(
+                "Move: Floor transition attempt %d failed (y_change=%.3f, current_y=%.3f, direction=%s)",
+                self._floor_transition_attempts[direction_key],
+                y_change,
+                config.player_pos[1],
+                direction,
+            )
+
+    def main(self):
+        counter = self.max_steps
+        path = config.layout.shortest_path(config.player_pos, self.target)
+        for i, point in enumerate(path):
+            toggle = True
+            self.prev_direction = ""
+            local_error = utils.distance(config.player_pos, point)
+            global_error = utils.distance(config.player_pos, self.target)
+            while (
+                config.enabled
+                and counter > 0
+                and local_error > settings.move_tolerance
+                and global_error > settings.move_tolerance
+            ):
+                # Repress direction key if approaching watchdog timeout (2s)
+                self._repress_direction_if_needed()
+
+                if toggle:
+                    d_x = point[0] - config.player_pos[0]
+                    if abs(d_x) > settings.move_tolerance / math.sqrt(2):
+                        if d_x < 0:
+                            key = "left"
+                        else:
+                            key = "right"
+                        self._new_direction(key)
+                        step(key, point)
+                        if settings.record_layout:
+                            config.layout.add(*config.player_pos)
+                        counter -= 1
+                        if i < len(path) - 1:
+                            time.sleep(0.15)
+                            # Repress after sleep to prevent timeout
+                            self._repress_direction_if_needed()
+                else:
+                    d_y = point[1] - config.player_pos[1]
+                    if abs(d_y) > settings.move_tolerance / math.sqrt(2):
+                        if d_y < 0:
+                            key = "up"
+                        else:
+                            key = "down"
+                        self._new_direction(key)
+
+                        # Check if bot is stuck
+                        if self._detect_stuck(point):
+                            log.warning("Move: Breaking due to stuck detection")
+                            break
+
+                        # Check if this is a floor transition
+                        is_floor_transition = (
+                            abs(d_y)
+                            > settings.move_tolerance
+                            * MovementConstants.FLOOR_TRANSITION_THRESHOLD_MULTIPLIER
+                        )
+                        initial_y = None
+                        if is_floor_transition:
+                            initial_y = self._handle_floor_transition_retry(key, point)
+
+                        step(key, point)
+
+                        # Repress direction key after step() delay to prevent watchdog timeout
+                        # step() includes 0.3-0.4s delay for vertical, so we need to repress
+                        self._repress_direction_if_needed()
+
+                        # Check floor transition success after step
+                        # Note: step() already includes delay for vertical movement
+                        # We check success after step() completes (which includes its own delay)
+                        if is_floor_transition and initial_y is not None:
+                            # step() already waited 0.3-0.4s for vertical, so position should be updated
+                            self._check_floor_transition_success(key, point, initial_y)
+
+                        if settings.record_layout:
+                            config.layout.add(*config.player_pos)
+                        counter -= 1
+                        if i < len(path) - 1:
+                            time.sleep(0.05)
+                            # Repress after sleep to prevent timeout
+                            self._repress_direction_if_needed()
+                local_error = utils.distance(config.player_pos, point)
+                global_error = utils.distance(config.player_pos, self.target)
+                toggle = not toggle
+            if self.prev_direction:
+                key_up(self.prev_direction)
 
 
 def step(direction, target, distance=None, waypoint_jumped=False):
     """
     Performs one movement step in the given DIRECTION towards TARGET.
     Should not press any arrow keys, as those are handled by Auto Maple.
-    """
+    Simple implementation - retry logic is handled by Move class.
 
-    _ = (distance, waypoint_jumped)  # Parameters kept for compatibility
+    Args:
+        direction: Direction to move ('left', 'right', 'up', 'down')
+        target: Target location (x, y)
+        distance: Optional distance to target. If None, will be calculated.
+        waypoint_jumped: If True, skip auto-jump to prevent duplicate jumps.
+    """
+    # Validate direction
+    if direction not in ("left", "right", "up", "down"):
+        log.error(f"step: Invalid direction '{direction}'")
+        return
+
+    # Use distance parameter if provided for optimization
+    if distance is None:
+        distance = utils.distance(config.player_pos, target)
 
     num_presses = 2
     if direction in ("up", "down"):
@@ -722,28 +1044,43 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         time.sleep(utils.rand_float(0.1, 0.3))
 
     d_y = target[1] - config.player_pos[1]
-    if abs(d_y) > settings.move_tolerance * 1.5:
-        if direction == "down":
-            press(
-                Key.jump,
-                2,
-                down_time=random.uniform(0.12, 0.18),
-                up_time=random.uniform(0.05, 0.08),
-            )
-        elif direction == "up":
-            press(
-                Key.jump,
-                1,
-                down_time=random.uniform(0.08, 0.12),
-                up_time=random.uniform(0.04, 0.06),
-            )
-
-    press(
-        Key.teleport,
-        num_presses,
-        down_time=random.uniform(0.05, 0.10),
-        up_time=random.uniform(0.02, 0.04),
+    is_floor_transition = (
+        abs(d_y)
+        > settings.move_tolerance
+        * MovementConstants.FLOOR_TRANSITION_THRESHOLD_MULTIPLIER
     )
+
+    # Use waypoint_jumped to skip jump if already jumped for this waypoint
+    should_jump = is_floor_transition and not waypoint_jumped
+
+    if should_jump:
+        try:
+            if direction == "down":
+                press(
+                    Key.jump,
+                    2,
+                    down_time=random.uniform(0.12, 0.18),
+                    up_time=random.uniform(0.05, 0.08),
+                )
+            elif direction == "up":
+                press(
+                    Key.jump,
+                    1,
+                    down_time=random.uniform(0.08, 0.12),
+                    up_time=random.uniform(0.04, 0.06),
+                )
+        except Exception as e:
+            log.error(f"step: Error pressing jump key: {e}")
+
+    try:
+        press(
+            Key.teleport,
+            num_presses,
+            down_time=random.uniform(0.05, 0.10),
+            up_time=random.uniform(0.02, 0.04),
+        )
+    except Exception as e:
+        log.error(f"step: Error pressing teleport key: {e}")
 
     # Delay after teleport to allow game to update player position
     # Vertical teleports need longer delay due to floor transitions
