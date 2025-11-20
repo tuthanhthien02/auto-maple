@@ -698,7 +698,7 @@ class Adjust(Command):
                     else:
                         key_down("down")
                         time.sleep(0.05)
-                        press(Key.jump, 1, down_time=0.1)
+                        press(Key.jump, 2, down_time=0.1)
                         key_up("down")
                         time.sleep(0.05)
                     counter -= 1
@@ -726,16 +726,16 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         if direction == "down":
             press(
                 Key.jump,
-                1,
-                down_time=random.uniform(0.08, 0.12),
-                up_time=random.uniform(0.02, 0.05),
+                2,
+                down_time=random.uniform(0.12, 0.18),
+                up_time=random.uniform(0.05, 0.08),
             )
         elif direction == "up":
             press(
                 Key.jump,
                 1,
-                down_time=random.uniform(0.05, 0.08),
-                up_time=random.uniform(0.02, 0.04),
+                down_time=random.uniform(0.08, 0.12),
+                up_time=random.uniform(0.04, 0.06),
             )
 
     press(
