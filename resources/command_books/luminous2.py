@@ -95,14 +95,14 @@ class Key:
     """Keybindings - adjust these to match your in-game settings."""
 
     # Primary skills
-    reflection = "q"  # Main attack skill
-    apocalypse = "d"  # Secondary attack
-    death_scythe = "e"  # Death Scythe
+    reflection = "r"  # Main attack skill
+    apocalypse = "h"  # Secondary attack
+    death_scythe = "y"  # Death Scythe
     light_reflection = "2"  # Light mode skill
     dark_reflection = "4"  # Dark mode skill
 
     # Utility
-    teleport = "w"  # Teleport skill
+    teleport = "t"  # Teleport skill
     flash_jump = "s"  # Flash jump if available
 
     # Buffs
@@ -114,7 +114,7 @@ class Key:
     right = "right"
     up = "up"
     down = "down"
-    jump = "alt"
+    jump = "c"
 
 
 class Attack(Command):
@@ -757,7 +757,7 @@ class Move(Command):
     Includes floor transition retry logic with X-axis adjustment.
     """
 
-    def __init__(self, x, y, max_steps=15, enable_repress=True):
+    def __init__(self, x, y, max_steps=15):
         super().__init__(locals())
         self.target = (float(x), float(y))
         self.max_steps = settings.validate_nonnegative_int(max_steps)
@@ -765,13 +765,6 @@ class Move(Command):
         # Track floor transition attempts per direction
         self._floor_transition_attempts = {}
         self._floor_transition_initial_y = {}
-        # Track last direction key press time to prevent watchdog timeout (2s)
-        self._last_direction_press_time = None
-        self._watchdog_safety_interval = (
-            1.5  # Repress before 2s timeout (safety margin)
-        )
-        # Enable/disable direction key repress to prevent watchdog timeout
-        self.enable_repress = bool(enable_repress)
         # Stuck detection
         self._stuck_position = None
         self._stuck_attempts = 0
@@ -784,7 +777,6 @@ class Move(Command):
                 key_up(self.prev_direction)
             key_down(new)
             self.prev_direction = new
-            self._last_direction_press_time = time.time()
         except Exception as e:
             log.error(f"Move: Error in _new_direction({new}): {e}")
             # Ensure keys are released on error
@@ -794,25 +786,6 @@ class Move(Command):
                 except Exception:
                     pass
             raise
-
-    def _repress_direction_if_needed(self):
-        """Repress current direction key if approaching watchdog timeout (2s)."""
-        if not self.enable_repress:
-            return
-
-        if self.prev_direction and self._last_direction_press_time is not None:
-            elapsed = time.time() - self._last_direction_press_time
-            if elapsed >= self._watchdog_safety_interval:
-                log.debug(
-                    "Move: Repressing direction key '%s' to prevent watchdog timeout (elapsed=%.2fs)",
-                    self.prev_direction,
-                    elapsed,
-                )
-                # Repress: release and press again
-                key_up(self.prev_direction)
-                time.sleep(0.01)  # Brief pause
-                key_down(self.prev_direction)
-                self._last_direction_press_time = time.time()
 
     def _cleanup_old_tracking(self, max_age_seconds=300):
         """Remove tracking entries older than max_age_seconds to prevent memory leak."""
@@ -945,9 +918,6 @@ class Move(Command):
                 and local_error > settings.move_tolerance
                 and global_error > settings.move_tolerance
             ):
-                # Repress direction key if approaching watchdog timeout (2s)
-                self._repress_direction_if_needed()
-
                 if toggle:
                     d_x = point[0] - config.player_pos[0]
                     if abs(d_x) > settings.move_tolerance / math.sqrt(2):
@@ -962,8 +932,6 @@ class Move(Command):
                         counter -= 1
                         if i < len(path) - 1:
                             time.sleep(0.15)
-                            # Repress after sleep to prevent timeout
-                            self._repress_direction_if_needed()
                 else:
                     d_y = point[1] - config.player_pos[1]
                     if abs(d_y) > settings.move_tolerance / math.sqrt(2):
@@ -990,10 +958,6 @@ class Move(Command):
 
                         step(key, point)
 
-                        # Repress direction key after step() delay to prevent watchdog timeout
-                        # step() includes 0.3-0.4s delay for vertical, so we need to repress
-                        self._repress_direction_if_needed()
-
                         # Check floor transition success after step
                         # Note: step() already includes delay for vertical movement
                         # We check success after step() completes (which includes its own delay)
@@ -1006,8 +970,6 @@ class Move(Command):
                         counter -= 1
                         if i < len(path) - 1:
                             time.sleep(0.05)
-                            # Repress after sleep to prevent timeout
-                            self._repress_direction_if_needed()
                 local_error = utils.distance(config.player_pos, point)
                 global_error = utils.distance(config.player_pos, self.target)
                 toggle = not toggle

@@ -95,14 +95,14 @@ class Key:
     """Keybindings - adjust these to match your in-game settings."""
 
     # Primary skills
-    reflection = "r"  # Main attack skill
-    apocalypse = "h"  # Secondary attack
-    death_scythe = "y"  # Death Scythe
+    reflection = "q"  # Main attack skill
+    apocalypse = "d"  # Secondary attack
+    death_scythe = "e"  # Death Scythe
     light_reflection = "2"  # Light mode skill
     dark_reflection = "4"  # Dark mode skill
 
     # Utility
-    teleport = "t"  # Teleport skill
+    teleport = "w"  # Teleport skill
     flash_jump = "s"  # Flash jump if available
 
     # Buffs
@@ -114,7 +114,7 @@ class Key:
     right = "right"
     up = "up"
     down = "down"
-    jump = "c"
+    jump = "alt"
 
 
 class Attack(Command):
