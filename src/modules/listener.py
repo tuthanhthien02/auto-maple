@@ -5,7 +5,7 @@ import threading
 import winsound
 from datetime import datetime
 from src.common.interfaces import Configurable
-from src.common import config, utils
+from src.common import config, utils, vkeys
 from src.common.logger import get_logger
 
 try:
@@ -145,6 +145,21 @@ class Listener(Configurable):
         """Resumes or pauses the current routine. Plays a sound to notify the user."""
 
         config.bot.rune_active = False
+
+        was_enabled = config.enabled
+        if was_enabled:
+            try:
+                released = vkeys.release_tracked_keys()
+                if released:
+                    log.info(
+                        "[Listener] Released %d tracked key(s) before disabling bot",
+                        released,
+                    )
+            except Exception as release_error:
+                log.warning(
+                    "[Listener] Failed to release tracked keys before disabling: %s",
+                    release_error,
+                )
 
         if not config.enabled:
             Listener.recalibrate_minimap()  # Recalibrate only when being enabled.

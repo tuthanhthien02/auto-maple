@@ -3,13 +3,15 @@ Shared Arduino Connection - Singleton class để quản lý serial connection
 Đảm bảo chỉ có một serial connection duy nhất được sử dụng bởi cả bot và TCP server
 """
 
-import serial
-import serial.tools.list_ports
+import json
+import os
 import threading
 import time
-import os
-import json
 from typing import List, Optional
+
+import serial
+import serial.tools.list_ports
+
 from src.common.logger import get_logger
 from src.common.serial_obfuscation import SerialObfuscator
 

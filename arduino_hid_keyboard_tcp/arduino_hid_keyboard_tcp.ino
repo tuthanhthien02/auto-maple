@@ -51,11 +51,11 @@ const uint8_t MAX_FRAME_PAYLOAD = 48;  // enough for command strings
 bool obfuscationActive = false;
 bool handshakeReceived = false;
 uint8_t sessionKey[HANDSHAKE_LENGTH];
-bool flushSignalEnabled = false;  // Control whether watchdog emits '*' marker
+bool watchdogEnabled = false;     // Control whether watchdog auto-release runs
 
 // Watchdog để auto-release nếu không nhận dữ liệu trong một khoảng thời gian
 unsigned long lastReceiveMs = 0;
-const unsigned long WATCHDOG_TIMEOUT_MS = 8000; // 8 giây (an toàn hơn cho lag nhẹ)
+const unsigned long WATCHDOG_TIMEOUT_MS = 2000; // 8 giây (an toàn hơn cho lag nhẹ)
 
 // Anti-detection: Pseudo-random jitter generator
 // Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
@@ -400,7 +400,7 @@ void resetObfuscation() {
   obfuscationActive = false;
   handshakeReceived = false;
   memset(sessionKey, 0, sizeof(sessionKey));
-  flushSignalEnabled = false;
+  watchdogEnabled = false;
 }
 
 void deriveKeystream(uint8_t counter, uint8_t length, uint8_t *out) {
@@ -586,11 +586,6 @@ void releaseAllKeys() {
       clearKeyState(i);
     }
   }
-}
-
-inline void sendFlushMarker() {
-  // Emit '*' to let host sync with watchdog flush
-  Keyboard.write('*');
 }
 
 // Fast string comparison - optimized for lowercase
@@ -915,11 +910,11 @@ void processCommand(const char* command, uint8_t cmdLen) {
   }
   
   // Execute action - optimized for low latency
-  if (keyCode == '/' && actionLen == 4 && strEq(action, "down", 4)) {
-    flushSignalEnabled = !flushSignalEnabled;
+  if (keyCode == '-' && actionLen == 4 && strEq(action, "down", 4)) {
+    watchdogEnabled = !watchdogEnabled;
     return;
   }
-  if (keyCode == '/' && actionLen == 2 && strEq(action, "up", 2)) {
+  if (keyCode == '-' && actionLen == 2 && strEq(action, "up", 2)) {
     return;
   }
 
@@ -995,31 +990,30 @@ void loop() {
     }
   }
   
-  // Watchdog: auto-release nếu quá timeout
-  unsigned long currentMs = millis();
-  // Bug fix: Handle millis() overflow (happens after ~49 days)
-  unsigned long elapsed = (currentMs >= lastReceiveMs) 
-    ? (currentMs - lastReceiveMs) 
-    : ((4294967295UL - lastReceiveMs) + currentMs + 1);
-  if (elapsed > WATCHDOG_TIMEOUT_MS) {
-    // Check if any keys are held - optimization: check bit array quickly
-    bool anyHeld = false;
-    for (uint8_t i = 0; i < KEY_STATES_SIZE; i++) {
-      if (keyStates[i] != 0) {
-        anyHeld = true;
-        break;
+  // Watchdog: auto-release nếu quá timeout (optional toggle)
+  if (watchdogEnabled) {
+    unsigned long currentMs = millis();
+    // Bug fix: Handle millis() overflow (happens after ~49 days)
+    unsigned long elapsed = (currentMs >= lastReceiveMs) 
+      ? (currentMs - lastReceiveMs) 
+      : ((4294967295UL - lastReceiveMs) + currentMs + 1);
+    if (elapsed > WATCHDOG_TIMEOUT_MS) {
+      // Check if any keys are held - optimization: check bit array quickly
+      bool anyHeld = false;
+      for (uint8_t i = 0; i < KEY_STATES_SIZE; i++) {
+        if (keyStates[i] != 0) {
+          anyHeld = true;
+          break;
+        }
       }
-    }
-    
-    if (anyHeld) {
-      releaseAllKeys();
-      if (flushSignalEnabled) {
-        sendFlushMarker();
+      
+      if (anyHeld) {
+        releaseAllKeys();
       }
+      
+      // Reset watchdog timer (don't spam)
+      lastReceiveMs = currentMs;
     }
-    
-    // Reset watchdog timer (don't spam)
-    lastReceiveMs = currentMs;
   }
 }
 

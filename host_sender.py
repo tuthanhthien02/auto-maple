@@ -171,7 +171,7 @@ class ReceiverSession:
         self.vmware_ip = config.get("vmware_ip")
         self.vmware_port = int(config.get("vmware_port", 12345))
         self.reconnect_interval = float(config.get("reconnect_interval", 1.0))
-        self.forwarding_enabled = bool(config.get("forwarding_enabled", True))
+        self.forwarding_enabled = bool(config.get("forwarding_enabled", False))
         self.auto_connect = config.get("auto_connect", True)
         self.enable_logging = config.get("enable_logging", host.enable_logging)
 
@@ -364,10 +364,10 @@ class ReceiverRow(tk.Frame):
 
         self.mirror_btn = tk.Button(
             self,
-            text="Mirror ON",
+            text="Mirror Input ON",
             bg="#16a34a",
             fg="white",
-            width=12,
+            width=14,
             command=self._on_toggle_mirror,
         )
         self.mirror_btn.grid(row=0, column=2, padx=4)
@@ -393,10 +393,10 @@ class ReceiverRow(tk.Frame):
         connecting = state.get("connecting", False)
         desired = state.get("desired_connection", False)
 
-        self.mirror_btn.configure(
-            text="Mirror ON" if forwarding else "Mirror OFF",
-            bg="#16a34a" if forwarding else "#f97316",
-        )
+        if forwarding:
+            self.mirror_btn.configure(text="Mirror Input OFF", bg="#f97316")
+        else:
+            self.mirror_btn.configure(text="Mirror Input ON", bg="#16a34a")
 
         if connecting:
             self.connect_btn.configure(
@@ -512,7 +512,7 @@ class HostSender:
         reconnect_interval: float = 1.0,
         enable_logging: bool = False,
         block_original_input: bool = False,
-        forwarding_enabled: bool = True,
+        forwarding_enabled: bool = False,
     ):
         self.cli_override_ip = vmware_ip
         self.cli_override_port = vmware_port
@@ -603,7 +603,7 @@ class HostSender:
                 "reconnect_interval": data.get(
                     "reconnect_interval", self.cli_override_reconnect or 1.0
                 ),
-                "forwarding_enabled": data.get("forwarding_enabled", True),
+                "forwarding_enabled": data.get("forwarding_enabled", False),
                 "auto_connect": True,
             }
             receivers = [legacy_entry] if legacy_entry.get("vmware_ip") else []
@@ -614,7 +614,7 @@ class HostSender:
                 "vmware_ip": self.cli_override_ip,
                 "vmware_port": self.cli_override_port,
                 "reconnect_interval": self.cli_override_reconnect,
-                "forwarding_enabled": True,
+                "forwarding_enabled": False,
                 "auto_connect": True,
             }
             if receivers:

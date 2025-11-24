@@ -205,18 +205,6 @@ class _KeyStateTracker:
 
 _key_state_tracker = _KeyStateTracker()
 
-# Watchdog flush tracking (keep host in sync with Arduino watchdog ~8s)
-WATCHDOG_FLUSH_INTERVAL = 8.0
-_last_flush_sync_ts = time.time()
-
-
-def _sync_with_watchdog(reason: str) -> None:
-    """Reset key tracker and record the last flush sync timestamp."""
-    global _last_flush_sync_ts
-    _key_state_tracker.reset()
-    _last_flush_sync_ts = time.time()
-    log.warning("[VKEYS] Watchdog sync (%s) – key state tracker reset", reason)
-
 
 # Arduino output instance (lazy import)
 _arduino_output = None
@@ -282,14 +270,10 @@ def _handle_special_messages(shared_conn):
     for message in messages:
         _process_arduino_message(message)
 
-    now = time.time()
-    if now - _last_flush_sync_ts >= WATCHDOG_FLUSH_INTERVAL:
-        _sync_with_watchdog("host fallback interval")
-
 
 def _process_arduino_message(message: str) -> None:
     if message == "*":
-        _sync_with_watchdog("'*' marker")
+        log.info("[VKEYS] Received watchdog marker '*', device handled; no host sync")
         return
 
     if message.startswith("LOG:"):
@@ -411,20 +395,13 @@ def _key_up_sendinput(key):
     user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
 
-def key_up(key):
-    """
-    Simulates a key-up action. Cannot be cancelled by Bot.toggle_enabled.
-    This is to ensure no keys are left in the 'down' state when the program pauses.
-    Uses Arduino if enabled, otherwise SendInput.
-    :param key:     The key to press.
-    :return:        None
-    """
+def _force_key_up(key):
     key = key.lower()
 
     # Prevent double-release: only release if we believe the key is down
     if not _key_state_tracker.is_down(key):
         action_log.debug("key_up('%s') ignored (already up)", key)
-        return
+        return False
 
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
@@ -438,7 +415,7 @@ def key_up(key):
                 )
                 _key_up_sendinput(key)
             _key_state_tracker.mark_up(key)
-            return
+            return True
         except Exception as e:
             # Bug fix: Fallback to SendInput on exception
             log.warning(
@@ -446,11 +423,36 @@ def key_up(key):
             )
             _key_up_sendinput(key)
             _key_state_tracker.mark_up(key)
-            return
+            return True
 
     # Fallback to SendInput
     _key_up_sendinput(key)
     _key_state_tracker.mark_up(key)
+    return True
+
+
+@utils.run_if_enabled
+def key_up(key):
+    """
+    Simulates a key-up action. Cannot be cancelled by Bot.toggle_enabled.
+    This is to ensure no keys are left in the 'down' state when the program pauses.
+    Uses Arduino if enabled, otherwise SendInput.
+    :param key:     The key to press.
+    :return:        None
+    """
+    _force_key_up(key)
+
+
+def release_tracked_keys():
+    """
+    Force-release every key currently marked as down in the tracker.
+    Returns the number of keys that were released.
+    """
+    released = 0
+    for key in _key_state_tracker.keys_down():
+        if _force_key_up(key):
+            released += 1
+    return released
 
 
 def _press_sendinput(key, n, down_time=0.05, up_time=0.1):
