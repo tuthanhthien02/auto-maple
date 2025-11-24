@@ -2,7 +2,7 @@
   "settings": {
     "enable_logging": false,
     "block_original_input": false,
-    "forwarding_enabled": false
+    "forwarding_enabled": true
   },
   "receivers": [
     {

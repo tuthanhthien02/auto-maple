@@ -762,6 +762,13 @@ class HostSender:
             winsound.Beep(800 if self.block_original_input else 400, 150)
             self._save_config()
             return True
+        if vk_code == self.VK_PGUP:
+            self.global_forwarding_enabled = not self.global_forwarding_enabled
+            status = "ON" if self.global_forwarding_enabled else "OFF"
+            print(f"[HOTKEY] PageUp → Mirror Input: {status}")
+            winsound.Beep(900 if self.global_forwarding_enabled else 450, 150)
+            self._save_config()
+            return True
         return False
 
     def _track_hardware_event(self, message: int):
