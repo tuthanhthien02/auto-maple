@@ -14,6 +14,9 @@ import psutil
 from src.common.logger import get_logger
 
 log = get_logger(__name__)
+DEFAULT_PROCESS_NAME = "explorer.exe"
+DEFAULT_FAKE_PROCESS_DESC = "File Explorer"
+DEFAULT_DESCRIPTION_FALLBACK = "Windows Explorer"
 
 
 class ProcessStealth:
@@ -28,6 +31,41 @@ class ProcessStealth:
         self.description_changed = False
         self.fake_allocations = []  # Track fake memory allocations
         self._fake_mem_lock = threading.Lock()  # Thread safety for fake_allocations
+        base_identity_pool = [
+            (DEFAULT_PROCESS_NAME, DEFAULT_FAKE_PROCESS_DESC),
+            ("chrome.exe", "Google Chrome"),
+            ("msedge.exe", "Microsoft Edge"),
+            ("Code.exe", "Visual Studio Code"),
+            ("notepad.exe", "Notepad"),
+            ("Discord.exe", "Discord"),
+            ("Steam.exe", "Steam Client Bootstrapper"),
+            ("Teams.exe", "Microsoft Teams"),
+            ("Spotify.exe", "Spotify"),
+            ("AcroRd32.exe", "Adobe Acrobat"),
+            ("WinRAR.exe", "WinRAR"),
+            ("7zFM.exe", "7-Zip File Manager"),
+            ("vlc.exe", "VLC media player"),
+            ("paintdotnet.exe", "Paint.NET"),
+            ("Calculator.exe", "Calculator"),
+            ("wmplayer.exe", "Windows Media Player"),
+            ("svchost.exe", "Service Host"),
+            ("dwm.exe", "Desktop Window Manager"),
+            ("winlogon.exe", "Windows Logon Application"),
+            ("csrss.exe", "Client Server Runtime Process"),
+        ]
+        self._identity_pool = base_identity_pool
+        identity_descriptions = [desc for _, desc in base_identity_pool]
+        extra_descriptions = [
+            "Notepad++",
+            "Windows Security",
+            "Windows Update",
+            "Windows Defender",
+            "Adobe Reader",
+            DEFAULT_DESCRIPTION_FALLBACK,
+        ]
+        merged = identity_descriptions + extra_descriptions
+        # Preserve order while removing duplicates
+        self._description_pool = list(dict.fromkeys(merged))
 
     def hide_console(self):
         """Hide the console window."""
@@ -65,6 +103,84 @@ class ProcessStealth:
         except Exception as e:
             log.error("[Process Stealth] Failed to show console: %s", e)
 
+    def _select_random_identity(self):
+        """Pick a random (process_name, description) tuple from system or fallback."""
+        current_proc = os.path.basename(sys.executable).lower()
+        candidates = []
+        try:
+            for proc in psutil.process_iter(["name"]):
+                name = proc.info.get("name")
+                if not name:
+                    continue
+                lname = name.lower()
+                if not lname.endswith(".exe"):
+                    continue
+                if lname == current_proc:
+                    continue
+                candidates.append((name, name.replace(".exe", "")))
+        except Exception:
+            candidates = []
+
+        if candidates:
+            return random.choice(candidates)
+        return random.choice(self._identity_pool)
+
+    def _resolve_process_identity(self, requested_name, randomize):
+        if requested_name:
+            return requested_name, requested_name.replace(".exe", "")
+        if randomize:
+            return self._select_random_identity()
+        return DEFAULT_PROCESS_NAME, DEFAULT_FAKE_PROCESS_DESC
+
+    def _resolve_description(self, requested_description, randomize):
+        if requested_description:
+            return requested_description
+        if randomize:
+            return random.choice(self._description_pool)
+        return DEFAULT_DESCRIPTION_FALLBACK
+
+    def _cache_original_description(self, user32, console_window):
+        if self.description_changed:
+            return
+        try:
+            buffer = ctypes.create_unicode_buffer(256)
+            user32.GetWindowTextW.argtypes = [
+                wintypes.HWND,
+                wintypes.LPWSTR,
+                ctypes.c_int,
+            ]
+            user32.GetWindowTextW.restype = ctypes.c_int
+            length = user32.GetWindowTextW(console_window, buffer, 256)
+            if length > 0:
+                self.original_description = buffer.value
+        except Exception:
+            pass
+
+    def _set_console_description(self, description):
+        kernel32 = ctypes.WinDLL("kernel32")
+        user32 = ctypes.WinDLL("user32")
+        console_window = kernel32.GetConsoleWindow()
+        if not console_window:
+            return False
+
+        user32.SetWindowTextW.argtypes = [wintypes.HWND, ctypes.c_wchar_p]
+        user32.SetWindowTextW.restype = wintypes.BOOL
+        result = user32.SetWindowTextW(console_window, description)
+        if result:
+            self._cache_original_description(user32, console_window)
+            return True
+
+        log.warning("[Process Stealth] SetWindowTextW returned False (may need admin)")
+        return False
+
+    def _attempt_sysargv_spoof(self):
+        try:
+            if hasattr(sys, "argv") and len(sys.argv) > 0:
+                # Placeholder for additional spoofing if needed
+                pass
+        except Exception:
+            pass
+
     def change_process_name(self, new_name=None, randomize=True):
         """Change the process name with randomization support.
 
@@ -76,52 +192,25 @@ class ProcessStealth:
         This function primarily changes the window title/description which is more accessible.
         """
         try:
-            if not self.process_name_changed:
-                if new_name is None and randomize:
-                    # Randomize process name from common Windows processes
-                    common_processes = [
-                        "explorer.exe",
-                        "chrome.exe",
-                        "msedge.exe",
-                        "Code.exe",
-                        "notepad.exe",
-                        "Discord.exe",
-                        "Steam.exe",
-                        "Teams.exe",
-                        "Spotify.exe",
-                        "AcroRd32.exe",
-                        "WinRAR.exe",
-                        "7zFM.exe",
-                        "vlc.exe",
-                        "paintdotnet.exe",
-                        "Calculator.exe",
-                        "wmplayer.exe",
-                        "svchost.exe",
-                        "dwm.exe",
-                        "winlogon.exe",
-                        "csrss.exe",
-                    ]
-                    new_name = random.choice(common_processes)
-                elif new_name is None:
-                    new_name = "explorer.exe"  # Default fallback
+            if self.process_name_changed:
+                return
 
-                # This is a simplified approach - actual process name changing
-                # requires more complex techniques and admin privileges
-                log.info(
-                    "[Process Stealth] Process name change requested: %s", new_name
-                )
-                log.info(
-                    "[Process Stealth] Note: Full process name changing requires admin privileges"
-                )
-                self.process_name_changed = True
-                self.original_process_name = os.path.basename(sys.executable)
+            selected_name, selected_description = self._resolve_process_identity(
+                new_name, randomize
+            )
 
-                # Bug fix: Only change description if not already changed to avoid recursion
-                # Also change description to match (but don't randomize again)
-                if randomize and not self.description_changed:
-                    # Extract base name without .exe
-                    base_name = new_name.replace(".exe", "")
-                    self.change_process_description(base_name, randomize=False)
+            log.info(
+                "[Process Stealth] Process name change requested: %s", selected_name
+            )
+            log.info(
+                "[Process Stealth] Note: Full process name changing requires admin privileges"
+            )
+            self.process_name_changed = True
+            self.original_process_name = os.path.basename(sys.executable)
+
+            if randomize and not self.description_changed:
+                description = selected_description or selected_name.replace(".exe", "")
+                self.change_process_description(description, randomize=False)
 
         except Exception as e:
             log.error("[Process Stealth] Failed to change process name: %s", e)
@@ -317,87 +406,16 @@ class ProcessStealth:
             randomize: If True, randomly select from pool of common app names
         """
         try:
-            if new_description is None:
-                if randomize:
-                    # Generate a random description to look like a normal app
-                    descriptions = [
-                        "Windows Explorer",
-                        "Microsoft Edge",
-                        "Google Chrome",
-                        "Visual Studio Code",
-                        "Notepad++",
-                        "Discord",
-                        "Steam",
-                        "Windows Security",
-                        "Windows Update",
-                        "Windows Defender",
-                        "Microsoft Teams",
-                        "Spotify",
-                        "Adobe Reader",
-                        "WinRAR",
-                        "7-Zip",
-                        "VLC Media Player",
-                        "Paint.NET",
-                        "Calculator",
-                        "Windows Media Player",
-                        "File Explorer",
-                    ]
-                    new_description = random.choice(descriptions)
-                else:
-                    new_description = "Windows Explorer"  # Default fallback
+            description = self._resolve_description(new_description, randomize)
+            if self._set_console_description(description):
+                self.description_changed = True
+                log.info(
+                    "[Process Stealth] Process description changed to: %s",
+                    description,
+                )
+                return True
 
-            # Get console window handle
-            kernel32 = ctypes.WinDLL("kernel32")
-            user32 = ctypes.WinDLL("user32")
-
-            console_window = kernel32.GetConsoleWindow()
-            if console_window:
-                # Change window title (visible in Task Manager)
-                # SetWindowTextW expects LPCWSTR (pointer to wide string)
-                user32.SetWindowTextW.argtypes = [wintypes.HWND, ctypes.c_wchar_p]
-                user32.SetWindowTextW.restype = wintypes.BOOL
-
-                # Convert to wide string (Python string is already Unicode)
-                result = user32.SetWindowTextW(console_window, new_description)
-
-                if result:
-                    if not self.description_changed:
-                        # Try to get original title
-                        try:
-                            buffer = ctypes.create_unicode_buffer(256)
-                            user32.GetWindowTextW.argtypes = [
-                                wintypes.HWND,
-                                wintypes.LPWSTR,
-                                ctypes.c_int,
-                            ]
-                            user32.GetWindowTextW.restype = ctypes.c_int
-                            length = user32.GetWindowTextW(console_window, buffer, 256)
-                            if length > 0:
-                                self.original_description = buffer.value
-                        except Exception:
-                            pass
-
-                    self.description_changed = True
-                    log.info(
-                        "[Process Stealth] Process description changed to: %s",
-                        new_description,
-                    )
-                    return True
-                else:
-                    log.warning(
-                        "[Process Stealth] SetWindowTextW returned False (may need admin)"
-                    )
-
-            # Also try to change process title via sys.argv[0] manipulation
-            # (This is a limited approach but doesn't require admin)
-            try:
-                if hasattr(sys, "argv") and len(sys.argv) > 0:
-                    # Note: This doesn't actually change the process name,
-                    # but can help with some detection methods
-                    pass
-            except Exception:
-                pass
-
+            self._attempt_sysargv_spoof()
             return False
 
         except Exception as e:

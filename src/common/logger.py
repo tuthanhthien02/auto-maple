@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+LOGGER_INIT_NAME = "auto_maple.logger_init"
+
 
 def _resolve_base_path() -> Path:
     """Return directory suitable for writing logs.
@@ -175,7 +177,7 @@ def _build_handlers(log_file: Path) -> List[logging.Handler]:
             # Key not set, disable encryption and log warning
             encryption_enabled = False
             # Use a temporary logger to avoid circular dependency
-            temp_logger = logging.getLogger("auto_maple.logger_init")
+            temp_logger = logging.getLogger(LOGGER_INIT_NAME)
             temp_logger.warning(
                 "[Logger] AUTO_MAPLE_LOG_ENCRYPTION_KEY not set, encryption disabled"
             )
@@ -192,7 +194,7 @@ def _build_handlers(log_file: Path) -> List[logging.Handler]:
             file_handler.setFormatter(formatter)
         except Exception as e:
             # Fallback to regular handler if EncryptedFileHandler fails
-            temp_logger = logging.getLogger("auto_maple.logger_init")
+            temp_logger = logging.getLogger(LOGGER_INIT_NAME)
             temp_logger.warning(
                 "[Logger] Failed to create EncryptedFileHandler: %s, using regular handler",
                 e,
@@ -233,7 +235,7 @@ def _parse_log_level(env_value: str, default: int) -> int:
         return default
     if hasattr(logging, value):
         return getattr(logging, value)
-    temp_logger = logging.getLogger("auto_maple.logger_init")
+    temp_logger = logging.getLogger(LOGGER_INIT_NAME)
     temp_logger.warning(
         "AUTO_MAPLE_LOG_LEVEL '%s' not recognised; falling back to %s",
         value,
@@ -251,7 +253,7 @@ def _apply_log_level(logger: logging.Logger, level: int) -> None:
 def _configure_root_logger() -> logging.Logger:
     base = _resolve_base_path()
     log_dir = _ensure_log_directory(base)
-    log_file = log_dir / "auto_maple.log"
+    log_file = log_dir / "text.log"
 
     logger = logging.getLogger("auto_maple")
     if logger.handlers:
