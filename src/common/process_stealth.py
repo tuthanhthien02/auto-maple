@@ -29,8 +29,6 @@ class ProcessStealth:
         self.original_process_name = None
         self.original_description = None
         self.description_changed = False
-        self.fake_allocations = []  # Track fake memory allocations
-        self._fake_mem_lock = threading.Lock()  # Thread safety for fake_allocations
         base_identity_pool = [
             (DEFAULT_PROCESS_NAME, DEFAULT_FAKE_PROCESS_DESC),
             ("chrome.exe", "Google Chrome"),
@@ -353,51 +351,6 @@ class ProcessStealth:
         except Exception as e:
             log.error("[Process Stealth] Failed to scramble memory: %s", e)
 
-    def allocate_fake_memory(self, count=None):
-        """Allocate fake memory with random data to obfuscate memory patterns."""
-        try:
-            if count is None:
-                count = random.randint(3, 8)  # 3-8 fake allocations
-
-            # Thread-safe: Clear old allocations if too many
-            with self._fake_mem_lock:
-                if len(self.fake_allocations) > 20:
-                    # Remove oldest 50%
-                    remove_count = len(self.fake_allocations) // 2
-                    self.fake_allocations = self.fake_allocations[remove_count:]
-
-            # Allocate new fake memory blocks (thread-safe)
-            with self._fake_mem_lock:
-                for _ in range(count):
-                    # Random size between 1KB and 50KB
-                    size = random.randint(1024, 51200)
-                    # Create random data
-                    fake_data = bytearray(random.randint(0, 255) for _ in range(size))
-                    # Store reference to prevent immediate garbage collection
-                    self.fake_allocations.append(fake_data)
-
-        except Exception as e:
-            log.error("[Process Stealth] Failed to allocate fake memory: %s", e)
-
-    def clear_fake_memory(self):
-        """Clear all fake memory allocations."""
-        try:
-            with self._fake_mem_lock:
-                # Optimization: Explicitly delete each allocation before clearing list
-                # Bug fix: Create a copy of the list to avoid modifying while iterating
-                allocations_to_clear = list(self.fake_allocations)
-                for allocation in allocations_to_clear:
-                    try:
-                        del allocation
-                    except Exception:
-                        pass  # Ignore errors when deleting individual allocations
-                self.fake_allocations.clear()
-            # Force multiple GC passes to ensure memory is actually freed
-            gc.collect()
-            gc.collect()  # Second pass for better cleanup
-        except Exception as e:
-            log.error("[Process Stealth] Failed to clear fake memory: %s", e)
-
     def change_process_description(self, new_description=None, randomize=True):
         """Change process description/window title (does not require admin).
 
@@ -506,9 +459,6 @@ class ProcessStealth:
             if self.description_changed:
                 self.restore_process_description()
 
-            # Clear fake memory allocations
-            self.clear_fake_memory()
-
             log.info("[Process Stealth] Stealth features cleaned up")
 
         except Exception as e:
@@ -569,10 +519,7 @@ class StealthMonitor:
                 time.sleep(interval)
 
                 if self.memory_scramble_enabled:
-                    # Perform memory scrambling
                     self.stealth.scramble_memory()
-                    # Allocate some fake memory
-                    self.stealth.allocate_fake_memory()
 
             except Exception as e:
                 log.error(
@@ -609,7 +556,6 @@ class StealthMonitor:
         change_description=True,
         randomize_process_name=True,
         enable_memory_scrambling=True,
-        enable_fake_allocations=True,
     ):
         """Enable all stealth features.
 
@@ -617,7 +563,6 @@ class StealthMonitor:
             change_description: Change process description/window title (default: True)
             randomize_process_name: Randomize process name/description (default: True)
             enable_memory_scrambling: Enable periodic memory scrambling (default: True)
-            enable_fake_allocations: Allocate fake memory with random data (default: True)
         """
         try:
             # Hide console
@@ -632,10 +577,6 @@ class StealthMonitor:
                 self.stealth.change_process_description(
                     randomize=randomize_process_name
                 )
-
-            # Allocate initial fake memory
-            if enable_fake_allocations:
-                self.stealth.allocate_fake_memory(count=random.randint(3, 8))
 
             # Minimize memory footprint
             self.stealth.minimize_memory_footprint()
@@ -653,11 +594,10 @@ class StealthMonitor:
             log.info("[Stealth Monitor] All stealth features enabled")
             log.info(
                 "[Stealth Monitor] Features: console_hidden=%s, description_changed=%s, "
-                "memory_scrambling=%s, fake_allocations=%d",
+                "memory_scrambling=%s",
                 self.stealth.console_hidden,
                 self.stealth.description_changed,
                 self.memory_scramble_enabled,
-                len(self.stealth.fake_allocations),
             )
 
         except Exception as e:
@@ -690,7 +630,6 @@ def enable_process_stealth(
     change_description=True,
     randomize_process_name=True,
     enable_memory_scrambling=True,
-    enable_fake_allocations=True,
 ):
     """Enable process stealth features.
 
@@ -698,13 +637,11 @@ def enable_process_stealth(
         change_description: Change process description/window title (default: True)
         randomize_process_name: Randomize process name/description (default: True)
         enable_memory_scrambling: Enable periodic memory scrambling every 5-10 min (default: True)
-        enable_fake_allocations: Allocate fake memory with random data (default: True)
     """
     stealth_monitor.enable_stealth(
         change_description=change_description,
         randomize_process_name=randomize_process_name,
         enable_memory_scrambling=enable_memory_scrambling,
-        enable_fake_allocations=enable_fake_allocations,
     )
 
 
@@ -735,7 +672,6 @@ def get_stealth_status():
         "description_changed": stealth_monitor.stealth.description_changed,
         "original_description": stealth_monitor.stealth.original_description,
         "memory_scrambling_enabled": stealth_monitor.memory_scramble_enabled,
-        "fake_allocations_count": len(stealth_monitor.stealth.fake_allocations),
         "process_info": stealth_monitor.stealth.get_process_info(),
     }
     return status
