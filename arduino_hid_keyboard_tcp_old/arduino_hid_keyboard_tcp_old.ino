@@ -51,19 +51,14 @@ const uint8_t MAX_FRAME_PAYLOAD = 48;  // enough for command strings
 bool obfuscationActive = false;
 bool handshakeReceived = false;
 uint8_t sessionKey[HANDSHAKE_LENGTH];
-bool flushSignalEnabled = false;  // Control whether watchdog emits '*' marker
 
 // Watchdog để auto-release nếu không nhận dữ liệu trong một khoảng thời gian
 unsigned long lastReceiveMs = 0;
-const unsigned long WATCHDOG_TIMEOUT_MS = 8000; // 8 giây (an toàn hơn cho lag nhẹ)
+const unsigned long WATCHDOG_TIMEOUT_MS = 3000; // 3 giây (reduced từ 5s để faster response)
 
 // Anti-detection: Pseudo-random jitter generator
 // Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
 // Note: A0, A1 pins should be floating (not connected) for best noise
-//
-// NOTE (TEMPORARY): Human-like random jitter is DISABLED by default for stability testing.
-// To re-enable anti-detect timing, set HUMAN_JITTER_ENABLED to true and re-upload.
-const bool HUMAN_JITTER_ENABLED = false;
 uint16_t getRandomJitter(uint16_t min, uint16_t max) {
   // Read from floating analog pins for noise
   uint16_t raw = analogRead(A0);
@@ -89,9 +84,9 @@ uint16_t getRandomJitter(uint16_t min, uint16_t max) {
 // Anti-detection: Human-like delay with jitter (microseconds)
 // Adds natural variation to prevent detection of fixed timing patterns
 void humanDelayMicroseconds(uint16_t base, uint16_t jitterRange) {
-  // When jitter is disabled, use fixed timing for maximum determinism (no anti-detect).
-  uint16_t jitter = HUMAN_JITTER_ENABLED ? getRandomJitter(0, jitterRange) : 0;
-  // Prevent overflow when adding base + jitter
+  // Bug fix: Use delayUs instead of delay to avoid shadowing delay() function
+  uint16_t jitter = getRandomJitter(0, jitterRange);
+  // Bug fix: Prevent overflow when adding base + jitter
   uint32_t delayUs = (uint32_t)base + (uint32_t)jitter;
   // delayMicroseconds max is 16383, use delay() for longer times
   if (delayUs > 16383) {
@@ -104,9 +99,9 @@ void humanDelayMicroseconds(uint16_t base, uint16_t jitterRange) {
 
 // Anti-detection: Human-like delay with jitter (milliseconds)
 void humanDelay(uint16_t base, uint16_t jitterRange) {
-  // When jitter is disabled, use fixed timing for maximum determinism (no anti-detect).
-  uint16_t jitter = HUMAN_JITTER_ENABLED ? getRandomJitter(0, jitterRange) : 0;
-  // Prevent overflow when adding base + jitter
+  // Bug fix: Use delayMs instead of delay to avoid shadowing delay() function
+  uint16_t jitter = getRandomJitter(0, jitterRange);
+  // Bug fix: Prevent overflow when adding base + jitter
   uint32_t delayMs = (uint32_t)base + (uint32_t)jitter;
   // delay() accepts uint32_t, but we'll cap it to reasonable value
   if (delayMs > 65535) {
@@ -400,7 +395,6 @@ void resetObfuscation() {
   obfuscationActive = false;
   handshakeReceived = false;
   memset(sessionKey, 0, sizeof(sessionKey));
-  flushSignalEnabled = false;
 }
 
 void deriveKeystream(uint8_t counter, uint8_t length, uint8_t *out) {
@@ -586,11 +580,6 @@ void releaseAllKeys() {
       clearKeyState(i);
     }
   }
-}
-
-inline void sendFlushMarker() {
-  // Emit '*' to let host sync with watchdog flush
-  Keyboard.write('*');
 }
 
 // Fast string comparison - optimized for lowercase
@@ -915,14 +904,6 @@ void processCommand(const char* command, uint8_t cmdLen) {
   }
   
   // Execute action - optimized for low latency
-  if (keyCode == '/' && actionLen == 4 && strEq(action, "down", 4)) {
-    flushSignalEnabled = !flushSignalEnabled;
-    return;
-  }
-  if (keyCode == '/' && actionLen == 2 && strEq(action, "up", 2)) {
-    return;
-  }
-
   if (actionLen == 4 && strEq(action, "down", 4)) {
     // Key down - support all keys including arrows and modifiers (keyCode can be > 127)
     if (keyCode < MAX_KEYS) {
@@ -1013,13 +994,9 @@ void loop() {
     
     if (anyHeld) {
       releaseAllKeys();
-      if (flushSignalEnabled) {
-        sendFlushMarker();
-      }
     }
     
     // Reset watchdog timer (don't spam)
     lastReceiveMs = currentMs;
   }
 }
-
