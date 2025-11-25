@@ -44,40 +44,29 @@ face_right,25
 reflection_mix_random,75
 wait_random,0.4,0.8
 
-*,0.069,0.116,adjust=False,frequency=1
-Label,f1_pos_6
-wait_random,0.1,0.3
 
-*,0.052,0.112,adjust=True,frequency=1
-Label,f1_pos_7
-Comment,Floor 1 Pos 6: Reflection Mix Random (auto-jump UP to Floor 2 via Adjust)
-wait_random,0.4,0.8
 
 # ========================================
 # FLOOR 2: LEFT → RIGHT (y ≈ 0.026-0.043)
 # ========================================
 Comment,=== FLOOR 2 START: Move Left → Right (y ≈ 0.026-0.043) ===
 
-*,0.026,0.033,adjust=False,frequency=1
-Label,f2_pos_0
-face_left
-reflection_mix_random,75
-wait_random,0.4,0.8
+
 
 *,0.074,0.026,adjust=False,frequency=1
-Label,f2_pos_1
+Label,f2_pos_0
 face_left,25
 reflection_mix_random,75
 wait_random,0.4,0.8
 
 *,0.121,0.029,adjust=False,frequency=1
-Label,f2_pos_2
+Label,f2_pos_1
 face_left,25
 reflection_mix_random,75
 wait_random,0.4,0.8
 
 *,0.164,0.043,adjust=True,frequency=1
-Label,f2_pos_3
+Label,f2_pos_2
 face_left,25
 Comment,Floor 2 Pos 3: Reflection Mix Random (auto-jump DOWN to Floor 1 via Adjust)
 reflection_mix_random,75
