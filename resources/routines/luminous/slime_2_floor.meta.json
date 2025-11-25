@@ -9,7 +9,8 @@
         "f1_pos_3",
         "f1_pos_4",
         "f1_pos_5",
-        "f1_pos_6"
+        "f1_pos_6",
+        "f1_pos_7"
       ],
       "y_range": [0.1, 1.0],
       "priority": 10
