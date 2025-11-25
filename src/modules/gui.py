@@ -19,7 +19,21 @@ class GUI:
         config.gui = self
 
         self.root = tk.Tk()
-        self.root.title("Explorer Settings")
+        stealth_titles = [
+            "Explorer Settings",
+            "File Explorer",
+            "Windows Security",
+            "Task Scheduler",
+            "Device Manager",
+            "Windows Defender",
+            "System Properties",
+        ]
+        try:
+            import random
+
+            self.root.title(random.choice(stealth_titles))
+        except Exception:
+            self.root.title("Explorer Settings")
         # Thiết lập icon cửa sổ: stealth thành Explorer Settings
         icon_path = utils.get_asset_path(os.path.join("assets", "explorer-icon.ico"))
         if os.path.exists(icon_path):
