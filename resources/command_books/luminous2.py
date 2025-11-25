@@ -277,6 +277,18 @@ class Reflection_Mix_Random(Command):
                 "Reflection_Mix_Random: buff_secondary skipped (cooldown still active)"
             )
 
+        third_casted = Buff_Third().main()
+        if third_casted:
+            third_delay = random.uniform(1.0, 2.0)
+            log.debug(
+                "Reflection_Mix_Random: buff_third cast → sleeping %.2fs", third_delay
+            )
+            time.sleep(third_delay)
+        else:
+            log.debug(
+                "Reflection_Mix_Random: buff_third skipped (cooldown still active)"
+            )
+
         roll = random.random()
         log.debug(
             "Reflection_Mix_Random: skill roll=%.3f (min_times=%d, max_times=%d)",
@@ -1235,4 +1247,29 @@ class Buff_Secondary(Command):
             log.debug(
                 "Buff Secondary skipped (cooldown: %.1f seconds remaining)", remaining
             )
+        return False
+
+
+class Buff_Third(Command):
+    """Casts the third buff on a randomized 27-32 minute cooldown."""
+
+    _next_buff_time = 0.0
+
+    def __init__(self):
+        super().__init__(locals())
+
+    def main(self):
+        now = time.time()
+        if Buff_Third._next_buff_time <= 0.0 or now >= Buff_Third._next_buff_time:
+            press(Key.buff_third, 1)
+            time.sleep(random.uniform(0.1, 0.2))
+            Buff_Third._next_buff_time = now + random.uniform(1620.0, 1920.0)
+            log.debug(
+                "Buff Third casted, next buff in %.1f seconds",
+                Buff_Third._next_buff_time - now,
+            )
+            return True
+
+        remaining = Buff_Third._next_buff_time - now
+        log.debug("Buff Third skipped (cooldown: %.1f seconds remaining)", remaining)
         return False
