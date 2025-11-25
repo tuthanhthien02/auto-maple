@@ -446,12 +446,24 @@ def key_up(key):
 def release_tracked_keys():
     """
     Force-release every key currently marked as down in the tracker.
+    Also sends 'all_up' command to Arduino to ensure all keys are released.
     Returns the number of keys that were released.
     """
     released = 0
     for key in _key_state_tracker.keys_down():
         if _force_key_up(key):
             released += 1
+
+    # Force release all keys on Arduino to ensure no keys are stuck
+    # This is important when toggling bot off, as keys may be held directly on Arduino
+    arduino = _get_arduino_output()
+    if arduino and arduino.connected and hasattr(arduino, "shared_conn"):
+        try:
+            arduino.shared_conn.send_all_up()
+            log.info("[VKEYS] Sent 'all_up' command to Arduino to release all keys")
+        except Exception as e:
+            log.warning(f"[VKEYS] Failed to send 'all_up' to Arduino: {e}")
+
     return released
 
 

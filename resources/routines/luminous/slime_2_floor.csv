@@ -12,37 +12,37 @@ Comment,=== FLOOR 1 START: Move Right → Left (y ≈ 0.107-0.116) ===
 Label,f1_pos_0
 face_right
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.245,0.116,adjust=False,frequency=1
 Label,f1_pos_1
 face_right,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.202,0.112,adjust=False,frequency=1
 Label,f1_pos_2
 face_right,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.164,0.107,adjust=False,frequency=1
 Label,f1_pos_3
 face_right,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.124,0.114,adjust=False,frequency=1
 Label,f1_pos_4
 face_right,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.081,0.116,adjust=false,frequency=1
 Label,f1_pos_5
 face_right,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 
 
@@ -57,20 +57,20 @@ Comment,=== FLOOR 2 START: Move Left → Right (y ≈ 0.026-0.043) ===
 Label,f2_pos_0
 face_left,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.121,0.029,adjust=False,frequency=1
 Label,f2_pos_1
 face_left,25
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 *,0.164,0.043,adjust=True,frequency=1
 Label,f2_pos_2
 face_left,25
 Comment,Floor 2 Pos 3: Reflection Mix Random (auto-jump DOWN to Floor 1 via Adjust)
 reflection_mix_random,75
-wait_random,0.4,0.8
+wait_random,0.2,0.5
 
 # ========================================
 # LOOP BACK TO START
