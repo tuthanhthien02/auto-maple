@@ -909,7 +909,10 @@ class Move(Command):
         path = config.layout.shortest_path(config.player_pos, self.target)
         for i, point in enumerate(path):
             toggle = True
-            self.prev_direction = ""
+            # Release any direction key from previous point before starting new point
+            if self.prev_direction:
+                key_up(self.prev_direction)
+                self.prev_direction = ""
             local_error = utils.distance(config.player_pos, point)
             global_error = utils.distance(config.player_pos, self.target)
             while (
@@ -1171,7 +1174,14 @@ class Face_Right(Command):
     def main(self):
         if not utils.bernoulli(self.probability / 100.0):
             return
-        press(Key.right, 1, down_time=0.05, up_time=0.05)
+        # Release left key if held (to avoid conflict with Move class)
+        key_up(Key.left)
+        press(
+            Key.right,
+            1,
+            down_time=random.uniform(0.05, 0.1),
+            up_time=random.uniform(0.05, 0.1),
+        )
         time.sleep(random.uniform(0.03, 0.08))
 
 
@@ -1185,7 +1195,14 @@ class Face_Left(Command):
     def main(self):
         if not utils.bernoulli(self.probability / 100.0):
             return
-        press(Key.left, 1, down_time=0.05, up_time=0.05)
+        # Release right key if held (to avoid conflict with Move class)
+        key_up(Key.right)
+        press(
+            Key.left,
+            1,
+            down_time=random.uniform(0.05, 0.1),
+            up_time=random.uniform(0.05, 0.1),
+        )
         time.sleep(random.uniform(0.03, 0.08))
 
 

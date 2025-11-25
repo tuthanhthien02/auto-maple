@@ -1,0 +1,89 @@
+# Routine: Slime 2-Floor Training Path
+# Derived from tree_2_floor_descriptor_v2.csv with positions from image.
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: RIGHT → LEFT (y ≈ 0.107-0.116)
+# ========================================
+Comment,=== FLOOR 1 START: Move Right → Left (y ≈ 0.107-0.116) ===
+
+*,0.285,0.109,adjust=True,frequency=1
+Label,f1_pos_0
+face_right
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.245,0.116,adjust=False,frequency=1
+Label,f1_pos_1
+face_right,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.202,0.112,adjust=False,frequency=1
+Label,f1_pos_2
+face_right,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.164,0.107,adjust=False,frequency=1
+Label,f1_pos_3
+face_right,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.124,0.114,adjust=False,frequency=1
+Label,f1_pos_4
+face_right,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.081,0.116,adjust=True,frequency=1
+Label,f1_pos_5
+face_right,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.055,0.112,adjust=True,frequency=1
+Label,f1_pos_6
+face_right,25
+Comment,Floor 1 Pos 6: Reflection Mix Random (auto-jump UP to Floor 2 via Adjust)
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+# ========================================
+# FLOOR 2: LEFT → RIGHT (y ≈ 0.026-0.043)
+# ========================================
+Comment,=== FLOOR 2 START: Move Left → Right (y ≈ 0.026-0.043) ===
+
+*,0.026,0.033,adjust=False,frequency=1
+Label,f2_pos_0
+face_left
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.074,0.026,adjust=False,frequency=1
+Label,f2_pos_1
+face_left,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.121,0.029,adjust=False,frequency=1
+Label,f2_pos_2
+face_left,25
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+*,0.164,0.043,adjust=True,frequency=1
+Label,f2_pos_3
+face_left,25
+Comment,Floor 2 Pos 3: Reflection Mix Random (auto-jump DOWN to Floor 1 via Adjust)
+reflection_mix_random,75
+wait_random,0.4,0.8
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
+
