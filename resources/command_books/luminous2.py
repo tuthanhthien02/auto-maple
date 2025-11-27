@@ -108,6 +108,7 @@ class Key:
     # Buffs
     buff_main = "a"  # Main buff
     buff_secondary = "3"  # Secondary buff
+    buff_third = "7"  # Third buff
 
     # Movement keys - FIXED: Use correct key names for vkeys
     left = "left"
@@ -1013,9 +1014,9 @@ def step(direction, target, distance=None, waypoint_jumped=False):
     if distance is None:
         distance = utils.distance(config.player_pos, target)
 
-    num_presses = 2
-    if direction in ("up", "down"):
-        num_presses = 1
+    # num_presses = 2
+    # if direction in ("up", "down"):
+    #     num_presses = 1
 
     if config.stage_fright and direction != "up" and utils.bernoulli(0.75):
         time.sleep(utils.rand_float(0.1, 0.3))
@@ -1052,7 +1053,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
     try:
         press(
             Key.teleport,
-            num_presses,
+            1,
             down_time=random.uniform(0.05, 0.10),
             up_time=random.uniform(0.02, 0.04),
         )

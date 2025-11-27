@@ -12,6 +12,14 @@
       "reconnect_interval": 1.0,
       "forwarding_enabled": true,
       "auto_connect": false
+    },
+    {
+      "name": "VMware #2",
+      "vmware_ip": "192.168.1.10",
+      "vmware_port": 12345,
+      "reconnect_interval": 1.0,
+      "forwarding_enabled": true,
+      "auto_connect": false
     }
   ]
 }
