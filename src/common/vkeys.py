@@ -8,8 +8,9 @@ from random import choice, gauss, random, uniform
 import win32api
 import win32con
 
-from src.common import utils
+from src.common import config, utils
 from src.common.logger import get_action_logger, get_logger
+from src.common.tcp_key_client import TcpKeyClient
 
 log = get_logger(__name__)
 action_log = get_action_logger()
@@ -204,6 +205,7 @@ class _KeyStateTracker:
 
 
 _key_state_tracker = _KeyStateTracker()
+_tcp_client = None
 
 
 # Arduino output instance (lazy import)
@@ -326,6 +328,74 @@ def _get_arduino_output():
     return _arduino_output
 
 
+def _get_tcp_client():
+    """Initialize TCP client when output mode is tcp."""
+    global _tcp_client
+    if getattr(config, "key_output_mode", "sendinput") != "tcp":
+        return None
+    if _tcp_client is None:
+        _tcp_client = TcpKeyClient(
+            config.tcp_key_host,
+            config.tcp_key_port,
+            reconnect_interval=getattr(config, "tcp_key_reconnect_delay", 1.0),
+            auto_reconnect=getattr(config, "tcp_key_auto_reconnect", True),
+        )
+        _tcp_client.start()
+    return _tcp_client
+
+
+def reset_tcp_client():
+    """Close and reset existing TCP client (called when settings change)."""
+    global _tcp_client
+    if _tcp_client is not None:
+        try:
+            _tcp_client.close()
+        except Exception:
+            pass
+        _tcp_client = None
+
+
+def _send_tcp_command(action, key=None):
+    client = _get_tcp_client()
+    if not client:
+        return False
+    try:
+        if action == "all_up":
+            client.send_all_up()
+        else:
+            if action == "down":
+                client.send_down(key)
+            elif action == "up":
+                client.send_up(key)
+            else:
+                raise ValueError(f"Unsupported TCP action: {action}")
+        return True
+    except Exception as exc:
+        log.warning("TCP key send failed (%s:%s): %s", action, key, exc)
+        return False
+
+
+def _press_tcp(key, n, down_time, up_time):
+    """Press helper for TCP mode."""
+    for i in range(n):
+        variation = _get_input_pattern_variation()
+        down_delay = _get_human_like_delay(down_time * variation, "down")
+        up_delay = _get_human_like_delay(up_time * variation, "up")
+
+        if not _send_tcp_command("down", key):
+            return False
+        _key_state_tracker.mark_down(key)
+        time.sleep(down_delay)
+        if not _send_tcp_command("up", key):
+            return False
+        _key_state_tracker.mark_up(key)
+        time.sleep(up_delay)
+
+        if i < n - 1 and n > 1:
+            time.sleep(_get_micro_pause())
+    return True
+
+
 def _key_down_sendinput(key):
     """Original SendInput key_down implementation"""
     key = key.lower()
@@ -352,6 +422,13 @@ def key_down(key):
     if _key_state_tracker.is_down(key):
         action_log.debug("key_down('%s') ignored (already down)", key)
         return
+
+    if getattr(config, "key_output_mode", "sendinput") == "tcp":
+        if _send_tcp_command("down", key):
+            _key_state_tracker.mark_down(key)
+            return
+        else:
+            log.warning("TCP key_down failed for '%s', falling back to local mode", key)
 
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
@@ -402,6 +479,13 @@ def _force_key_up(key):
     if not _key_state_tracker.is_down(key):
         action_log.debug("key_up('%s') ignored (already up)", key)
         return False
+
+    if getattr(config, "key_output_mode", "sendinput") == "tcp":
+        if _send_tcp_command("up", key):
+            _key_state_tracker.mark_up(key)
+            return True
+        else:
+            log.warning("TCP key_up failed for '%s', falling back to local mode", key)
 
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()
@@ -528,6 +612,12 @@ def press(key, n, down_time=0.05, up_time=0.1):
     if _key_state_tracker.is_down(key):
         action_log.debug("press('%s', ...) ignored because key is already down", key)
         return
+
+    if getattr(config, "key_output_mode", "sendinput") == "tcp":
+        if _press_tcp(key, n, down_time, up_time):
+            return
+        else:
+            log.warning("TCP press failed for '%s', falling back to local mode", key)
 
     # Check if Arduino is enabled and available
     arduino = _get_arduino_output()

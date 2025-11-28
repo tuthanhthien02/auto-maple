@@ -42,6 +42,9 @@ bot = None
 # Shares the video capture loop
 capture = None
 
+# Manual capture rectangle (left, top, width, height) provided by GUI
+manual_capture_rect = None
+
 # Shares the notifier module
 notifier = None
 
@@ -56,6 +59,70 @@ gui = None
 
 # Centralised bot configuration
 bot_config = BotConfig()
+
+# Key output runtime values (defaults)
+key_output_mode = "sendinput"
+tcp_key_host = "127.0.0.1"
+tcp_key_port = 12345
+tcp_key_auto_reconnect = True
+tcp_key_reconnect_delay = 1.0
+mirror_prev_key_mode = None
+
+
+def _load_key_output_settings():
+    global key_output_mode
+    global tcp_key_host
+    global tcp_key_port
+    global tcp_key_auto_reconnect
+    global tcp_key_reconnect_delay
+    global mirror_prev_key_mode
+
+    key_output_mode = bot_config.get("key_output.mode", key_output_mode).strip().lower()
+    tcp_key_host = bot_config.get("key_output.tcp.host", tcp_key_host)
+    tcp_key_port = int(bot_config.get("key_output.tcp.port", tcp_key_port))
+    tcp_key_auto_reconnect = bool(
+        bot_config.get("key_output.tcp.auto_reconnect", tcp_key_auto_reconnect)
+    )
+    tcp_key_reconnect_delay = float(
+        bot_config.get("key_output.tcp.reconnect_delay", tcp_key_reconnect_delay)
+    )
+    if key_output_mode != "tcp":
+        mirror_prev_key_mode = None
+
+
+def update_key_output_settings(
+    mode=None,
+    host=None,
+    port=None,
+    auto_reconnect=None,
+    reconnect_delay=None,
+):
+    """Persist new key-output settings to BotConfig and refresh globals."""
+    changed = False
+    if mode is not None:
+        bot_config.set("key_output.mode", mode.lower(), persist=True)
+        changed = True
+    if host is not None:
+        bot_config.set("key_output.tcp.host", host, persist=True)
+        changed = True
+    if port is not None:
+        bot_config.set("key_output.tcp.port", int(port), persist=True)
+        changed = True
+    if auto_reconnect is not None:
+        bot_config.set(
+            "key_output.tcp.auto_reconnect", bool(auto_reconnect), persist=True
+        )
+        changed = True
+    if reconnect_delay is not None:
+        bot_config.set(
+            "key_output.tcp.reconnect_delay", float(reconnect_delay), persist=True
+        )
+        changed = True
+    if changed:
+        _load_key_output_settings()
+
+
+_load_key_output_settings()
 
 #################################
 #    Arduino Output Config      #

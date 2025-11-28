@@ -7,7 +7,7 @@ from ctypes import wintypes
 import cv2
 import numpy as np
 import mss
-from src.common import config, utils
+from src.common import config, manual_capture_config, utils
 from src.common.logger import get_logger
 
 log = get_logger(__name__)
@@ -52,6 +52,7 @@ class Capture:
         config.capture = self
         self.frame = None
         self.sct = None
+        self.thread = None
         self.minimap_sample = None
         self.minimap_ratio = 0
         self.calibrated = False
@@ -60,6 +61,10 @@ class Capture:
         self.mm_tl = None
         self.mm_br = None
         self._recalibrate_requested = False
+        self.manual_region_override = None
+        self.manual_capture_mode = False
+        if config.manual_capture_rect:
+            self.manual_region_override = dict(config.manual_capture_rect)
 
         # Position tracking for CPU optimization
         self.last_player_pos = None
@@ -83,6 +88,9 @@ class Capture:
         """
         Starts the capture thread.
         """
+        if self.thread and self.thread.is_alive():
+            log.info("Capture thread already running")
+            return
         try:
             self.thread = threading.Thread(
                 target=self._main, name="CaptureThread", daemon=True
@@ -106,6 +114,52 @@ class Capture:
             )
             return False
         return True
+
+    def set_manual_region(self, rect, persist=True):
+        """Store a manual capture rectangle selected via GUI."""
+        if rect is None:
+            manual_capture_config.clear_manual_region()
+            self.manual_region_override = None
+            return
+        normalized = {
+            "left": int(rect["left"]),
+            "top": int(rect["top"]),
+            "width": max(1, int(rect["width"])),
+            "height": max(1, int(rect["height"])),
+        }
+        self.manual_region_override = normalized
+        if persist:
+            manual_capture_config.save_manual_region(normalized)
+        else:
+            config.manual_capture_rect = normalized
+
+    def start_manual_capture(self, rect=None):
+        """
+        Begin capture using a manually selected region.
+        """
+        if rect:
+            self.set_manual_region(rect)
+
+        if not (self.manual_region_override or config.manual_capture_rect):
+            raise ValueError("Manual capture region not specified")
+
+        self.manual_capture_mode = True
+        self.ready = False
+        self.calibrated = False
+
+        if self.thread and self.thread.is_alive():
+            # Request tracking loop to reinitialize with new region
+            self._recalibrate_requested = True
+            return
+
+        self.start()
+
+    def reset_manual_mode(self):
+        """Return to automatic window detection."""
+        self.manual_capture_mode = False
+        self.manual_region_override = None
+        manual_capture_config.clear_manual_region()
+        self._recalibrate_requested = True
 
     @staticmethod
     def _is_player_marker(minimap, point):
@@ -215,40 +269,62 @@ class Capture:
             try:
                 calibration_attempts += 1
 
-                handle = None
-                for title in ["MapleStory N", "MapleStory"]:
-                    handle = user32.FindWindowW(None, title)
-                    if handle:
-                        if DEBUG:
-                            log.debug("Found window: %s", title)
-                        break
+                manual_rect = (
+                    self.manual_region_override or config.manual_capture_rect
+                    if self.manual_capture_mode
+                    else None
+                )
 
-                if not handle:
-                    if calibration_attempts % 10 == 0:
-                        log.warning(
-                            "⚠️  MapleStory window not found (attempt %d/%d). Please open MapleStory game.",
-                            calibration_attempts,
-                            max_calibration_attempts,
-                        )
-                    elif calibration_attempts == 1:
-                        log.info("🔍 Searching for MapleStory window...")
-                    if calibration_attempts >= max_calibration_attempts:
-                        log.error(
-                            "❌ Failed to find MapleStory window after %d attempts",
-                            max_calibration_attempts,
-                        )
-                        log.error(
-                            "   Please ensure MapleStory is running and try again"
-                        )
-                        self.ready = True
-                        break
-                    time.sleep(0.5)
-                    continue
+                if manual_rect:
+                    rect = (
+                        int(manual_rect["left"]),
+                        int(manual_rect["top"]),
+                        int(manual_rect["left"] + manual_rect["width"]),
+                        int(manual_rect["top"] + manual_rect["height"]),
+                    )
+                    rect = tuple(max(0, value) for value in rect)
+                    if DEBUG:
+                        log.debug("Using manual capture region: %s", rect)
+                else:
+                    handle = None
+                    for title in ["MapleStory N", "MapleStory"]:
+                        handle = user32.FindWindowW(None, title)
+                        if handle:
+                            if DEBUG:
+                                log.debug("Found window: %s", title)
+                            break
 
-                rect = wintypes.RECT()
-                user32.GetWindowRect(handle, ctypes.pointer(rect))
-                rect = (rect.left, rect.top, rect.right, rect.bottom)
-                rect = tuple(max(0, x) for x in rect)
+                    if not handle:
+                        if calibration_attempts % 10 == 0:
+                            log.warning(
+                                "⚠️  MapleStory window not found (attempt %d/%d). Please open MapleStory game.",
+                                calibration_attempts,
+                                max_calibration_attempts,
+                            )
+                        elif calibration_attempts == 1:
+                            log.info("🔍 Searching for MapleStory window...")
+                        if calibration_attempts >= max_calibration_attempts:
+                            log.error(
+                                "❌ Failed to find MapleStory window after %d attempts",
+                                max_calibration_attempts,
+                            )
+                            log.error(
+                                "   Please ensure MapleStory is running and try again"
+                            )
+                            self.ready = True
+                            break
+                        time.sleep(0.5)
+                        continue
+
+                    rect_struct = wintypes.RECT()
+                    user32.GetWindowRect(handle, ctypes.pointer(rect_struct))
+                    rect = (
+                        rect_struct.left,
+                        rect_struct.top,
+                        rect_struct.right,
+                        rect_struct.bottom,
+                    )
+                    rect = tuple(max(0, x) for x in rect)
 
                 self.window["left"] = rect[0]
                 self.window["top"] = rect[1]

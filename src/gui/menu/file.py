@@ -3,7 +3,22 @@ import tkinter as tk
 from src.common import config, utils
 from src.gui.interfaces import MenuBarItem
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-from tkinter.messagebox import askyesno
+from tkinter.messagebox import askyesno, showerror
+
+
+def _capture_ready_or_warn():
+    capture_ready = (
+        hasattr(config, "capture")
+        and config.capture is not None
+        and config.capture.ready
+    )
+    if capture_ready:
+        return True
+    showerror(
+        title="Capture chưa sẵn sàng",
+        message="Hãy chọn vùng và nhấn 'Start Capture' trước khi thao tác với command book hoặc routine.",
+    )
+    return False
 
 
 class File(MenuBarItem):
@@ -68,6 +83,8 @@ class File(MenuBarItem):
     @utils.run_if_disabled("\n[!] Cannot load routines while Auto Maple is enabled")
     def _load_routine():
         try:
+            if not _capture_ready_or_warn():
+                return
             # Check if routine is initialized
             if not hasattr(config, "routine") or config.routine is None:
                 from tkinter.messagebox import showerror
@@ -124,6 +141,8 @@ class File(MenuBarItem):
         "\n[!] Cannot load command books while Auto Maple is enabled"
     )
     def _load_commands():
+        if not _capture_ready_or_warn():
+            return
         if config.routine.dirty:
             if not askyesno(
                 title="Load Command Book",

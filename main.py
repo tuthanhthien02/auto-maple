@@ -10,6 +10,7 @@ from src.modules.listener import Listener
 from src.modules.gui import GUI
 from src.common.logger import get_logger
 from src.common import config
+from src.common.manual_capture_config import initialize_manual_region
 from src.common.crash_detection import (
     mark_graceful_shutdown,
     log_shutdown,
@@ -28,6 +29,7 @@ log.info("=" * 80)
 log.info(f"   Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 log.info("=" * 80)
 log.info("")
+initialize_manual_region()
 
 bot = Bot()
 capture = Capture()
@@ -46,22 +48,7 @@ while not bot.ready:
         raise TimeoutError("Bot module initialization timeout")
 log.info("✅ Bot module ready")
 
-capture.start()
-elapsed = 0
-while not capture.ready:
-    time.sleep(0.1)
-    elapsed += 0.1
-    if elapsed >= timeout:
-        log.warning(
-            "⚠️  Capture module not ready after %d seconds (MapleStory window may not be found)",
-            timeout,
-        )
-        log.warning("   Continuing anyway - capture will retry in background...")
-        break
-if capture.ready:
-    log.info("✅ Capture module ready")
-else:
-    log.warning("⚠️  Capture module not ready - will retry in background")
+log.info("🖥️ Capture will start after you choose a region in the GUI.")
 
 notifier.start()
 elapsed = 0

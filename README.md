@@ -6,6 +6,11 @@ Auto Maple is an intelligent Python AI that plays MapleStory, a 2D side-scrollin
 
 Community-created resources, such as **command books** for each class and **routines** for each map, can be found in the **[resources repository](https://github.com/tanjeffreyz/auto-maple-resources)**.
 
+### Key output modes
+- `sendinput`: gõ trực tiếp trên máy host bằng Win32 `SendInput`.
+- `arduino`: forward sang Arduino HID (cũng chạy trên host).
+- `tcp_vmware`: gửi lệnh qua TCP tới `vmware_receiver.py` đang chạy trong VMware, sau đó Arduino bên VM thực thi. Cấu hình trong `configs/bot/default.json` (`key_output.mode` và `key_output.tcp.*`).
+
 <br>
 
 <h2 align="center">
