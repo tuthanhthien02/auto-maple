@@ -41,6 +41,10 @@ OTHER_TEMPLATE = cv2.cvtColor(other_filtered, cv2.COLOR_BGR2GRAY)
 # The Elite Boss's warning sign
 ELITE_TEMPLATE = cv2.imread(get_asset_path("assets/elite_template.jpg"), 0)
 
+# Lie Detector templates - using pre-cropped templates
+PUZZLE_TEMPLATE = cv2.imread(get_asset_path("assets/lie-detector/puzzle_crop.png"), 0)
+VIOLET_TEMPLATE = cv2.imread(get_asset_path("assets/lie-detector/violet_crop.png"), 0)
+
 
 def get_alert_path(name):
     return os.path.join(Notifier.ALERTS_DIR, f"{name}.mp3")
@@ -61,6 +65,7 @@ class Notifier:
 
         self.room_change_threshold = 0.9
         self.rune_alert_delay = 270  # 4.5 minutes
+        self.last_lie_detector_check = time.time()
 
     def start(self):
         """Starts this Notifier's thread."""
@@ -80,6 +85,7 @@ class Notifier:
         last_elite_check = time.time()
         last_others_check = time.time()
         last_rune_check = time.time()
+        last_lie_detector_check = time.time()
 
         while True:
             try:
@@ -177,6 +183,44 @@ class Notifier:
                             self._alert("siren")
                         last_rune_check = current_time
 
+                    # CPU Optimization: Check lie detector every 0.5s (2 Hz)
+                    if current_time - last_lie_detector_check > 0.5:
+                        if PUZZLE_TEMPLATE is not None and VIOLET_TEMPLATE is not None:
+                            # Crop vùng bottom right của game window (nơi popup xuất hiện)
+                            lie_detector_frame = frame[
+                                height // 2 : height,  # Bottom: 50% - 100% chiều cao
+                                width // 2 : width,  # Right: 50% - 100% chiều rộng
+                            ]
+
+                            # Convert sang grayscale để tối ưu CPU
+                            frame_gray = cv2.cvtColor(
+                                lie_detector_frame, cv2.COLOR_BGR2GRAY
+                            )
+
+                            # So sánh với puzzle template
+                            puzzle_matches = utils.multi_match(
+                                frame_gray,
+                                PUZZLE_TEMPLATE,
+                                threshold=0.75,
+                                is_gray=True,
+                            )
+
+                            # So sánh với violet template
+                            violet_matches = utils.multi_match(
+                                frame_gray,
+                                VIOLET_TEMPLATE,
+                                threshold=0.75,
+                                is_gray=True,
+                            )
+
+                            # Nếu tìm thấy match (puzzle hoặc violet)
+                            if len(puzzle_matches) > 0 or len(violet_matches) > 0:
+                                log.info(
+                                    "Lie detector detected! Playing notification sound."
+                                )
+                                self._notify_sound("siren")
+                        last_lie_detector_check = current_time
+
                 # Reset error counter on successful iteration
                 consecutive_errors = 0
 
@@ -236,6 +280,21 @@ class Notifier:
         """A quick notification for non-dangerous events."""
         # Disabled per user request: silent ping (logged at debug level for diagnostics)
         log.debug("Ping '%s' suppressed (volume=%.2f)", name, volume)
+
+    def _notify_sound(self, name, volume=0.5):
+        """Play a notification sound once without stopping the bot."""
+        try:
+            sound_path = get_asset_path(os.path.join(self.ALERTS_DIR, f"{name}.mp3"))
+            if os.path.exists(sound_path):
+                # Use pygame.mixer.Sound for one-time playback
+                sound = pygame.mixer.Sound(sound_path)
+                sound.set_volume(volume)
+                sound.play()
+                log.info(f"Played notification sound: {name}")
+            else:
+                log.warning(f"Sound file not found: {sound_path}")
+        except Exception as e:
+            log.error(f"Error playing notification sound: {e}")
 
 
 #################################
