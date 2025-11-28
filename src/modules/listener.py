@@ -167,6 +167,11 @@ class Listener(Configurable):
         config.enabled = not config.enabled
         utils.print_state()
 
+        if not config.enabled:
+            notifier = getattr(config, "notifier", None)
+            if notifier is not None:
+                notifier.stop_lie_detector_sound()
+
         if config.enabled:
             winsound.Beep(784, 333)  # G5
         else:

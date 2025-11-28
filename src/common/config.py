@@ -42,6 +42,9 @@ bot = None
 # Shares the video capture loop
 capture = None
 
+# Shares the notifier module
+notifier = None
+
 # Shares the keyboard listener
 listener = None
 

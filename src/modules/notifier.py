@@ -66,6 +66,11 @@ class Notifier:
         self.room_change_threshold = 0.9
         self.rune_alert_delay = 270  # 4.5 minutes
         self.last_lie_detector_check = time.time()
+        self.last_lie_detector_sound_time = 0.0
+        self.lie_detector_sound_cooldown = 23.0  # seconds (length of siren)
+        self.lie_detector_channel = None
+
+        config.notifier = self
 
     def start(self):
         """Starts this Notifier's thread."""
@@ -188,8 +193,10 @@ class Notifier:
                         if PUZZLE_TEMPLATE is not None and VIOLET_TEMPLATE is not None:
                             # Crop vùng bottom right của game window (nơi popup xuất hiện)
                             lie_detector_frame = frame[
-                                height // 2 : height,  # Bottom: 50% - 100% chiều cao
-                                width // 2 : width,  # Right: 50% - 100% chiều rộng
+                                int(
+                                    height * 0.4
+                                ) : height,  # Bottom: 60% cuối chiều cao
+                                int(width * 0.4) : width,  # Right: 60% cuối chiều rộng
                             ]
 
                             # Convert sang grayscale để tối ưu CPU
@@ -215,10 +222,19 @@ class Notifier:
 
                             # Nếu tìm thấy match (puzzle hoặc violet)
                             if len(puzzle_matches) > 0 or len(violet_matches) > 0:
-                                log.info(
-                                    "Lie detector detected! Playing notification sound."
-                                )
-                                self._notify_sound("siren")
+                                if (
+                                    current_time - self.last_lie_detector_sound_time
+                                    > self.lie_detector_sound_cooldown
+                                ):
+                                    log.info(
+                                        "Lie detector detected! Playing notification sound."
+                                    )
+                                    self._notify_sound("siren")
+                                    self.last_lie_detector_sound_time = current_time
+                                else:
+                                    log.debug(
+                                        "Lie detector detected but sound cooldown active."
+                                    )
                         last_lie_detector_check = current_time
 
                 # Reset error counter on successful iteration
@@ -289,12 +305,28 @@ class Notifier:
                 # Use pygame.mixer.Sound for one-time playback
                 sound = pygame.mixer.Sound(sound_path)
                 sound.set_volume(volume)
-                sound.play()
+                channel = sound.play()
+                if name == "siren":
+                    # Stop any previous siren channel before assigning new one
+                    self.stop_lie_detector_sound()
+                    self.lie_detector_channel = channel
                 log.info(f"Played notification sound: {name}")
             else:
                 log.warning(f"Sound file not found: {sound_path}")
         except Exception as e:
             log.error(f"Error playing notification sound: {e}")
+
+    def stop_lie_detector_sound(self):
+        """Stop the currently playing lie detector siren, if any."""
+        if self.lie_detector_channel is not None:
+            try:
+                if self.lie_detector_channel.get_busy():
+                    self.lie_detector_channel.stop()
+            except Exception as e:
+                log.debug(f"Error stopping lie detector sound: {e}")
+            finally:
+                self.lie_detector_channel = None
+                self.last_lie_detector_sound_time = 0.0
 
 
 #################################
