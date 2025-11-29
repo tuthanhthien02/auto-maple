@@ -53,6 +53,9 @@ PUZZLE_TEMPLATE = cv2.imread(
 VIOLET_TEMPLATE = cv2.imread(
     get_asset_path("assets/lie-detector/violet_crop.png"), cv2.IMREAD_GRAYSCALE
 )
+CAPTCHA_TEMPLATE = cv2.imread(
+    get_asset_path("assets/lie-detector/captcha_crop.png"), cv2.IMREAD_GRAYSCALE
+)
 
 # Log template info for debugging
 if PUZZLE_TEMPLATE is not None:
@@ -64,6 +67,11 @@ if VIOLET_TEMPLATE is not None:
     log.debug(f"Violet template loaded: {VIOLET_TEMPLATE.shape}")
 else:
     log.warning("Violet template failed to load!")
+
+if CAPTCHA_TEMPLATE is not None:
+    log.debug(f"Captcha template loaded: {CAPTCHA_TEMPLATE.shape}")
+else:
+    log.warning("Captcha template failed to load!")
 
 
 def get_alert_path(name):
@@ -99,7 +107,9 @@ class Notifier:
         self._lie_detector_color_upper = (130, 255, 255)
         self._lie_detector_color_area_threshold = 15000
         self.lie_templates = [
-            tmpl for tmpl in (PUZZLE_TEMPLATE, VIOLET_TEMPLATE) if tmpl is not None
+            tmpl
+            for tmpl in (PUZZLE_TEMPLATE, VIOLET_TEMPLATE, CAPTCHA_TEMPLATE)
+            if tmpl is not None
         ]
 
         config.notifier = self
@@ -222,7 +232,12 @@ class Notifier:
 
                     # CPU Optimization: Check lie detector every 0.5s (2 Hz)
                     if current_time - last_lie_detector_check > 0.5:
-                        if PUZZLE_TEMPLATE is not None and VIOLET_TEMPLATE is not None:
+                        puzzle_matches = []
+                        violet_matches = []
+                        captcha_matches = []
+
+                        # Puzzle và Violet chỉ xuất hiện ở bottom-right, nên chỉ scan vùng đó
+                        if PUZZLE_TEMPLATE is not None or VIOLET_TEMPLATE is not None:
                             # Crop vùng bottom right của game window (nơi popup xuất hiện)
                             # Dò ở vùng bottom-right ~60% (giảm nhiễu, tăng tốc)
                             br_y0 = int(height * 0.4)
@@ -234,22 +249,98 @@ class Notifier:
 
                             # Multi-scale matching cho puzzle template
                             # Scales từ 0.75 đến 1.3 để cover các kích thước khác nhau
-                            puzzle_matches = utils.multi_match_multi_scale(
-                                frame_gray,
-                                PUZZLE_TEMPLATE,
-                                threshold=0.75,
-                                is_gray=True,
-                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
-                            )
+                            if PUZZLE_TEMPLATE is not None:
+                                puzzle_matches = utils.multi_match_multi_scale(
+                                    frame_gray,
+                                    PUZZLE_TEMPLATE,
+                                    threshold=0.75,
+                                    is_gray=True,
+                                    scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
+                                )
 
                             # Multi-scale matching cho violet template
-                            violet_matches = utils.multi_match_multi_scale(
-                                frame_gray,
-                                VIOLET_TEMPLATE,
-                                threshold=0.7,
-                                is_gray=True,
-                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
-                            )
+                            if VIOLET_TEMPLATE is not None:
+                                violet_matches_raw = utils.multi_match_multi_scale(
+                                    frame_gray,
+                                    VIOLET_TEMPLATE,
+                                    threshold=0.72,  # Tăng từ 0.7 lên 0.72 để giảm false positive
+                                    is_gray=True,
+                                    scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
+                                )
+
+                                # Thêm edge confirmation cho các matches có score gần threshold để giảm false positive
+                                violet_matches = []
+                                frame_edges = cv2.Canny(frame_gray, 50, 150)
+                                for match in violet_matches_raw:
+                                    x, y, score = match[0], match[1], match[2]
+                                    # Nếu score >= 0.75 thì chấp nhận luôn (high confidence)
+                                    if score >= 0.75:
+                                        violet_matches.append(match)
+                                    # Nếu score trong khoảng 0.72-0.75 thì cần edge confirmation
+                                    elif score >= 0.72:
+                                        # Extract ROI xung quanh match position
+                                        template_h, template_w = VIOLET_TEMPLATE.shape
+                                        roi_size = max(template_h, template_w) * 2
+                                        roi_x0 = max(0, x - roi_size // 4)
+                                        roi_y0 = max(0, y - roi_size // 4)
+                                        roi_x1 = min(
+                                            frame_gray.shape[1],
+                                            x + template_w + roi_size // 4,
+                                        )
+                                        roi_y1 = min(
+                                            frame_gray.shape[0],
+                                            y + template_h + roi_size // 4,
+                                        )
+
+                                        roi_edges = frame_edges[
+                                            roi_y0:roi_y1, roi_x0:roi_x1
+                                        ]
+                                        if roi_edges.size > 0:
+                                            # Tìm scale tốt nhất cho template
+                                            best_edge_score = 0.0
+                                            for scale in [
+                                                0.75,
+                                                0.85,
+                                                0.95,
+                                                1.0,
+                                                1.1,
+                                                1.2,
+                                                1.3,
+                                            ]:
+                                                new_h = max(
+                                                    5, int(round(template_h * scale))
+                                                )
+                                                new_w = max(
+                                                    5, int(round(template_w * scale))
+                                                )
+                                                if (
+                                                    new_h > roi_edges.shape[0]
+                                                    or new_w > roi_edges.shape[1]
+                                                ):
+                                                    continue
+                                                scaled_template = cv2.resize(
+                                                    VIOLET_TEMPLATE,
+                                                    (new_w, new_h),
+                                                    interpolation=cv2.INTER_LINEAR,
+                                                )
+                                                scaled_edge = cv2.Canny(
+                                                    scaled_template, 60, 160
+                                                )
+                                                if (
+                                                    scaled_edge.shape[0]
+                                                    <= roi_edges.shape[0]
+                                                    and scaled_edge.shape[1]
+                                                    <= roi_edges.shape[1]
+                                                ):
+                                                    edge_score = self._match_template(
+                                                        roi_edges, scaled_edge
+                                                    )
+                                                    if edge_score > best_edge_score:
+                                                        best_edge_score = edge_score
+
+                                            # Chỉ chấp nhận nếu edge score >= 0.3 (edge confirmation)
+                                            if best_edge_score >= 0.3:
+                                                violet_matches.append(match)
 
                             # Debug: In ra max score của violet để tune threshold
                             if LIE_DEBUG and VIOLET_TEMPLATE is not None:
@@ -285,26 +376,153 @@ class Notifier:
                                         max_violet_score = max_val
                                         best_violet_scale = scale
                                 log.debug(
-                                    "Violet max score (multi-scale): %.3f at scale %.2f (threshold: 0.7)",
+                                    "Violet max score (multi-scale): %.3f at scale %.2f (threshold: 0.72)",
                                     max_violet_score,
                                     best_violet_scale,
                                 )
 
-                            # Nếu tìm thấy match (puzzle hoặc violet)
-                            if len(puzzle_matches) > 0 or len(violet_matches) > 0:
-                                if (
-                                    current_time - self.last_lie_detector_sound_time
-                                    > self.lie_detector_sound_cooldown
-                                ):
-                                    log.info(
-                                        "Lie detector detected! Playing notification sound."
+                        # Captcha có thể xuất hiện random toàn màn hình, nên scan full frame
+                        if CAPTCHA_TEMPLATE is not None:
+                            # Convert toàn màn hình sang grayscale
+                            full_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                            # Multi-scale matching cho captcha template trên toàn màn hình
+                            # Captcha mờ và có background trong suốt, nhưng cần threshold cao hơn để tránh false positive
+                            captcha_matches_raw = utils.multi_match_multi_scale(
+                                full_frame_gray,
+                                CAPTCHA_TEMPLATE,
+                                threshold=0.65,  # Tăng từ 0.6 lên 0.65 để giảm false positive
+                                is_gray=True,
+                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
+                            )
+
+                            # Thêm edge confirmation cho các matches có score gần threshold để giảm false positive
+                            captcha_matches = []
+                            full_frame_edges = cv2.Canny(full_frame_gray, 50, 150)
+                            for match in captcha_matches_raw:
+                                x, y, score = match[0], match[1], match[2]
+                                # Nếu score >= 0.7 thì chấp nhận luôn (high confidence)
+                                if score >= 0.7:
+                                    captcha_matches.append(match)
+                                # Nếu score trong khoảng 0.65-0.7 thì cần edge confirmation
+                                elif score >= 0.65:
+                                    # Extract ROI xung quanh match position
+                                    template_h, template_w = CAPTCHA_TEMPLATE.shape
+                                    roi_size = max(template_h, template_w) * 2
+                                    roi_x0 = max(0, x - roi_size // 4)
+                                    roi_y0 = max(0, y - roi_size // 4)
+                                    roi_x1 = min(
+                                        full_frame_gray.shape[1],
+                                        x + template_w + roi_size // 4,
                                     )
-                                    self._notify_sound("siren")
-                                    self.last_lie_detector_sound_time = current_time
-                                else:
-                                    log.debug(
-                                        "Lie detector detected but sound cooldown active."
+                                    roi_y1 = min(
+                                        full_frame_gray.shape[0],
+                                        y + template_h + roi_size // 4,
                                     )
+
+                                    roi_edges = full_frame_edges[
+                                        roi_y0:roi_y1, roi_x0:roi_x1
+                                    ]
+                                    if roi_edges.size > 0:
+                                        # Tìm scale tốt nhất cho template
+                                        best_edge_score = 0.0
+                                        for scale in [
+                                            0.75,
+                                            0.85,
+                                            0.95,
+                                            1.0,
+                                            1.1,
+                                            1.2,
+                                            1.3,
+                                        ]:
+                                            new_h = max(
+                                                5, int(round(template_h * scale))
+                                            )
+                                            new_w = max(
+                                                5, int(round(template_w * scale))
+                                            )
+                                            if (
+                                                new_h > roi_edges.shape[0]
+                                                or new_w > roi_edges.shape[1]
+                                            ):
+                                                continue
+                                            scaled_template = cv2.resize(
+                                                CAPTCHA_TEMPLATE,
+                                                (new_w, new_h),
+                                                interpolation=cv2.INTER_LINEAR,
+                                            )
+                                            scaled_edge = cv2.Canny(
+                                                scaled_template, 60, 160
+                                            )
+                                            if (
+                                                scaled_edge.shape[0]
+                                                <= roi_edges.shape[0]
+                                                and scaled_edge.shape[1]
+                                                <= roi_edges.shape[1]
+                                            ):
+                                                edge_score = self._match_template(
+                                                    roi_edges, scaled_edge
+                                                )
+                                                if edge_score > best_edge_score:
+                                                    best_edge_score = edge_score
+
+                                        # Chỉ chấp nhận nếu edge score >= 0.3 (edge confirmation)
+                                        if best_edge_score >= 0.3:
+                                            captcha_matches.append(match)
+
+                        # Nếu tìm thấy match (puzzle, violet hoặc captcha)
+                        puzzle_detected = len(puzzle_matches) > 0
+                        violet_detected = len(violet_matches) > 0
+                        captcha_detected = len(captcha_matches) > 0
+
+                        if puzzle_detected or violet_detected or captcha_detected:
+                            # Xác định loại lie detector và thông tin chi tiết
+                            detected_types = []
+                            if puzzle_detected:
+                                puzzle_max_score = (
+                                    max([match[2] for match in puzzle_matches])
+                                    if puzzle_matches
+                                    else 0.0
+                                )
+                                detected_types.append(
+                                    f"PUZZLE (matches={len(puzzle_matches)}, max_score={puzzle_max_score:.3f})"
+                                )
+                            if violet_detected:
+                                violet_max_score = (
+                                    max([match[2] for match in violet_matches])
+                                    if violet_matches
+                                    else 0.0
+                                )
+                                detected_types.append(
+                                    f"VIOLET (matches={len(violet_matches)}, max_score={violet_max_score:.3f})"
+                                )
+                            if captcha_detected:
+                                captcha_max_score = (
+                                    max([match[2] for match in captcha_matches])
+                                    if captcha_matches
+                                    else 0.0
+                                )
+                                detected_types.append(
+                                    f"CAPTCHA (matches={len(captcha_matches)}, max_score={captcha_max_score:.3f})"
+                                )
+
+                            lie_type_str = " + ".join(detected_types)
+
+                            if (
+                                current_time - self.last_lie_detector_sound_time
+                                > self.lie_detector_sound_cooldown
+                            ):
+                                log.info(
+                                    "Lie detector detected: %s. Playing notification sound.",
+                                    lie_type_str,
+                                )
+                                self._notify_sound("siren")
+                                self.last_lie_detector_sound_time = current_time
+                            else:
+                                log.debug(
+                                    "Lie detector detected: %s (sound cooldown active).",
+                                    lie_type_str,
+                                )
                         last_lie_detector_check = current_time
 
                 # Reset error counter on successful iteration
