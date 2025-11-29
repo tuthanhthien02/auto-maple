@@ -4,8 +4,8 @@ import subprocess
 import sys
 import tkinter as tk
 
+from src.common import config, manual_capture_config, utils
 from src.gui.interfaces import LabelFrame
-from src.common import config, manual_capture_config, utils, vkeys
 from src.routine.components import Point
 
 
@@ -59,44 +59,20 @@ class Status(LabelFrame):
             row=2, column=2, padx=(0, 5), pady=(0, 5), sticky=tk.EW
         )
 
-        self.select_region_btn = tk.Button(
+        self.toggle_btn = tk.Button(
             self,
-            text="📐 Chọn vùng màn hình",
-            command=self._on_select_region_click,
-            bg="#9C27B0",
+            text="▶ Toggle Bot (Start/Stop)",
+            command=self._on_toggle_bot_click,
+            bg="#F97316",
             fg="white",
-            activebackground="#7B1FA2",
+            activebackground="#EA580C",
             activeforeground="white",
             relief=tk.RAISED,
             bd=2,
             cursor="hand2",
         )
-        self.select_region_btn.grid(
+        self.toggle_btn.grid(
             row=3, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
-        )
-
-        self.start_capture_btn = tk.Button(
-            self,
-            text="🖥️ Start Capture",
-            command=self._on_start_capture_click,
-            bg="#795548",
-            fg="white",
-            activebackground="#5D4037",
-            activeforeground="white",
-            relief=tk.RAISED,
-            bd=2,
-            cursor="hand2",
-            state=tk.DISABLED,
-        )
-        self.start_capture_btn.grid(
-            row=4, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
-        )
-
-        self.capture_status_label = tk.Label(
-            self, text="", fg="orange", font=("Arial", 8)
-        )
-        self.capture_status_label.grid(
-            row=5, column=1, columnspan=2, padx=5, pady=(0, 5)
         )
 
         self.mirror_btn = tk.Button(
@@ -112,7 +88,56 @@ class Status(LabelFrame):
             cursor="hand2",
         )
         self.mirror_btn.grid(
+            row=4, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+        )
+
+        self.mirror_connect_btn = tk.Button(
+            self,
+            text="VMware: Connect",
+            command=self._on_toggle_mirror_connection,
+            bg="#2563EB",
+            fg="white",
+            activebackground="#1D4ED8",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2",
+        )
+        self.mirror_connect_btn.grid(
+            row=5, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+        )
+
+        self.select_region_btn = tk.Button(
+            self,
+            text="📐 Chọn vùng màn hình",
+            command=self._on_select_region_click,
+            bg="#9C27B0",
+            fg="white",
+            activebackground="#7B1FA2",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2",
+        )
+        self.select_region_btn.grid(
             row=6, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+        )
+
+        self.start_capture_btn = tk.Button(
+            self,
+            text="🖥️ Start Capture",
+            command=self._on_start_capture_click,
+            bg="#0284C7",
+            fg="white",
+            activebackground="#0369A1",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2",
+            state=tk.DISABLED,
+        )
+        self.start_capture_btn.grid(
+            row=7, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
         )
 
         # Recalibrate Minimap button
@@ -129,22 +154,7 @@ class Status(LabelFrame):
             cursor="hand2",
         )
         self.recalibrate_btn.grid(
-            row=7, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW
-        )
-        self.toggle_btn = tk.Button(
-            self,
-            text="▶ Toggle Bot (Start/Stop)",
-            command=self._on_toggle_bot_click,
-            bg="#2196F3",
-            fg="white",
-            activebackground="#1976D2",
-            activeforeground="white",
-            relief=tk.RAISED,
-            bd=2,
-            cursor="hand2",
-        )
-        self.toggle_btn.grid(
-            row=8, column=1, columnspan=2, padx=5, pady=(0, 5), sticky=tk.EW
+            row=8, column=1, columnspan=2, padx=5, pady=(5, 5), sticky=tk.EW
         )
 
         # Status label for recalibration feedback
@@ -330,23 +340,13 @@ class Status(LabelFrame):
 
             self.input_method_var.set(status)
             if not config.enable_keyboard_listener:
-                self.toggle_btn.config(
-                    text="▶ Toggle Bot (Hook Off)",
-                    bg="#FF9800",
-                    fg="white",
-                    activebackground="#F57C00",
-                    activeforeground="white",
-                )
+                self.toggle_btn.config(text="▶ Toggle Bot (Hook Off)")
             else:
-                self.toggle_btn.config(
-                    text="▶ Toggle Bot (Start/Stop)",
-                    bg="#2196F3",
-                    fg="white",
-                    activebackground="#1976D2",
-                    activeforeground="white",
-                )
+                self.toggle_btn.config(text="▶ Toggle Bot (Start/Stop)")
+            self._apply_toggle_button_palette()
             self._update_toggle_button_state()
             self._update_mirror_button()
+            self._update_mirror_connection_button()
         except Exception:
             # Silently handle errors to avoid spamming
             pass
@@ -418,6 +418,9 @@ class Status(LabelFrame):
             else:
                 config.enabled = not config.enabled
                 utils.print_state()
+                # Ensure lie detector siren stops when toggled off without listener
+                if not config.enabled and getattr(config, "notifier", None):
+                    config.notifier.stop_lie_detector_sound()
             state_text = "▶ Bot enabled" if config.enabled else "⏸️ Bot paused"
             color = "green" if config.enabled else "orange"
             self._set_status_message(state_text, color)
@@ -430,13 +433,19 @@ class Status(LabelFrame):
         if duration:
             self.after(duration, lambda: self.recalibrate_status.config(text=""))
 
+    def _apply_toggle_button_palette(self):
+        listener_enabled = getattr(config, "enable_keyboard_listener", True)
+        if listener_enabled:
+            self.toggle_btn.config(bg="#F97316", activebackground="#EA580C", fg="white")
+        else:
+            self.toggle_btn.config(bg="#94A3B8", activebackground="#64748B", fg="white")
+
     def _update_mirror_button(self):
-        mode = getattr(config, "key_output_mode", "sendinput")
-        if mode == "tcp":
-            host = getattr(config, "tcp_key_host", "127.0.0.1")
-            port = getattr(config, "tcp_key_port", 12345)
+        mirror = getattr(config, "mirror_input", None)
+        running = mirror.is_running() if mirror else False
+        if running:
             self.mirror_btn.config(
-                text=f"Mirror Input: ON ({host}:{port})",
+                text="Mirror Input: ON",
                 bg="#16A34A",
                 activebackground="#15803D",
             )
@@ -447,25 +456,85 @@ class Status(LabelFrame):
                 activebackground="#757575",
             )
 
-    def _on_toggle_mirror(self):
-        mode = getattr(config, "key_output_mode", "sendinput")
-        if mode != "tcp":
-            config.mirror_prev_key_mode = mode
-            config.update_key_output_settings(mode="tcp")
-            self._set_status_message("✅ Mirror input ON (TCP)", "green")
-        else:
-            fallback = getattr(config, "mirror_prev_key_mode", None) or "sendinput"
-            config.update_key_output_settings(mode=fallback)
-            config.mirror_prev_key_mode = None
-            self._set_status_message(
-                f"Mirror input OFF (mode={fallback})", "orange", duration=2000
+    def _update_mirror_connection_button(self):
+        mirror = getattr(config, "mirror_input", None)
+        connected = mirror.is_connected() if mirror else False
+        host = getattr(config, "mirror_input_host", "127.0.0.1")
+        port = getattr(config, "mirror_input_port", 12345)
+        if connected:
+            self.mirror_connect_btn.config(
+                text=f"VMware: Disconnect ({host}:{port})",
+                bg="#DC2626",
+                activebackground="#B91C1C",
             )
-        vkeys.reset_tcp_client()
-        self.update_input_method_status()
+        else:
+            self.mirror_connect_btn.config(
+                text=f"VMware: Connect ({host}:{port})",
+                bg="#2563EB",
+                activebackground="#1D4ED8",
+            )
+
+    def _on_toggle_mirror(self):
+        mirror = getattr(config, "mirror_input", None)
+        if mirror is None:
+            self._set_status_message("❌ Mirror module unavailable", "red")
+            return
+        if mirror.is_running():
+            mirror.stop()
+            config.update_mirror_input_settings(enabled=False)
+            self._set_status_message("Mirror input disabled", "orange", duration=2000)
+        else:
+            block = getattr(config, "mirror_input_block_original", False)
+            mirror.configure(
+                getattr(config, "mirror_input_host", "127.0.0.1"),
+                getattr(config, "mirror_input_port", 12345),
+                block,
+            )
+            try:
+                mirror.start()
+                config.update_mirror_input_settings(enabled=True)
+                self._set_status_message("✅ Mirror input enabled", "green")
+            except Exception as exc:
+                self._set_status_message(
+                    f"❌ Mirror start failed: {exc}", "red", duration=4000
+                )
+        self._update_mirror_button()
+        self._update_mirror_connection_button()
         try:
             if hasattr(config, "gui") and config.gui:
                 if hasattr(config.gui, "settings") and config.gui.settings:
-                    config.gui.settings.refresh_key_output_section()
+                    config.gui.settings.refresh_mirror_section()
+        except Exception:
+            pass
+
+    def _on_toggle_mirror_connection(self):
+        mirror = getattr(config, "mirror_input", None)
+        if mirror is None:
+            self._set_status_message("❌ Mirror module unavailable", "red")
+            return
+        host = getattr(config, "mirror_input_host", "127.0.0.1")
+        port = getattr(config, "mirror_input_port", 12345)
+        block = getattr(config, "mirror_input_block_original", False)
+        mirror.configure(host, port, block)
+        if mirror.is_connected():
+            mirror.disconnect()
+            config.update_mirror_input_settings(auto_connect=False)
+            self._set_status_message("🔌 Đã ngắt kết nối TCP", "orange", duration=2000)
+        else:
+            if mirror.connect():
+                config.update_mirror_input_settings(auto_connect=True)
+                self._set_status_message(
+                    f"✅ Đã kết nối {host}:{port}", "green", duration=2000
+                )
+            else:
+                self._set_status_message(
+                    "❌ Mirror TCP connect thất bại", "red", duration=3000
+                )
+        self._update_mirror_connection_button()
+        try:
+            if hasattr(config, "gui") and config.gui:
+                if hasattr(config.gui, "settings") and config.gui.settings:
+                    config.gui.settings.refresh_mirror_section()
         except Exception:
             pass
 
@@ -489,11 +558,22 @@ class Status(LabelFrame):
             and config.capture.ready
         )
         if rect and not capture_ready:
-            self.start_capture_btn.config(state=tk.NORMAL)
+            self.start_capture_btn.config(
+                state=tk.NORMAL,
+                bg="#0284C7",
+                fg="white",
+                activebackground="#0369A1",
+            )
         else:
-            self.start_capture_btn.config(state=tk.DISABLED)
+            self.start_capture_btn.config(
+                state=tk.DISABLED,
+                bg="#94A3B8",
+                fg="#E2E8F0",
+                activebackground="#94A3B8",
+            )
         self._update_toggle_button_state()
         self._update_mirror_button()
+        self._update_mirror_connection_button()
 
         if capture_ready:
             self._set_capture_status("✅ Capture đang chạy", "green")
@@ -502,8 +582,8 @@ class Status(LabelFrame):
         else:
             self._set_capture_status("🎯 Hãy chọn vùng MapleStory", "orange")
 
-    def _set_capture_status(self, text, color="green"):
-        self.capture_status_label.config(text=text, fg=color)
+    def _set_capture_status(self, text, color="green", duration=3000):
+        self._set_status_message(text, color, duration)
 
     def _on_select_region_click(self):
         script_path = self._get_selector_script_path()
@@ -577,3 +657,7 @@ class Status(LabelFrame):
         )
         state = tk.NORMAL if capture_ready else tk.DISABLED
         self.toggle_btn.config(state=state)
+        if state == tk.DISABLED:
+            self.toggle_btn.config(bg="#94A3B8", activebackground="#94A3B8", fg="white")
+        else:
+            self._apply_toggle_button_palette()

@@ -35,6 +35,12 @@ class Settings(Tab):
         self.key_output_settings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
         self._build_key_output_section()
 
+        self.mirror_settings = LabelFrame(
+            self.column1, "Mirror Input (Hardware Forwarding)", padding=(5, 5, 5, 5)
+        )
+        self.mirror_settings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+        self._build_mirror_section()
+
         self.listener_settings = LabelFrame(
             self.column1, "Keyboard Listener", padding=(5, 5, 5, 5)
         )
@@ -258,6 +264,86 @@ class Settings(Tab):
 
         self._update_key_output_ui()
 
+    def _build_mirror_section(self):
+        hint = tk.Label(
+            self.mirror_settings,
+            text="Hook phím thật trên host và forward tới VMware.",
+            wraplength=260,
+            justify=tk.LEFT,
+            fg="gray",
+        )
+        hint.pack(side=tk.TOP, fill="x")
+
+        enable_frame = tk.Frame(self.mirror_settings)
+        enable_frame.pack(side=tk.TOP, fill="x", pady=(6, 0))
+        self.mirror_enable_var = tk.BooleanVar(
+            value=getattr(config, "mirror_input_enabled", False)
+        )
+        enable_toggle = tk.Checkbutton(
+            enable_frame,
+            text="Bật mirror input khi khởi động",
+            variable=self.mirror_enable_var,
+            command=self._on_mirror_enable_toggle,
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        enable_toggle.pack(side=tk.LEFT, anchor="w")
+
+        host_frame = tk.Frame(self.mirror_settings)
+        host_frame.pack(side=tk.TOP, fill="x", pady=(6, 0))
+        tk.Label(host_frame, text="VM Host:", width=12, anchor="w").grid(
+            row=0, column=0, sticky=tk.W
+        )
+        self.mirror_host_var = tk.StringVar(
+            value=getattr(config, "mirror_input_host", "127.0.0.1")
+        )
+        tk.Entry(host_frame, textvariable=self.mirror_host_var, width=18).grid(
+            row=0, column=1, sticky=tk.W, padx=(4, 0)
+        )
+
+        tk.Label(host_frame, text="VM Port:", width=12, anchor="w").grid(
+            row=1, column=0, sticky=tk.W, pady=(4, 0)
+        )
+        self.mirror_port_var = tk.StringVar(
+            value=str(getattr(config, "mirror_input_port", 12345))
+        )
+        tk.Entry(host_frame, textvariable=self.mirror_port_var, width=10).grid(
+            row=1, column=1, sticky=tk.W, padx=(4, 0), pady=(4, 0)
+        )
+
+        self.block_input_var = tk.BooleanVar(
+            value=getattr(config, "mirror_input_block_original", False)
+        )
+        tk.Checkbutton(
+            self.mirror_settings,
+            text="Block bàn phím host khi mirror",
+            variable=self.block_input_var,
+            anchor="w",
+        ).pack(side=tk.TOP, fill="x", pady=(6, 0))
+
+        self.auto_connect_var = tk.BooleanVar(
+            value=getattr(config, "mirror_input_auto_connect", False)
+        )
+        tk.Checkbutton(
+            self.mirror_settings,
+            text="Tự động kết nối khi mở Auto Maple",
+            variable=self.auto_connect_var,
+            anchor="w",
+        ).pack(side=tk.TOP, fill="x", pady=(4, 0))
+
+        self.mirror_save_btn = tk.Button(
+            self.mirror_settings,
+            text="💾 Lưu Mirror Input",
+            command=self._on_mirror_save,
+            cursor="hand2",
+        )
+        self.mirror_save_btn.pack(side=tk.TOP, fill="x", pady=(6, 0))
+
+        self.mirror_status = tk.Label(
+            self.mirror_settings, text="", fg="green", font=("Arial", 8)
+        )
+        self.mirror_status.pack(side=tk.TOP, fill="x", pady=(4, 0))
+
     def _on_listener_toggle(self):
         enabled = bool(self.listener_toggle_var.get())
         config.enable_keyboard_listener = enabled
@@ -331,3 +417,77 @@ class Settings(Tab):
         self.tcp_host_var.set(getattr(config, "tcp_key_host", "127.0.0.1"))
         self.tcp_port_var.set(str(getattr(config, "tcp_key_port", 12345)))
         self._update_key_output_ui()
+
+    # ------------------------------------------------------------------ mirror input helpers
+    def _on_mirror_enable_toggle(self):
+        enabled = bool(self.mirror_enable_var.get())
+        config.update_mirror_input_settings(enabled=enabled)
+        mirror = getattr(config, "mirror_input", None)
+        if mirror:
+            if enabled and not mirror.is_running():
+                mirror.configure(
+                    getattr(config, "mirror_input_host", "127.0.0.1"),
+                    getattr(config, "mirror_input_port", 12345),
+                    getattr(config, "mirror_input_block_original", False),
+                )
+                mirror.start()
+            elif not enabled and mirror.is_running():
+                mirror.stop()
+        self._update_mirror_status_label(
+            "✅ Mirror auto-start ON" if enabled else "Mirror auto-start OFF", enabled
+        )
+
+    def _on_mirror_save(self):
+        host = self.mirror_host_var.get().strip()
+        try:
+            port = int(self.mirror_port_var.get().strip())
+            if not (1 <= port <= 65535):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror(
+                title="Mirror Input", message="Port phải là số trong khoảng 1-65535."
+            )
+            return
+        if not host:
+            messagebox.showerror(
+                title="Mirror Input", message="Host không được để trống."
+            )
+            return
+
+        block = bool(self.block_input_var.get())
+        auto_conn = bool(self.auto_connect_var.get())
+        config.update_mirror_input_settings(
+            host=host, port=port, block=block, auto_connect=auto_conn
+        )
+        mirror = getattr(config, "mirror_input", None)
+        if mirror:
+            mirror.configure(host, port, block)
+            if auto_conn:
+                mirror.connect()
+            elif mirror.is_connected():
+                mirror.disconnect()
+        self._update_mirror_status_label(
+            f"✅ Đã lưu ({host}:{port})", success=True, auto_clear=True
+        )
+
+    def refresh_mirror_section(self):
+        if not hasattr(self, "mirror_host_var"):
+            return
+        self.mirror_enable_var.set(getattr(config, "mirror_input_enabled", False))
+        self.mirror_host_var.set(getattr(config, "mirror_input_host", "127.0.0.1"))
+        self.mirror_port_var.set(str(getattr(config, "mirror_input_port", 12345)))
+        self.block_input_var.set(getattr(config, "mirror_input_block_original", False))
+        self.auto_connect_var.set(getattr(config, "mirror_input_auto_connect", False))
+        running = False
+        mirror = getattr(config, "mirror_input", None)
+        if mirror:
+            running = mirror.is_running()
+        connected = mirror.is_connected() if mirror else False
+        status_text = "Mirror input đang chạy" if running else "Mirror input đang tắt"
+        status_text += " | TCP Connected" if connected else " | TCP Disconnected"
+        self._update_mirror_status_label(status_text, running or connected)
+
+    def _update_mirror_status_label(self, text, success=True, auto_clear=False):
+        self.mirror_status.config(text=text, fg="green" if success else "orange")
+        if auto_clear:
+            self.after(3000, lambda: self.mirror_status.config(text=""))

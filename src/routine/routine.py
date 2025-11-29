@@ -544,13 +544,36 @@ class Routine:
             label_match = True
             if descriptor.labels:
                 label_match = normalized_label in descriptor.labels
+                if not label_match:
+                    log.debug(
+                        "🏢 Floor Match: Point (y=%.3f, label=%s) - label mismatch for %s (required: %s)",
+                        y_value,
+                        normalized_label,
+                        descriptor.floor_id,
+                        descriptor.labels,
+                    )
 
             y_match = True
             if descriptor.y_range is not None:
                 y_min, y_max = descriptor.y_range
                 y_match = y_min <= y_value <= y_max
+                if not y_match:
+                    log.debug(
+                        "🏢 Floor Match: Point (y=%.3f, label=%s) - y_range mismatch for %s (range: [%.3f, %.3f])",
+                        y_value,
+                        normalized_label,
+                        descriptor.floor_id,
+                        y_min,
+                        y_max,
+                    )
 
             if label_match and y_match:
+                log.debug(
+                    "🏢 Floor Match: Point (y=%.3f, label=%s) -> %s",
+                    y_value,
+                    normalized_label,
+                    descriptor.floor_id,
+                )
                 return descriptor.floor_id
 
         return None
@@ -952,16 +975,38 @@ class Routine:
 
     def detect_floors(self):
         """Detect floor points based on configured descriptors."""
+        if not self.floor_descriptors:
+            log.warning(
+                "🏢 Floor Detection: No floor descriptors available - floor detection disabled"
+            )
+            self.floor_indices_map = {}
+            self.floor1_indices = []
+            self.floor2_indices = []
+            return
+
+        log.debug(
+            "🏢 Floor Detection: Using %d descriptor(s)", len(self.floor_descriptors)
+        )
+        for desc in self.floor_descriptors:
+            log.debug(
+                "🏢 Floor Descriptor: id=%s, labels=%s, y_range=%s",
+                desc.floor_id,
+                desc.labels,
+                desc.y_range,
+            )
+
         self.floor_indices_map = {
             descriptor.floor_id: [] for descriptor in self.floor_descriptors
         }
         self.floor1_indices = self.floor_indices_map.get("floor1", [])
         self.floor2_indices = self.floor_indices_map.get("floor2", [])
 
+        point_count = 0
         for i, component in enumerate(self.sequence):
             if not isinstance(component, Point):
                 continue
 
+            point_count += 1
             prev_label = None
             if i > 0 and isinstance(self.sequence[i - 1], Label):
                 prev_label = self.sequence[i - 1].label
@@ -969,6 +1014,13 @@ class Routine:
             floor_id = self._match_floor_descriptor(component, prev_label)
             if floor_id:
                 self.floor_indices_map.setdefault(floor_id, []).append(i)
+                log.debug(
+                    "🏢 Floor Detection: Point %d (y=%.3f, label=%s) -> %s",
+                    i,
+                    component.location[1],
+                    prev_label,
+                    floor_id,
+                )
 
         # Update legacy floor caches for backwards compatibility
         self.floor1_indices = self.floor_indices_map.get("floor1", [])
@@ -981,7 +1033,7 @@ class Routine:
             )
             or "no floor assignments"
         )
-        log.info("🏢 Floor Detection: %s", summary)
+        log.info("🏢 Floor Detection: %s (checked %d point(s))", summary, point_count)
 
     def get_f1_last_index(self):
         """Get index in self.sequence for f1_pos_last."""
@@ -1175,15 +1227,35 @@ class Routine:
     def _maybe_activate_floor_variant(self):
         """Randomly activate a floor-only variant after completing a loop."""
         if self.floor_variant_active or not self.variant_enabled:
+            if self.floor_variant_active:
+                log.debug(
+                    "🛗 Floor-only: Skipped activation (floor_variant_active=True)"
+                )
+            if not self.variant_enabled:
+                log.debug("🛗 Floor-only: Skipped activation (variant_enabled=False)")
             return False
 
         available = []
-        if self.floor1_indices and self._has_required_labels("floor1_only"):
+        floor1_ok = self.floor1_indices and self._has_required_labels("floor1_only")
+        floor2_ok = self.floor2_indices and self._has_required_labels("floor2_only")
+
+        if floor1_ok:
             available.append("floor1_only")
-        if self.floor2_indices and self._has_required_labels("floor2_only"):
+        if floor2_ok:
             available.append("floor2_only")
 
         if not available:
+            log.debug(
+                "🛗 Floor-only: No available variants (floor1_indices=%s, floor1_labels_ok=%s, floor2_indices=%s, floor2_labels_ok=%s)",
+                len(self.floor1_indices) if self.floor1_indices else 0,
+                self._has_required_labels("floor1_only")
+                if self.floor1_indices
+                else False,
+                len(self.floor2_indices) if self.floor2_indices else 0,
+                self._has_required_labels("floor2_only")
+                if self.floor2_indices
+                else False,
+            )
             return False
 
         roll = random.random()

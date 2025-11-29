@@ -4,11 +4,18 @@
     "key_output": {
       "mode": "sendinput",
       "tcp": {
-        "host": "127.0.0.1",
+        "host": "192.168.1.8",
         "port": 12345,
         "auto_reconnect": true,
         "reconnect_delay": 1.0
       }
+    },
+    "mirror_input": {
+      "enabled": false,
+      "host": "192.168.1.8",
+      "port": 12345,
+      "block_original_input": false,
+      "auto_connect": false
     },
     "routine_randomization": {
       "enabled": true,
@@ -108,8 +115,23 @@
       "key_output": {
         "mode": "tcp",
         "tcp": {
-          "host": "127.0.0.1",
+          "host": "192.168.1.8",
           "port": 12345
+        }
+      },
+      "mirror_input": {
+        "enabled": false,
+        "auto_connect": true
+      },
+      "routine_randomization": {
+        "dynamic_paths": {
+          "enabled": false
+        },
+        "random_backward": {
+          "enabled": false
+        },
+        "routine_pattern": {
+          "enabled": false
         }
       }
     },

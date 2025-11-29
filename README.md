@@ -11,6 +11,11 @@ Community-created resources, such as **command books** for each class and **rout
 - `arduino`: forward sang Arduino HID (cũng chạy trên host).
 - `tcp_vmware`: gửi lệnh qua TCP tới `vmware_receiver.py` đang chạy trong VMware, sau đó Arduino bên VM thực thi. Cấu hình trong `configs/bot/default.json` (`key_output.mode` và `key_output.tcp.*`).
 
+### Mirror Input (Hardware forwarding)
+- Tích hợp hook bàn phím giống `host_sender.py`.
+- Bật/tắt nhanh ở tab View hoặc cấu hình tại Settings → Mirror Input (host, port, block input).
+- Yêu cầu `vmware_receiver.py` chạy trong VM với Arduino kết nối.
+
 <br>
 
 <h2 align="center">

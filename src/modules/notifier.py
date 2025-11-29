@@ -1,15 +1,17 @@
 """A module for detecting and notifying the user of dangerous in-game events."""
 
-from src.common import config, utils
-import time
 import os
 import sys
-import cv2
-import pygame
 import threading
+import time
+
+import cv2
 import numpy as np
-from src.routine.components import Point
+import pygame
+
+from src.common import config, utils
 from src.common.logger import get_logger
+from src.routine.components import Point
 
 try:
     import keyboard as kb  # noqa: WPS433
@@ -17,6 +19,9 @@ except ImportError:  # pragma: no cover
     kb = None  # type: ignore
 
 log = get_logger(__name__)
+
+# Debug flag for lie detector tuning (keep code but disable logs by default)
+LIE_DEBUG = False
 
 
 def get_asset_path(rel_path):
@@ -42,8 +47,23 @@ OTHER_TEMPLATE = cv2.cvtColor(other_filtered, cv2.COLOR_BGR2GRAY)
 ELITE_TEMPLATE = cv2.imread(get_asset_path("assets/elite_template.jpg"), 0)
 
 # Lie Detector templates - using pre-cropped templates
-PUZZLE_TEMPLATE = cv2.imread(get_asset_path("assets/lie-detector/puzzle_crop.png"), 0)
-VIOLET_TEMPLATE = cv2.imread(get_asset_path("assets/lie-detector/violet_crop.png"), 0)
+PUZZLE_TEMPLATE = cv2.imread(
+    get_asset_path("assets/lie-detector/puzzle_crop.png"), cv2.IMREAD_GRAYSCALE
+)
+VIOLET_TEMPLATE = cv2.imread(
+    get_asset_path("assets/lie-detector/violet_crop.png"), cv2.IMREAD_GRAYSCALE
+)
+
+# Log template info for debugging
+if PUZZLE_TEMPLATE is not None:
+    log.debug(f"Puzzle template loaded: {PUZZLE_TEMPLATE.shape}")
+else:
+    log.warning("Puzzle template failed to load!")
+
+if VIOLET_TEMPLATE is not None:
+    log.debug(f"Violet template loaded: {VIOLET_TEMPLATE.shape}")
+else:
+    log.warning("Violet template failed to load!")
 
 
 def get_alert_path(name):
@@ -69,6 +89,18 @@ class Notifier:
         self.last_lie_detector_sound_time = 0.0
         self.lie_detector_sound_cooldown = 23.0  # seconds (length of siren)
         self.lie_detector_channel = None
+        self.lie_detector_threshold = 0.5
+        self.lie_detector_edge_threshold = 0.35
+        self.lie_detector_edge_confirm_margin = 0.05
+        self.lie_detector_min_scale = 0.6
+        self.lie_detector_max_scale = 1.6
+        self._lie_detector_last_debug = 0.0
+        self._lie_detector_color_lower = (100, 80, 70)
+        self._lie_detector_color_upper = (130, 255, 255)
+        self._lie_detector_color_area_threshold = 15000
+        self.lie_templates = [
+            tmpl for tmpl in (PUZZLE_TEMPLATE, VIOLET_TEMPLATE) if tmpl is not None
+        ]
 
         config.notifier = self
 
@@ -192,33 +224,71 @@ class Notifier:
                     if current_time - last_lie_detector_check > 0.5:
                         if PUZZLE_TEMPLATE is not None and VIOLET_TEMPLATE is not None:
                             # Crop vùng bottom right của game window (nơi popup xuất hiện)
-                            lie_detector_frame = frame[
-                                int(
-                                    height * 0.4
-                                ) : height,  # Bottom: 60% cuối chiều cao
-                                int(width * 0.4) : width,  # Right: 60% cuối chiều rộng
-                            ]
+                            # Dò ở vùng bottom-right ~60% (giảm nhiễu, tăng tốc)
+                            br_y0 = int(height * 0.4)
+                            br_x0 = int(width * 0.4)
+                            br_frame = frame[br_y0:height, br_x0:width]
 
                             # Convert sang grayscale để tối ưu CPU
-                            frame_gray = cv2.cvtColor(
-                                lie_detector_frame, cv2.COLOR_BGR2GRAY
-                            )
+                            frame_gray = cv2.cvtColor(br_frame, cv2.COLOR_BGR2GRAY)
 
-                            # So sánh với puzzle template
-                            puzzle_matches = utils.multi_match(
+                            # Multi-scale matching cho puzzle template
+                            # Scales từ 0.75 đến 1.3 để cover các kích thước khác nhau
+                            puzzle_matches = utils.multi_match_multi_scale(
                                 frame_gray,
                                 PUZZLE_TEMPLATE,
                                 threshold=0.75,
                                 is_gray=True,
+                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
                             )
 
-                            # So sánh với violet template
-                            violet_matches = utils.multi_match(
+                            # Multi-scale matching cho violet template
+                            violet_matches = utils.multi_match_multi_scale(
                                 frame_gray,
                                 VIOLET_TEMPLATE,
-                                threshold=0.75,
+                                threshold=0.7,
                                 is_gray=True,
+                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
                             )
+
+                            # Debug: In ra max score của violet để tune threshold
+                            if LIE_DEBUG and VIOLET_TEMPLATE is not None:
+                                max_violet_score = 0.0
+                                best_violet_scale = 1.0
+                                violet_scales = [0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3]
+                                for scale in violet_scales:
+                                    new_w = max(
+                                        5, int(round(VIOLET_TEMPLATE.shape[1] * scale))
+                                    )
+                                    new_h = max(
+                                        5, int(round(VIOLET_TEMPLATE.shape[0] * scale))
+                                    )
+                                    if (
+                                        new_h > frame_gray.shape[0]
+                                        or new_w > frame_gray.shape[1]
+                                    ):
+                                        continue
+                                    if new_h < 5 or new_w < 5:
+                                        continue
+                                    scaled_template = cv2.resize(
+                                        VIOLET_TEMPLATE,
+                                        (new_w, new_h),
+                                        interpolation=cv2.INTER_LINEAR,
+                                    )
+                                    violet_result = cv2.matchTemplate(
+                                        frame_gray,
+                                        scaled_template,
+                                        cv2.TM_CCOEFF_NORMED,
+                                    )
+                                    _, max_val, _, _ = cv2.minMaxLoc(violet_result)
+                                    if max_val > max_violet_score:
+                                        max_violet_score = max_val
+                                        best_violet_scale = scale
+                                log.debug(
+                                    "Violet max score (multi-scale): %.3f at scale %.2f (threshold: 0.7)",
+                                    max_violet_score,
+                                    best_violet_scale,
+                                )
 
                             # Nếu tìm thấy match (puzzle hoặc violet)
                             if len(puzzle_matches) > 0 or len(violet_matches) > 0:
@@ -327,6 +397,149 @@ class Notifier:
             finally:
                 self.lie_detector_channel = None
                 self.last_lie_detector_sound_time = 0.0
+
+    def _detect_lie_detector(self, frame_bgr):
+        """Return True if any lie detector template matches the given frame."""
+        rois = self._extract_lie_detector_rois(frame_bgr)
+        if not rois:
+            if LIE_DEBUG:
+                self._save_debug_image(
+                    frame_bgr, prefix="lie_roi_fallback", debug_id=int(time.time())
+                )
+            rois = [self._build_roi_from_frame(frame_bgr)]
+        for roi in rois:
+            if self._match_lie_detector_roi(roi["gray"], roi["edges"], roi["height"]):
+                return True
+        return False
+
+    def _extract_lie_detector_rois(self, frame_bgr):
+        resized = cv2.resize(frame_bgr, (0, 0), fx=0.5, fy=0.5)
+        frame_hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(
+            frame_hsv, self._lie_detector_color_lower, self._lie_detector_color_upper
+        )
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        rois = []
+        h_scale = frame_bgr.shape[0] / resized.shape[0]
+        w_scale = frame_bgr.shape[1] / resized.shape[1]
+        ts = int(time.time())
+        roi_index = 0
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < self._lie_detector_color_area_threshold:
+                continue
+            x, y, w, h = cv2.boundingRect(cnt)
+            x = int(x * w_scale)
+            y = int(y * h_scale)
+            w = int(w * w_scale)
+            h = int(h * h_scale)
+            pad_w = max(10, int(w * 0.15))
+            pad_h = max(10, int(h * 0.25))
+            x0 = max(x - pad_w, 0)
+            y0 = max(y - pad_h, 0)
+            x1 = min(x + w + pad_w, frame_bgr.shape[1])
+            y1 = min(y + h + pad_h, frame_bgr.shape[0])
+            roi_bgr = frame_bgr[y0:y1, x0:x1]
+            if roi_bgr.size == 0:
+                continue
+            if LIE_DEBUG:
+                self._save_debug_image(
+                    roi_bgr, prefix="lie_roi", debug_id=f"{ts}_{roi_index}"
+                )
+                roi_index += 1
+            roi_gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
+            roi_gray = cv2.GaussianBlur(roi_gray, (3, 3), 0)
+            roi_edges = cv2.Canny(roi_gray, 50, 150)
+            rois.append(
+                {
+                    "gray": roi_gray,
+                    "edges": roi_edges,
+                    "height": roi_gray.shape[0],
+                }
+            )
+        return rois
+
+    @staticmethod
+    def _build_roi_from_frame(frame_bgr):
+        roi_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        roi_gray = cv2.GaussianBlur(roi_gray, (3, 3), 0)
+        roi_edges = cv2.Canny(roi_gray, 50, 150)
+        return {
+            "gray": roi_gray,
+            "edges": roi_edges,
+            "height": roi_gray.shape[0],
+        }
+
+    def _match_lie_detector_roi(self, roi_gray, roi_edges, roi_height):
+        if not self.lie_templates:
+            return False
+        for template in self.lie_templates:
+            base_height = template.shape[0]
+            if base_height == 0:
+                continue
+            scales = self._candidate_scales(roi_height / base_height)
+            for scale in scales:
+                new_h = max(5, int(round(base_height * scale)))
+                new_w = max(5, int(round(template.shape[1] * scale)))
+                if new_h > roi_gray.shape[0] or new_w > roi_gray.shape[1]:
+                    continue
+                scaled_template = cv2.resize(
+                    template, (new_w, new_h), interpolation=cv2.INTER_LINEAR
+                )
+                score = self._match_template(roi_gray, scaled_template)
+                if score >= self.lie_detector_threshold:
+                    return True
+                if score >= (
+                    self.lie_detector_threshold - self.lie_detector_edge_confirm_margin
+                ):
+                    scaled_edge = cv2.Canny(scaled_template, 60, 160)
+                    if (
+                        scaled_edge.shape[0] <= roi_edges.shape[0]
+                        and scaled_edge.shape[1] <= roi_edges.shape[1]
+                    ):
+                        edge_score = self._match_template(roi_edges, scaled_edge)
+                        if edge_score >= self.lie_detector_edge_threshold:
+                            return True
+        return False
+
+    def _candidate_scales(self, scale_hint):
+        candidates = [
+            scale_hint,
+            scale_hint * 0.92,
+            scale_hint * 1.08,
+        ]
+        normalized = []
+        seen = set()
+        for scale in candidates:
+            scale = float(
+                np.clip(scale, self.lie_detector_min_scale, self.lie_detector_max_scale)
+            )
+            key = round(scale, 2)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(scale)
+        return normalized
+
+    @staticmethod
+    def _match_template(frame, template):
+        if template.shape[0] > frame.shape[0] or template.shape[1] > frame.shape[1]:
+            return 0.0
+        result = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, _ = cv2.minMaxLoc(result)
+        return max_val
+
+    @staticmethod
+    def _save_debug_image(image, prefix, debug_id):
+        try:
+            debug_path = os.path.join(
+                "logs",
+                f"{prefix}_{debug_id}.png",
+            )
+            cv2.imwrite(debug_path, image)
+        except Exception:
+            pass
 
 
 #################################

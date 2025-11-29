@@ -6,6 +6,7 @@ Auto Maple GUI for manual capture workflows.
 
 from __future__ import annotations
 
+import ctypes
 import json
 import tkinter as tk
 from typing import Dict, Optional
@@ -21,6 +22,16 @@ def select_region() -> Optional[Dict[str, int]]:
     """
 
     result: Dict[str, int] = {}
+
+    # Make sure the process is DPI-aware so the coordinates match physical pixels.
+    try:
+        awareness = ctypes.c_int(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+        ctypes.windll.shcore.SetProcessDpiAwareness(awareness)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
     root = tk.Tk()
     root.attributes("-fullscreen", True)
     root.attributes("-alpha", 0.15)

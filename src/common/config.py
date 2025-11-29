@@ -48,6 +48,9 @@ manual_capture_rect = None
 # Shares the notifier module
 notifier = None
 
+# Shares the mirror input module
+mirror_input = None
+
 # Shares the keyboard listener
 listener = None
 
@@ -67,6 +70,13 @@ tcp_key_port = 12345
 tcp_key_auto_reconnect = True
 tcp_key_reconnect_delay = 1.0
 mirror_prev_key_mode = None
+
+# Mirror input defaults (hardware forwarding)
+mirror_input_enabled = False
+mirror_input_host = "127.0.0.1"
+mirror_input_port = 12345
+mirror_input_block_original = False
+mirror_input_auto_connect = False
 
 
 def _load_key_output_settings():
@@ -123,6 +133,49 @@ def update_key_output_settings(
 
 
 _load_key_output_settings()
+
+
+def _load_mirror_input_settings():
+    global mirror_input_enabled, mirror_input_host, mirror_input_port
+    global mirror_input_block_original, mirror_input_auto_connect
+
+    mirror_input_enabled = bool(
+        bot_config.get("mirror_input.enabled", mirror_input_enabled)
+    )
+    mirror_input_host = bot_config.get("mirror_input.host", mirror_input_host)
+    mirror_input_port = int(bot_config.get("mirror_input.port", mirror_input_port))
+    mirror_input_block_original = bool(
+        bot_config.get("mirror_input.block_original_input", mirror_input_block_original)
+    )
+    mirror_input_auto_connect = bool(
+        bot_config.get("mirror_input.auto_connect", mirror_input_auto_connect)
+    )
+
+
+def update_mirror_input_settings(
+    enabled=None, host=None, port=None, block=None, auto_connect=None
+):
+    changed = False
+    if enabled is not None:
+        bot_config.set("mirror_input.enabled", bool(enabled), persist=True)
+        changed = True
+    if host is not None:
+        bot_config.set("mirror_input.host", host, persist=True)
+        changed = True
+    if port is not None:
+        bot_config.set("mirror_input.port", int(port), persist=True)
+        changed = True
+    if block is not None:
+        bot_config.set("mirror_input.block_original_input", bool(block), persist=True)
+        changed = True
+    if auto_connect is not None:
+        bot_config.set("mirror_input.auto_connect", bool(auto_connect), persist=True)
+        changed = True
+    if changed:
+        _load_mirror_input_settings()
+
+
+_load_mirror_input_settings()
 
 #################################
 #    Arduino Output Config      #

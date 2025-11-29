@@ -1,22 +1,23 @@
 """The central program that ties all the modules together."""
 
-import time
 import atexit
+import time
 from datetime import datetime
+
+from src.common import config
+from src.common.crash_detection import log_shutdown, mark_graceful_shutdown
+from src.common.health_check import stop_health_monitoring
+from src.common.logger import get_logger
+from src.common.manual_capture_config import (
+    initialize_manual_region,
+    save_manual_region,
+)
 from src.modules.bot import Bot
 from src.modules.capture import Capture
-from src.modules.notifier import Notifier
-from src.modules.listener import Listener
 from src.modules.gui import GUI
-from src.common.logger import get_logger
-from src.common import config
-from src.common.manual_capture_config import initialize_manual_region
-from src.common.crash_detection import (
-    mark_graceful_shutdown,
-    log_shutdown,
-)
-from src.common.health_check import stop_health_monitoring
-
+from src.modules.listener import Listener
+from src.modules.mirror_input import MirrorInput
+from src.modules.notifier import Notifier
 
 log = get_logger(__name__)
 
@@ -35,6 +36,8 @@ bot = Bot()
 capture = Capture()
 notifier = Notifier()
 listener = Listener()
+mirror_input = MirrorInput()
+config.mirror_input = mirror_input
 
 log.info("📦 Initializing modules...")
 bot.start()
@@ -74,6 +77,22 @@ if config.enable_keyboard_listener:
     log.info("✅ Listener module ready")
 else:
     log.info("🔕 Keyboard listener disabled by configuration")
+
+mirror_input.configure(
+    config.mirror_input_host,
+    config.mirror_input_port,
+    config.mirror_input_block_original,
+)
+if config.mirror_input_auto_connect:
+    if mirror_input.connect():
+        log.info(
+            "🔌 Mirror input TCP auto-connect enabled (%s:%s)",
+            config.mirror_input_host,
+            config.mirror_input_port,
+        )
+if config.mirror_input_enabled:
+    mirror_input.start()
+    log.info("✅ Mirror input auto-started")
 
 log.info("")
 log.info("=" * 80)
@@ -130,6 +149,11 @@ def cleanup():
         except Exception as e:
             log.warning(f"⚠️  Error stopping VMware Receiver: {e}")
 
+    # Stop mirror input
+    mirror = getattr(config, "mirror_input", None)
+    if mirror:
+        mirror.shutdown()
+
     # Disconnect shared Arduino connection
     try:
         from src.common.shared_arduino_connection import SharedArduinoConnection
@@ -140,6 +164,14 @@ def cleanup():
             log.info("✅ Shared Arduino connection closed")
     except Exception as e:
         log.debug(f"Error closing shared connection: {e}")
+
+    # Save manual capture region if it exists
+    if hasattr(config, "manual_capture_rect") and config.manual_capture_rect:
+        try:
+            save_manual_region(config.manual_capture_rect)
+            log.debug("✅ Manual capture region saved on shutdown")
+        except Exception as e:
+            log.debug(f"Error saving manual region on shutdown: {e}")
 
     # Log shutdown event
     log_shutdown()

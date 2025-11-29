@@ -135,6 +135,108 @@ def multi_match(frame, template, threshold=0.95, is_gray=False, max_results=None
     return matches
 
 
+def multi_match_multi_scale(
+    frame,
+    template,
+    threshold=0.95,
+    is_gray=False,
+    scales=None,
+    max_results=None,
+    overlap_threshold=20,
+):
+    """
+    Finds all matches in FRAME that are similar to TEMPLATE at multiple scales.
+    This function is useful when the template size may vary in the frame.
+    :param frame:           The image in which to search.
+    :param template:        The template to match with.
+    :param threshold:       The minimum percentage of TEMPLATE that each result must match.
+    :param is_gray:         If True, FRAME is already grayscale (CPU optimization).
+    :param scales:          List of scales to try (e.g., [0.75, 0.9, 1.0, 1.1, 1.2]).
+                            Default: [0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3]
+    :param max_results:     Maximum number of results to return.
+    :param overlap_threshold: Maximum pixel distance to consider matches as duplicates.
+    :return:                An array of matches that exceed THRESHOLD, format: [(x, y, score), ...]
+    """
+    if scales is None:
+        scales = [0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3]
+
+    # CPU Optimization: Skip color conversion if frame is already grayscale
+    if is_gray:
+        gray = frame
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    all_matches = []
+    template_h, template_w = template.shape[:2]
+
+    for scale in scales:
+        # Resize template
+        new_w = max(5, int(round(template_w * scale)))
+        new_h = max(5, int(round(template_h * scale)))
+
+        # Skip if scaled template is larger than frame
+        if new_h > gray.shape[0] or new_w > gray.shape[1]:
+            continue
+
+        # Skip if scaled template is too small
+        if new_h < 5 or new_w < 5:
+            continue
+
+        scaled_template = cv2.resize(
+            template, (new_w, new_h), interpolation=cv2.INTER_LINEAR
+        )
+
+        # Match template
+        result = cv2.matchTemplate(gray, scaled_template, cv2.TM_CCOEFF_NORMED)
+
+        # Find all matches above threshold
+        result_copy = result.copy()
+        while True:
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result_copy)
+            if max_val < threshold:
+                break
+
+            x = int(round(max_loc[0] + scaled_template.shape[1] / 2))
+            y = int(round(max_loc[1] + scaled_template.shape[0] / 2))
+            all_matches.append((x, y, float(max_val), scale))
+
+            if max_results and len(all_matches) >= max_results * len(scales):
+                break
+
+            # Mask out this match
+            top_left = max_loc
+            bottom_right = (
+                top_left[0] + scaled_template.shape[1],
+                top_left[1] + scaled_template.shape[0],
+            )
+            cv2.rectangle(result_copy, top_left, bottom_right, 0, thickness=-1)
+
+    if not all_matches:
+        return []
+
+    # Sort by score (descending) to prioritize best matches
+    all_matches.sort(key=lambda x: x[2], reverse=True)
+
+    # Remove overlapping matches (keep highest score)
+    filtered_matches = []
+    for match in all_matches:
+        x, y, score, scale = match
+        is_duplicate = False
+        for existing in filtered_matches:
+            ex, ey, _, _ = existing
+            # If within overlap_threshold pixels, consider duplicate
+            if abs(x - ex) < overlap_threshold and abs(y - ey) < overlap_threshold:
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            filtered_matches.append(match)
+            if max_results and len(filtered_matches) >= max_results:
+                break
+
+    # Return in format (x, y, score) for compatibility with multi_match
+    return [(x, y, score) for x, y, score, _ in filtered_matches]
+
+
 def _get_minimap_ratio(default=1.0):
     """
     Safely retrieve minimap ratio from config.capture.
