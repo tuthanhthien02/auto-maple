@@ -187,20 +187,30 @@ class _KeyStateTracker:
     def __init__(self):
         # key_name (lowercase str) -> bool (True if currently down)
         self._is_down = {}
+        # Flag to temporarily disable tracking for debugging
+        self._enabled = True  # Enabled by default
 
     def is_down(self, key: str) -> bool:
+        if not self._enabled:
+            return False  # Always return False when disabled
         return self._is_down.get(key.lower(), False)
 
     def mark_down(self, key: str) -> None:
+        if not self._enabled:
+            return  # Skip tracking when disabled
         self._is_down[key.lower()] = True
 
     def mark_up(self, key: str) -> None:
+        if not self._enabled:
+            return  # Skip tracking when disabled
         self._is_down[key.lower()] = False
 
     def reset(self) -> None:
         self._is_down.clear()
 
     def keys_down(self):
+        if not self._enabled:
+            return []  # Return empty list when disabled
         return [k for k, v in self._is_down.items() if v]
 
 

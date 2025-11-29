@@ -51,11 +51,11 @@ const uint8_t MAX_FRAME_PAYLOAD = 48;  // enough for command strings
 bool obfuscationActive = false;
 bool handshakeReceived = false;
 uint8_t sessionKey[HANDSHAKE_LENGTH];
-bool watchdogEnabled = false;     // Control whether watchdog auto-release runs
+bool watchdogEnabled = true;     // Control whether watchdog auto-release runs (enabled by default)
 
 // Watchdog để auto-release nếu không nhận dữ liệu trong một khoảng thời gian
 unsigned long lastReceiveMs = 0;
-const unsigned long WATCHDOG_TIMEOUT_MS = 2000; // 8 giây (an toàn hơn cho lag nhẹ)
+const unsigned long WATCHDOG_TIMEOUT_MS = 2000; // 2 giây (an toàn hơn cho lag nhẹ)
 
 // Anti-detection: Pseudo-random jitter generator
 // Use analogRead() noise as entropy source (Arduino doesn't have good hardware RNG)
