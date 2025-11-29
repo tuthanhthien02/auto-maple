@@ -817,7 +817,9 @@ class Move(Command):
 
     def _detect_stuck(self, point):
         """Detect if bot is stuck at a position."""
-        current_pos = config.player_pos
+        current_pos = getattr(config, "player_pos", None)
+        if not current_pos:
+            return False
         if self._stuck_position is None:
             self._stuck_position = current_pos
             self._stuck_attempts = 0
@@ -841,6 +843,34 @@ class Move(Command):
             self._stuck_attempts = 0
 
         return False
+
+    def _recover_from_stuck(self):
+        """Attempt a simple jump to recover from stuck state."""
+        try:
+            log.info("Move: Attempting stuck recovery jump")
+            if self.prev_direction:
+                key_up(self.prev_direction)
+                self.prev_direction = ""
+
+            # Hold a horizontal nudge first to build momentum before jump
+            nudge_direction = random.choice([Key.left, Key.right])
+            key_down(nudge_direction)
+            time.sleep(random.uniform(0.03, 0.06))
+
+            # Perform a quick jump tap while holding nudge
+            press(Key.jump, 1, down_time=0.08, up_time=0.08)
+            time.sleep(random.uniform(0.06, 0.12))
+
+            # Release nudge after jump completes
+            key_up(nudge_direction)
+        except Exception as exc:
+            log.error("Move: Stuck recovery jump failed: %s", exc)
+            return False
+        finally:
+            # Reset stuck tracking so detector can re-evaluate
+            self._stuck_position = config.player_pos
+            self._stuck_attempts = 0
+        return True
 
     def _handle_floor_transition_retry(self, direction, point):
         """Handle floor transition retry logic with X-axis adjustment."""
@@ -934,6 +964,13 @@ class Move(Command):
                 and local_error > settings.move_tolerance
                 and global_error > settings.move_tolerance
             ):
+                # Check stuck state before executing axis logic so both axes are covered
+                if self._detect_stuck(point):
+                    if self._recover_from_stuck():
+                        continue
+                    log.warning("Move: Breaking due to stuck detection")
+                    break
+
                 if toggle:
                     d_x = point[0] - config.player_pos[0]
                     if abs(d_x) > settings.move_tolerance / math.sqrt(2):
@@ -956,11 +993,6 @@ class Move(Command):
                         else:
                             key = "down"
                         self._new_direction(key)
-
-                        # Check if bot is stuck
-                        if self._detect_stuck(point):
-                            log.warning("Move: Breaking due to stuck detection")
-                            break
 
                         # Check if this is a floor transition
                         is_floor_transition = (
@@ -1044,7 +1076,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                 press(
                     Key.jump,
                     1,
-                    down_time=random.uniform(0.08, 0.12),
+                    down_time=random.uniform(0.08, 0.1),
                     up_time=random.uniform(0.04, 0.06),
                 )
         except Exception as e:
@@ -1054,7 +1086,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         press(
             Key.teleport,
             1,
-            down_time=random.uniform(0.1, 0.16),
+            down_time=random.uniform(0.8, 0.1),
             up_time=random.uniform(0.05, 0.08),
         )
     except Exception as e:
