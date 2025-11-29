@@ -586,31 +586,46 @@ class Status(LabelFrame):
         self._set_status_message(text, color, duration)
 
     def _on_select_region_click(self):
-        script_path = self._get_selector_script_path()
-        if not os.path.exists(script_path):
-            self._set_capture_status("❌ Không tìm thấy tool chọn vùng", "red")
-            return
+        rect = None
 
-        try:
-            result = subprocess.run(
-                [sys.executable, script_path],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        except Exception as exc:
-            self._set_capture_status(f"❌ Lỗi khi chạy tool: {exc}", "red")
-            return
+        if getattr(sys, "frozen", False):
+            try:
+                from src.tools import manual_region_selector
 
-        output = result.stdout.strip()
-        if not output:
+                rect = manual_region_selector.select_region()
+            except Exception as exc:
+                self._set_capture_status(f"❌ Không mở được tool: {exc}", "red")
+                return
+        else:
+            script_path = self._get_selector_script_path()
+            if not os.path.exists(script_path):
+                self._set_capture_status("❌ Không tìm thấy tool chọn vùng", "red")
+                return
+
+            try:
+                result = subprocess.run(
+                    [sys.executable, script_path],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            except Exception as exc:
+                self._set_capture_status(f"❌ Lỗi khi chạy tool: {exc}", "red")
+                return
+
+            output = result.stdout.strip()
+            if not output:
+                self._set_capture_status("ℹ️ Đã hủy chọn vùng", "orange")
+                return
+
+            try:
+                rect = json.loads(output)
+            except json.JSONDecodeError:
+                self._set_capture_status("❌ Không đọc được vùng đã chọn", "red")
+                return
+
+        if not rect:
             self._set_capture_status("ℹ️ Đã hủy chọn vùng", "orange")
-            return
-
-        try:
-            rect = json.loads(output)
-        except json.JSONDecodeError:
-            self._set_capture_status("❌ Không đọc được vùng đã chọn", "red")
             return
 
         capture = getattr(config, "capture", None)

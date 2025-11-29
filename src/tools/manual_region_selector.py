@@ -32,11 +32,25 @@ def select_region() -> Optional[Dict[str, int]]:
             ctypes.windll.user32.SetProcessDPIAware()
         except Exception:
             pass
-    root = tk.Tk()
-    root.attributes("-fullscreen", True)
-    root.attributes("-alpha", 0.15)
+    existing_root = tk._default_root
+    if existing_root is None:
+        root = tk.Tk()
+        is_standalone = True
+    else:
+        root = tk.Toplevel(existing_root)
+        is_standalone = False
+
+    root.withdraw()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    root.overrideredirect(True)
+    root.geometry(f"{screen_width}x{screen_height}+0+0")
+    root.attributes("-alpha", 0.18)
     root.configure(bg="black")
     root.attributes("-topmost", True)
+    root.deiconify()
+    root.lift()
+    root.focus_force()
     root.title("Select Capture Region - Drag to select, Esc to cancel")
 
     canvas = tk.Canvas(root, highlightthickness=0, cursor="crosshair", bg="black")
@@ -86,7 +100,14 @@ def select_region() -> Optional[Dict[str, int]]:
     root.bind("<Escape>", on_escape)
 
     # Run modal loop
-    root.mainloop()
+    if is_standalone:
+        root.mainloop()
+    else:
+        try:
+            root.grab_set()
+        except Exception:
+            pass
+        root.wait_window()
 
     return result or None
 
