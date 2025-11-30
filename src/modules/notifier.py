@@ -134,6 +134,15 @@ class Notifier:
             if tmpl is not None
         ]
 
+        # AI Solvers (lazy loading)
+        self.solver_manager = None
+        self.enable_puzzle_solver = False
+        self.enable_violetta_solver = False
+        self.last_puzzle_detection_time = 0
+        self.last_violet_detection_time = 0
+        self.puzzle_solver_cooldown = 5.0  # seconds
+        self.violet_solver_cooldown = 5.0
+
         config.notifier = self
 
     def start(self):
@@ -754,6 +763,28 @@ class Notifier:
                                     "Lie detector detected: %s (sound cooldown active).",
                                     lie_type_str,
                                 )
+
+                            # Trigger AI solvers if enabled
+                            if puzzle_detected and self.enable_puzzle_solver:
+                                if (
+                                    current_time - self.last_puzzle_detection_time
+                                    > self.puzzle_solver_cooldown
+                                ):
+                                    self._trigger_puzzle_solver(
+                                        frame, puzzle_matches[0]
+                                    )
+                                    self.last_puzzle_detection_time = current_time
+
+                            if violet_detected and self.enable_violetta_solver:
+                                if (
+                                    current_time - self.last_violet_detection_time
+                                    > self.violet_solver_cooldown
+                                ):
+                                    self._trigger_violetta_solver(
+                                        frame, violet_matches[0]
+                                    )
+                                    self.last_violet_detection_time = current_time
+
                         last_lie_detector_check = current_time
 
                 # Reset error counter on successful iteration
@@ -846,6 +877,73 @@ class Notifier:
             finally:
                 self.lie_detector_channel = None
                 self.last_lie_detector_sound_time = 0.0
+
+    def _get_solver_manager(self):
+        """Get or create solver manager (lazy loading)."""
+        if self.solver_manager is None:
+            try:
+                from src.modules.lie_detector_solvers import LieDetectorSolverManager
+
+                self.solver_manager = LieDetectorSolverManager()
+                log.info("Solver manager initialized")
+            except Exception as e:
+                log.error(f"Error initializing solver manager: {e}")
+                return None
+        return self.solver_manager
+
+    def _trigger_puzzle_solver(self, frame, puzzle_match):
+        """Trigger puzzle solver when puzzle is detected."""
+        manager = self._get_solver_manager()
+        if manager is None:
+            return
+
+        # Extract puzzle window bbox from match
+        x, y, score = puzzle_match
+        template_h, template_w = PUZZLE_TEMPLATE.shape
+
+        # Calculate window bbox (with padding)
+        padding = 50
+        window_x = max(0, x - template_w // 2 - padding)
+        window_y = max(0, y - template_h // 2 - padding)
+        window_w = template_w + padding * 2
+        window_h = template_h + padding * 2
+
+        # Ensure within frame bounds
+        height, width = frame.shape[:2]
+        window_w = min(window_w, width - window_x)
+        window_h = min(window_h, height - window_y)
+
+        window_bbox = (window_x, window_y, window_w, window_h)
+
+        manager.start_puzzle_solver(frame, window_bbox)
+        log.info("Puzzle solver triggered")
+
+    def _trigger_violetta_solver(self, frame, violet_match):
+        """Trigger violetta solver when violet is detected."""
+        manager = self._get_solver_manager()
+        if manager is None:
+            return
+
+        # Extract violet window bbox from match
+        x, y, score = violet_match
+        template_h, template_w = VIOLET_TEMPLATE.shape
+
+        # Calculate window bbox (with padding)
+        padding = 50
+        window_x = max(0, x - template_w // 2 - padding)
+        window_y = max(0, y - template_h // 2 - padding)
+        window_w = template_w + padding * 2
+        window_h = template_h + padding * 2
+
+        # Ensure within frame bounds
+        height, width = frame.shape[:2]
+        window_w = min(window_w, width - window_x)
+        window_h = min(window_h, height - window_y)
+
+        window_bbox = (window_x, window_y, window_w, window_h)
+
+        manager.start_violetta_solver(frame, window_bbox)
+        log.info("Violetta solver triggered")
 
     def _detect_lie_detector(self, frame_bgr):
         """Return True if any lie detector template matches the given frame."""

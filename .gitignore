@@ -18,3 +18,5 @@ __pycache__/
 !ExplorerSettings_light.spec
 .env
 logs/
+recordings/
+ai/

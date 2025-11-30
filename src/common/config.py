@@ -57,6 +57,10 @@ listener = None
 # Enable/disable global keyboard listener (uses low-level hook)
 enable_keyboard_listener = True
 
+# AI Lie Detector Solvers
+enable_puzzle_solver = False
+enable_violetta_solver = False
+
 # Shares the gui to all modules
 gui = None
 

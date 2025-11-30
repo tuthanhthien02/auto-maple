@@ -5,9 +5,12 @@ from tkinter import messagebox
 
 from src.common import config
 from src.common import vkeys
+from src.common.logger import get_logger
 from src.gui.interfaces import Frame, KeyBindings, LabelFrame, Tab
 from src.gui.settings.routine_randomization import RoutineRandomization
 from src.gui.settings.vmware_receiver import VMwareReceiver
+
+log = get_logger(__name__)
 
 
 class Settings(Tab):
@@ -28,6 +31,13 @@ class Settings(Tab):
         self.routine_randomization.pack(side=tk.TOP, fill="x", expand=True)
         self.vmware_receiver = VMwareReceiver(self.column1)
         self.vmware_receiver.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+
+        # AI Lie Detector Solvers
+        self.ai_solver_settings = LabelFrame(
+            self.column1, "AI Lie Detector Solvers", padding=(5, 5, 5, 5)
+        )
+        self.ai_solver_settings.pack(side=tk.TOP, fill="x", expand=True, pady=(10, 0))
+        self._build_ai_solver_section()
 
         self.key_output_settings = LabelFrame(
             self.column1, "Key Output", padding=(5, 5, 5, 5)
@@ -486,6 +496,68 @@ class Settings(Tab):
         status_text = "Mirror input đang chạy" if running else "Mirror input đang tắt"
         status_text += " | TCP Connected" if connected else " | TCP Disconnected"
         self._update_mirror_status_label(status_text, running or connected)
+
+    def _build_ai_solver_section(self):
+        """Build AI solver settings section."""
+        # Puzzle solver
+        self.puzzle_solver_var = tk.BooleanVar(
+            value=getattr(config, "enable_puzzle_solver", False)
+        )
+        self.puzzle_solver_checkbox = tk.Checkbutton(
+            self.ai_solver_settings,
+            text="Bật AI Puzzle Solver",
+            variable=self.puzzle_solver_var,
+            command=self._on_puzzle_solver_toggle,
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        self.puzzle_solver_checkbox.pack(side=tk.TOP, anchor="w")
+
+        # Violetta solver
+        self.violetta_solver_var = tk.BooleanVar(
+            value=getattr(config, "enable_violetta_solver", False)
+        )
+        self.violetta_solver_checkbox = tk.Checkbutton(
+            self.ai_solver_settings,
+            text="Bật AI Violetta Solver",
+            variable=self.violetta_solver_var,
+            command=self._on_violetta_solver_toggle,
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        self.violetta_solver_checkbox.pack(side=tk.TOP, anchor="w", pady=(5, 0))
+
+        # Hint
+        self.ai_solver_hint = tk.Label(
+            self.ai_solver_settings,
+            text="Tự động giải puzzle khi phát hiện. Cần train model trước.",
+            wraplength=260,
+            justify=tk.LEFT,
+            fg="gray",
+        )
+        self.ai_solver_hint.pack(side=tk.TOP, fill="x", pady=(4, 0))
+
+    def _on_puzzle_solver_toggle(self):
+        """Handle puzzle solver toggle."""
+        enabled = self.puzzle_solver_var.get()
+        config.enable_puzzle_solver = enabled
+
+        # Update notifier
+        notifier = getattr(config, "notifier", None)
+        if notifier:
+            notifier.enable_puzzle_solver = enabled
+            log.info(f"Puzzle solver: {'enabled' if enabled else 'disabled'}")
+
+    def _on_violetta_solver_toggle(self):
+        """Handle violetta solver toggle."""
+        enabled = self.violetta_solver_var.get()
+        config.enable_violetta_solver = enabled
+
+        # Update notifier
+        notifier = getattr(config, "notifier", None)
+        if notifier:
+            notifier.enable_violetta_solver = enabled
+            log.info(f"Violetta solver: {'enabled' if enabled else 'disabled'}")
 
     def _update_mirror_status_label(self, text, success=True, auto_clear=False):
         self.mirror_status.config(text=text, fg="green" if success else "orange")

@@ -10,3 +10,9 @@ pyserial
 psutil
 tensorflow
 cryptography>=41.0.0
+ultralytics>=8.0.0
+onnxruntime>=1.15.0
+torch>=2.0.0
+torchvision>=0.15.0
+filterpy>=1.4.5
+ffmpeg-python>=0.2.0

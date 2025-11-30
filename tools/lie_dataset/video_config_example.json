@@ -1,0 +1,26 @@
+{
+  "violetta_001.mp4": {
+    "start_time": 5.0,
+    "duration": 20.0,
+    "comment": "Extract from 5s to 25s (duration 20s)"
+  },
+  "violetta_002.mp4": {
+    "start_time": 0.0,
+    "duration": 15.0,
+    "comment": "Extract first 15 seconds"
+  },
+  "violetta_003.mp4": {
+    "start_time": null,
+    "duration": null,
+    "comment": "Extract entire video"
+  },
+  "puzzle_001.mp4": {
+    "start_time": 10.0,
+    "duration": 30.0,
+    "comment": "Extract from 10s to 40s"
+  }
+}
+
+
+
+
