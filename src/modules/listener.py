@@ -21,6 +21,7 @@ class Listener(Configurable):
         "Start/stop": "insert",
         "Reload routine": "f6",
         "Record position": "f7",
+        "Toggle mirror input": "delete",
     }
     BLOCK_DELAY = 1  # Delay after blocking restricted button press
 
@@ -30,12 +31,45 @@ class Listener(Configurable):
         super().__init__("controls")
         config.listener = self
 
+        # Ensure all hotkeys are valid (not empty) - fix any empty values
+        config_fixed = False
+        for action, default_value in self.DEFAULT_CONFIG.items():
+            current_value = self.config.get(action, "").strip()
+            if not current_value:
+                self.config[action] = default_value
+                log.info(f"Restored '{action}' hotkey to default: {default_value}")
+                config_fixed = True
+            # Update "Toggle mirror input" from old "f8" to new "delete"
+            elif action == "Toggle mirror input" and current_value.lower() == "f8":
+                self.config[action] = default_value
+                log.info(f"Updated '{action}' hotkey from f8 to {default_value}")
+                config_fixed = True
+
+        # Save config if any fixes were made
+        if config_fixed:
+            self.save_config()
+
         self.enabled = False
         self.ready = False
         self.block_time = 0
         self.thread = threading.Thread(target=self._main)
         self.thread.daemon = True
         self.keyboard_available = kb is not None
+
+    def _is_valid_hotkey(self, action):
+        """Check if hotkey exists and is not empty."""
+        hotkey = self.config.get(action, "").strip()
+        if not hotkey:
+            # If empty, restore from default
+            if action in self.DEFAULT_CONFIG:
+                self.config[action] = self.DEFAULT_CONFIG[action]
+                self.save_config()
+                log.info(
+                    f"Restored '{action}' hotkey to default: {self.DEFAULT_CONFIG[action]}"
+                )
+                return True
+            return False
+        return True
 
     def start(self):
         """
@@ -80,16 +114,30 @@ class Listener(Configurable):
                     consecutive_errors = 0
                     continue
 
-                if self.enabled:
-                    if kb is None:
-                        time.sleep(0.05)
-                        continue
-                    if kb.is_pressed(self.config["Start/stop"]):
-                        Listener.toggle_enabled()
-                    elif kb.is_pressed(self.config["Reload routine"]):
+                if kb is None:
+                    time.sleep(0.05)
+                    continue
+
+                # Check hotkeys that work regardless of bot state
+                # Check Start/stop first (highest priority)
+                start_stop = self.config.get("Start/stop", "").strip()
+                if start_stop and kb.is_pressed(start_stop):
+                    Listener.toggle_enabled()
+                # Check Toggle mirror input (works even when bot disabled)
+                elif self._is_valid_hotkey("Toggle mirror input"):
+                    mirror_hotkey = self.config["Toggle mirror input"].strip()
+                    if kb.is_pressed(mirror_hotkey):
+                        Listener.toggle_mirror_input()
+                # Check other hotkeys only when listener is enabled
+                elif self.enabled:
+                    if self._is_valid_hotkey("Reload routine") and kb.is_pressed(
+                        self.config["Reload routine"]
+                    ):
                         Listener.reload_routine()
                     elif self.restricted_pressed("Record position"):
                         Listener.record_position()
+
+                if self.enabled:
                     # CPU Optimization: 50 Hz when enabled (sufficient for keyboard responsiveness)
                     time.sleep(0.02)
                 else:
@@ -202,3 +250,48 @@ class Listener(Configurable):
         config.gui.edit.record.add_entry(now, pos)
         log.info("Recorded position (%s, %s) at %s", pos[0], pos[1], now)
         time.sleep(0.6)
+
+    @staticmethod
+    def toggle_mirror_input():
+        """Toggle mirror input on/off via hotkey - calls GUI button handler."""
+        log.info("Toggle mirror input hotkey pressed (Del)")
+        try:
+            if hasattr(config, "gui") and config.gui:
+                if hasattr(config.gui, "view") and config.gui.view:
+                    if hasattr(config.gui.view, "status"):
+                        # Call the same function as the GUI button
+                        config.gui.view.status._on_toggle_mirror()
+                        log.info("Mirror input toggled via hotkey - GUI updated")
+                        time.sleep(
+                            0.267
+                        )  # Same delay as toggle_enabled to prevent multiple toggles
+                        return
+            log.warning("GUI not available, using fallback method")
+        except Exception as exc:
+            log.error(f"Failed to toggle mirror input via hotkey: {exc}", exc_info=True)
+
+        # Fallback: direct module call if GUI not available
+        mirror = getattr(config, "mirror_input", None)
+        if mirror is None:
+            log.warning("Mirror input module unavailable")
+            return
+
+        if mirror.is_running():
+            mirror.stop()
+            config.update_mirror_input_settings(enabled=False)
+            log.info("Mirror input disabled via hotkey")
+        else:
+            block = getattr(config, "mirror_input_block_original", False)
+            mirror.configure(
+                getattr(config, "mirror_input_host", "127.0.0.1"),
+                getattr(config, "mirror_input_port", 12345),
+                block,
+            )
+            try:
+                mirror.start()
+                config.update_mirror_input_settings(enabled=True)
+                log.info("Mirror input enabled via hotkey")
+            except Exception as exc:
+                log.error(f"Mirror start failed: {exc}")
+
+        time.sleep(0.267)  # Same delay as toggle_enabled to prevent multiple toggles
