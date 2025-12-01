@@ -736,7 +736,7 @@ class LieDetectorSolverManager:
                 log.warning(
                     "Violetta YOLO detector not available, falling back to classifier"
                 )
-                classifier = ViolettaClassifier()
+            classifier = ViolettaClassifier()
 
             self.violetta_solver = ViolettaSolver(
                 detector=detector, classifier=classifier

@@ -719,6 +719,8 @@ class Adjust(Command):
                             log.error(f"Adjust: Error in left movement: {e}")
                         finally:
                             key_up("left")
+                            # Small delay to allow position update after releasing key
+                            time.sleep(0.06)  # 60ms delay to sync with position update
                     else:
                         try:
                             key_down("right")
@@ -734,6 +736,8 @@ class Adjust(Command):
                             log.error(f"Adjust: Error in right movement: {e}")
                         finally:
                             key_up("right")
+                            # Small delay to allow position update after releasing key
+                            time.sleep(0.06)  # 60ms delay to sync with position update
                     counter -= 1
             else:
                 d_y = self.target[1] - config.player_pos[1]
@@ -741,6 +745,8 @@ class Adjust(Command):
                     if d_y < 0:
                         try:
                             Teleport("up").main()
+                            # Small delay to allow position update after teleport
+                            time.sleep(0.08)  # 80ms delay for vertical movement
                         except Exception as e:
                             log.error(f"Adjust: Error in teleport up: {e}")
                     else:
@@ -750,10 +756,14 @@ class Adjust(Command):
                             press(Key.jump, 2, down_time=0.1)
                             key_up("down")
                             time.sleep(0.05)
+                            # Small delay to allow position update after jump down
+                            time.sleep(0.06)  # 60ms delay to sync with position update
                         except Exception as e:
                             log.error(f"Adjust: Error in jump down: {e}")
                             key_up("down")  # Ensure cleanup
                     counter -= 1
+            # Small delay before re-checking position to allow capture thread to update
+            time.sleep(0.05)  # 50ms delay to sync with position update
             error = utils.distance(config.player_pos, self.target)
             toggle = not toggle
 
@@ -980,6 +990,10 @@ class Move(Command):
                             key = "right"
                         self._new_direction(key)
                         step(key, point)
+                        # Small delay to allow position update from capture thread (prevent step-over)
+                        time.sleep(
+                            0.06
+                        )  # 60ms delay to sync with position update (0.05s interval when active)
                         if settings.record_layout:
                             config.layout.add(*config.player_pos)
                         counter -= 1
@@ -1005,6 +1019,12 @@ class Move(Command):
                             initial_y = self._handle_floor_transition_retry(key, point)
 
                         step(key, point)
+                        # Small delay to allow position update from capture thread (prevent step-over)
+                        # Vertical movements already have longer delay in step(), but add extra sync delay
+                        if is_floor_transition:
+                            time.sleep(0.08)  # Extra delay for floor transitions
+                        else:
+                            time.sleep(0.06)  # 60ms delay to sync with position update
 
                         # Check floor transition success after step
                         # Note: step() already includes delay for vertical movement
@@ -1018,6 +1038,8 @@ class Move(Command):
                         counter -= 1
                         if i < len(path) - 1:
                             time.sleep(0.05)
+                # Small delay before re-checking position to allow capture thread to update
+                time.sleep(0.05)  # 50ms delay to sync with position update
                 local_error = utils.distance(config.player_pos, point)
                 global_error = utils.distance(config.player_pos, self.target)
                 toggle = not toggle
@@ -1098,6 +1120,11 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         time.sleep(random.uniform(0.4, 0.5))  # Longer delay for vertical movement
     else:
         time.sleep(random.uniform(0.3, 0.4))  # Shorter delay for horizontal movement
+
+    # Additional small delay to ensure position is updated by capture thread (prevent step-over)
+    time.sleep(
+        0.06
+    )  # 60ms delay to sync with position update (0.05s interval when active)
 
 
 # ==================== RANDOM ACTIONS ====================

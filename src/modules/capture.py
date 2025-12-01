@@ -35,7 +35,8 @@ MINIMAP_WIDTH_SCALE = 1.0
 MINIMAP_HEIGHT_SCALE = 1.0
 
 # Position update intervals (in seconds)
-POSITION_CHECK_INTERVAL = 0.1  # Check position every 0.1s
+POSITION_CHECK_INTERVAL = 0.1  # Check position every 0.1s (when bot inactive)
+POSITION_CHECK_INTERVAL_ACTIVE = 0.05  # Check position every 0.05s (when bot active) - faster updates to prevent step-over
 POS_UPDATE_INTERVAL = 2.0  # Force position update every 2s to detect stuck
 
 
@@ -70,6 +71,7 @@ class Capture:
         self.last_player_pos = None
         self.last_pos_update_time = 0
         self.position_check_interval = POSITION_CHECK_INTERVAL
+        self.position_check_interval_active = POSITION_CHECK_INTERVAL_ACTIVE
         self.pos_update_interval = POS_UPDATE_INTERVAL
 
         # Adaptive frame rate tracking
@@ -604,10 +606,15 @@ class Capture:
                             time_since_last_update = (
                                 current_time - self.last_pos_update_time
                             )
+                            # Use faster interval when bot is active to prevent step-over
+                            check_interval = (
+                                self.position_check_interval_active
+                                if bot_active
+                                else self.position_check_interval
+                            )
                             if (
                                 self.last_player_pos is not None
-                                and time_since_last_update
-                                < self.position_check_interval
+                                and time_since_last_update < check_interval
                             ):
                                 should_match = False
                             elif time_since_last_update >= self.pos_update_interval:

@@ -1,13 +1,14 @@
 """GUI tool for labeling Puzzle frames with bounding boxes (YOLO format)."""
 
+import json
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
 import cv2
 from PIL import Image, ImageTk
-import json
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent

@@ -752,6 +752,12 @@ class Move(Command):
                 if random.random() < 0.12:
                     self._maybe_apply_micro_pause(progress)
 
+                # Small delay to allow position update from capture thread (prevent step-over)
+                # This ensures config.player_pos is updated before next check
+                time.sleep(
+                    0.05
+                )  # 50ms delay to sync with position update (0.05s interval when active)
+
                 local_error = utils.distance(config.player_pos, target_stage)
                 global_error = utils.distance(config.player_pos, self.target)
 

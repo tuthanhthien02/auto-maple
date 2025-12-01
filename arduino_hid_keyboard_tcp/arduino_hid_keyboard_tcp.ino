@@ -400,7 +400,8 @@ void resetObfuscation() {
   obfuscationActive = false;
   handshakeReceived = false;
   memset(sessionKey, 0, sizeof(sessionKey));
-  watchdogEnabled = false;
+  // Keep watchdog enabled (don't disable it on reset)
+  // watchdogEnabled remains unchanged
 }
 
 void deriveKeystream(uint8_t counter, uint8_t length, uint8_t *out) {
@@ -540,6 +541,9 @@ void setup() {
   // Initialize key states (all released) - bit array
   memset(keyStates, 0, KEY_STATES_SIZE);
   resetObfuscation();
+  
+  // Ensure watchdog is enabled after reset
+  watchdogEnabled = true;
   
   // Initialize watchdog timer
   lastReceiveMs = millis();

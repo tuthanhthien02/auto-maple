@@ -44,7 +44,7 @@ other_filtered = utils.filter_color(
 OTHER_TEMPLATE = cv2.cvtColor(other_filtered, cv2.COLOR_BGR2GRAY)
 
 # The Elite Boss's warning sign
-ELITE_TEMPLATE = cv2.imread(get_asset_path("assets/elite_template.jpg"), 0)
+# ELITE_TEMPLATE = cv2.imread(get_asset_path("assets/elite_template.jpg"), 0)  # Disabled
 
 # Lie Detector templates - using pre-cropped templates
 PUZZLE_TEMPLATE = cv2.imread(
@@ -53,15 +53,15 @@ PUZZLE_TEMPLATE = cv2.imread(
 VIOLET_TEMPLATE = cv2.imread(
     get_asset_path("assets/lie-detector/violet_crop.png"), cv2.IMREAD_GRAYSCALE
 )
-CAPTCHA_TEMPLATE = cv2.imread(
-    get_asset_path("assets/lie-detector/captcha_crop.png"), cv2.IMREAD_GRAYSCALE
-)
-STUN_TEMPLATE = cv2.imread(
-    get_asset_path("assets/lie-detector/stun_crop.png"), cv2.IMREAD_GRAYSCALE
-)
-STUN2_TEMPLATE = cv2.imread(
-    get_asset_path("assets/lie-detector/stun_crop2.png"), cv2.IMREAD_GRAYSCALE
-)
+# CAPTCHA_TEMPLATE = cv2.imread(
+#     get_asset_path("assets/lie-detector/captcha_crop.png"), cv2.IMREAD_GRAYSCALE
+# )  # Disabled
+# STUN_TEMPLATE = cv2.imread(
+#     get_asset_path("assets/lie-detector/stun_crop.png"), cv2.IMREAD_GRAYSCALE
+# )  # Disabled
+# STUN2_TEMPLATE = cv2.imread(
+#     get_asset_path("assets/lie-detector/stun_crop2.png"), cv2.IMREAD_GRAYSCALE
+# )  # Disabled
 
 # Log template info for debugging
 if PUZZLE_TEMPLATE is not None:
@@ -74,20 +74,7 @@ if VIOLET_TEMPLATE is not None:
 else:
     log.warning("Violet template failed to load!")
 
-if CAPTCHA_TEMPLATE is not None:
-    log.debug(f"Captcha template loaded: {CAPTCHA_TEMPLATE.shape}")
-else:
-    log.warning("Captcha template failed to load!")
-
-if STUN_TEMPLATE is not None:
-    log.debug(f"Stun template loaded: {STUN_TEMPLATE.shape}")
-else:
-    log.warning("Stun template failed to load!")
-
-if STUN2_TEMPLATE is not None:
-    log.debug(f"Stun2 template loaded: {STUN2_TEMPLATE.shape}")
-else:
-    log.warning("Stun2 template failed to load!")
+# Debug logs for disabled templates removed
 
 
 def get_alert_path(name):
@@ -127,9 +114,9 @@ class Notifier:
             for tmpl in (
                 PUZZLE_TEMPLATE,
                 VIOLET_TEMPLATE,
-                CAPTCHA_TEMPLATE,
-                STUN_TEMPLATE,
-                STUN2_TEMPLATE,
+                # CAPTCHA_TEMPLATE,  # Disabled
+                # STUN_TEMPLATE,  # Disabled
+                # STUN2_TEMPLATE,  # Disabled
             )
             if tmpl is not None
         ]
@@ -160,7 +147,7 @@ class Notifier:
 
         # CPU Optimization: Throttle checks with different intervals
         last_black_check = time.time()
-        last_elite_check = time.time()
+        # last_elite_check = time.time()  # Disabled (elite template matching disabled)
         last_others_check = time.time()
         last_rune_check = time.time()
         last_lie_detector_check = time.time()
@@ -190,21 +177,22 @@ class Notifier:
                         last_black_check = current_time
 
                     # CPU Optimization: Check elite warning every 0.5s (2 Hz)
-                    if current_time - last_elite_check > 0.5:
-                        elite_frame = frame[
-                            height // 4 : 3 * height // 4, width // 4 : 3 * width // 4
-                        ]
-                        # CPU Optimization: Pre-convert to grayscale once
-                        elite_frame_gray = cv2.cvtColor(elite_frame, cv2.COLOR_BGR2GRAY)
-                        elite = utils.multi_match(
-                            elite_frame_gray,
-                            ELITE_TEMPLATE,
-                            threshold=0.9,
-                            is_gray=True,
-                        )
-                        if len(elite) > 0:
-                            self._alert("siren")
-                        last_elite_check = current_time
+                    # Elite template matching disabled
+                    # if current_time - last_elite_check > 0.5:
+                    #     elite_frame = frame[
+                    #         height // 4 : 3 * height // 4, width // 4 : 3 * width // 4
+                    #     ]
+                    #     # CPU Optimization: Pre-convert to grayscale once
+                    #     elite_frame_gray = cv2.cvtColor(elite_frame, cv2.COLOR_BGR2GRAY)
+                    #     elite = utils.multi_match(
+                    #         elite_frame_gray,
+                    #         ELITE_TEMPLATE,
+                    #         threshold=0.9,
+                    #         is_gray=True,
+                    #     )
+                    #     if len(elite) > 0:
+                    #         self._alert("siren")
+                    #     last_elite_check = current_time
 
                     # CPU Optimization: Check other players every 0.3s (~3.3 Hz)
                     if current_time - last_others_check > 0.3:
@@ -265,12 +253,6 @@ class Notifier:
                     if current_time - last_lie_detector_check > 0.5:
                         puzzle_matches = []
                         violet_matches = []
-                        captcha_matches = []
-                        stun_matches = []
-                        stun2_matches = []
-                        # Khởi tạo biến cho fullscreen detection (captcha/stun/stun2)
-                        full_frame_gray = None
-                        full_frame_edges = None
 
                         # Puzzle và Violet chỉ xuất hiện ở bottom-right, nên chỉ scan vùng đó
                         if PUZZLE_TEMPLATE is not None or VIOLET_TEMPLATE is not None:
@@ -417,287 +399,13 @@ class Notifier:
                                     best_violet_scale,
                                 )
 
-                        # Captcha có thể xuất hiện random toàn màn hình, nên scan full frame
-                        if CAPTCHA_TEMPLATE is not None:
-                            # Convert toàn màn hình sang grayscale
-                            full_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        # Captcha, Stun, and Stun2 template matching disabled
 
-                            # Multi-scale matching cho captcha template trên toàn màn hình
-                            # Captcha mờ và có background trong suốt, nhưng cần threshold cao hơn để tránh false positive
-                            captcha_matches_raw = utils.multi_match_multi_scale(
-                                full_frame_gray,
-                                CAPTCHA_TEMPLATE,
-                                threshold=0.65,  # Tăng từ 0.6 lên 0.65 để giảm false positive
-                                is_gray=True,
-                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
-                            )
-
-                            # Thêm edge confirmation cho các matches có score gần threshold để giảm false positive
-                            captcha_matches = []
-                            full_frame_edges = cv2.Canny(full_frame_gray, 50, 150)
-                            for match in captcha_matches_raw:
-                                x, y, score = match[0], match[1], match[2]
-                                # Nếu score >= 0.7 thì chấp nhận luôn (high confidence)
-                                if score >= 0.7:
-                                    captcha_matches.append(match)
-                                # Nếu score trong khoảng 0.65-0.7 thì cần edge confirmation
-                                elif score >= 0.65:
-                                    # Extract ROI xung quanh match position
-                                    template_h, template_w = CAPTCHA_TEMPLATE.shape
-                                    roi_size = max(template_h, template_w) * 2
-                                    roi_x0 = max(0, x - roi_size // 4)
-                                    roi_y0 = max(0, y - roi_size // 4)
-                                    roi_x1 = min(
-                                        full_frame_gray.shape[1],
-                                        x + template_w + roi_size // 4,
-                                    )
-                                    roi_y1 = min(
-                                        full_frame_gray.shape[0],
-                                        y + template_h + roi_size // 4,
-                                    )
-
-                                    roi_edges = full_frame_edges[
-                                        roi_y0:roi_y1, roi_x0:roi_x1
-                                    ]
-                                    if roi_edges.size > 0:
-                                        # Tìm scale tốt nhất cho template
-                                        best_edge_score = 0.0
-                                        for scale in [
-                                            0.75,
-                                            0.85,
-                                            0.95,
-                                            1.0,
-                                            1.1,
-                                            1.2,
-                                            1.3,
-                                        ]:
-                                            new_h = max(
-                                                5, int(round(template_h * scale))
-                                            )
-                                            new_w = max(
-                                                5, int(round(template_w * scale))
-                                            )
-                                            if (
-                                                new_h > roi_edges.shape[0]
-                                                or new_w > roi_edges.shape[1]
-                                            ):
-                                                continue
-                                            scaled_template = cv2.resize(
-                                                CAPTCHA_TEMPLATE,
-                                                (new_w, new_h),
-                                                interpolation=cv2.INTER_LINEAR,
-                                            )
-                                            scaled_edge = cv2.Canny(
-                                                scaled_template, 60, 160
-                                            )
-                                            if (
-                                                scaled_edge.shape[0]
-                                                <= roi_edges.shape[0]
-                                                and scaled_edge.shape[1]
-                                                <= roi_edges.shape[1]
-                                            ):
-                                                edge_score = self._match_template(
-                                                    roi_edges, scaled_edge
-                                                )
-                                                if edge_score > best_edge_score:
-                                                    best_edge_score = edge_score
-
-                                        # Chỉ chấp nhận nếu edge score >= 0.3 (edge confirmation)
-                                        if best_edge_score >= 0.3:
-                                            captcha_matches.append(match)
-
-                        # Stun có thể xuất hiện random toàn màn hình, nên scan full frame
-                        if STUN_TEMPLATE is not None:
-                            # Sử dụng lại full_frame_gray từ captcha nếu đã có, nếu không thì tạo mới
-                            if full_frame_gray is None:
-                                full_frame_gray = cv2.cvtColor(
-                                    frame, cv2.COLOR_BGR2GRAY
-                                )
-
-                            # Multi-scale matching cho stun template trên toàn màn hình
-                            stun_matches_raw = utils.multi_match_multi_scale(
-                                full_frame_gray,
-                                STUN_TEMPLATE,
-                                threshold=0.70,  # Tăng threshold để giảm false positive
-                                is_gray=True,
-                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
-                            )
-
-                            # Yêu cầu edge confirmation cho TẤT CẢ matches để giảm false positive
-                            # Sử dụng lại full_frame_edges từ captcha nếu đã có
-                            if full_frame_edges is None:
-                                full_frame_edges = cv2.Canny(full_frame_gray, 50, 150)
-                            for match in stun_matches_raw:
-                                x, y, score = match[0], match[1], match[2]
-                                # Tất cả matches đều cần edge confirmation để tránh false positive
-                                if score >= 0.70:
-                                    # Extract ROI xung quanh match position
-                                    template_h, template_w = STUN_TEMPLATE.shape
-                                    roi_size = max(template_h, template_w) * 2
-                                    roi_x0 = max(0, x - roi_size // 4)
-                                    roi_y0 = max(0, y - roi_size // 4)
-                                    roi_x1 = min(
-                                        full_frame_gray.shape[1],
-                                        x + template_w + roi_size // 4,
-                                    )
-                                    roi_y1 = min(
-                                        full_frame_gray.shape[0],
-                                        y + template_h + roi_size // 4,
-                                    )
-
-                                    roi_edges = full_frame_edges[
-                                        roi_y0:roi_y1, roi_x0:roi_x1
-                                    ]
-                                    if roi_edges.size > 0:
-                                        # Tìm scale tốt nhất cho template
-                                        best_edge_score = 0.0
-                                        for scale in [
-                                            0.75,
-                                            0.85,
-                                            0.95,
-                                            1.0,
-                                            1.1,
-                                            1.2,
-                                            1.3,
-                                        ]:
-                                            new_h = max(
-                                                5, int(round(template_h * scale))
-                                            )
-                                            new_w = max(
-                                                5, int(round(template_w * scale))
-                                            )
-                                            if (
-                                                new_h > roi_edges.shape[0]
-                                                or new_w > roi_edges.shape[1]
-                                            ):
-                                                continue
-                                            scaled_template = cv2.resize(
-                                                STUN_TEMPLATE,
-                                                (new_w, new_h),
-                                                interpolation=cv2.INTER_LINEAR,
-                                            )
-                                            scaled_edge = cv2.Canny(
-                                                scaled_template, 60, 160
-                                            )
-                                            if (
-                                                scaled_edge.shape[0]
-                                                <= roi_edges.shape[0]
-                                                and scaled_edge.shape[1]
-                                                <= roi_edges.shape[1]
-                                            ):
-                                                edge_score = self._match_template(
-                                                    roi_edges, scaled_edge
-                                                )
-                                                if edge_score > best_edge_score:
-                                                    best_edge_score = edge_score
-
-                                        # Tăng edge threshold lên 0.35 để giảm false positive
-                                        if best_edge_score >= 0.35:
-                                            stun_matches.append(match)
-
-                        # Stun2 có thể xuất hiện random toàn màn hình, nên scan full frame
-                        if STUN2_TEMPLATE is not None:
-                            # Sử dụng lại full_frame_gray từ captcha/stun nếu đã có, nếu không thì tạo mới
-                            if full_frame_gray is None:
-                                full_frame_gray = cv2.cvtColor(
-                                    frame, cv2.COLOR_BGR2GRAY
-                                )
-
-                            # Multi-scale matching cho stun2 template trên toàn màn hình
-                            stun2_matches_raw = utils.multi_match_multi_scale(
-                                full_frame_gray,
-                                STUN2_TEMPLATE,
-                                threshold=0.70,  # Tăng threshold để giảm false positive
-                                is_gray=True,
-                                scales=[0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3],
-                            )
-
-                            # Yêu cầu edge confirmation cho TẤT CẢ matches để giảm false positive
-                            # Sử dụng lại full_frame_edges từ captcha/stun nếu đã có
-                            if full_frame_edges is None:
-                                full_frame_edges = cv2.Canny(full_frame_gray, 50, 150)
-                            for match in stun2_matches_raw:
-                                x, y, score = match[0], match[1], match[2]
-                                # Tất cả matches đều cần edge confirmation để tránh false positive
-                                if score >= 0.70:
-                                    # Extract ROI xung quanh match position
-                                    template_h, template_w = STUN2_TEMPLATE.shape
-                                    roi_size = max(template_h, template_w) * 2
-                                    roi_x0 = max(0, x - roi_size // 4)
-                                    roi_y0 = max(0, y - roi_size // 4)
-                                    roi_x1 = min(
-                                        full_frame_gray.shape[1],
-                                        x + template_w + roi_size // 4,
-                                    )
-                                    roi_y1 = min(
-                                        full_frame_gray.shape[0],
-                                        y + template_h + roi_size // 4,
-                                    )
-
-                                    roi_edges = full_frame_edges[
-                                        roi_y0:roi_y1, roi_x0:roi_x1
-                                    ]
-                                    if roi_edges.size > 0:
-                                        # Tìm scale tốt nhất cho template
-                                        best_edge_score = 0.0
-                                        for scale in [
-                                            0.75,
-                                            0.85,
-                                            0.95,
-                                            1.0,
-                                            1.1,
-                                            1.2,
-                                            1.3,
-                                        ]:
-                                            new_h = max(
-                                                5, int(round(template_h * scale))
-                                            )
-                                            new_w = max(
-                                                5, int(round(template_w * scale))
-                                            )
-                                            if (
-                                                new_h > roi_edges.shape[0]
-                                                or new_w > roi_edges.shape[1]
-                                            ):
-                                                continue
-                                            scaled_template = cv2.resize(
-                                                STUN2_TEMPLATE,
-                                                (new_w, new_h),
-                                                interpolation=cv2.INTER_LINEAR,
-                                            )
-                                            scaled_edge = cv2.Canny(
-                                                scaled_template, 60, 160
-                                            )
-                                            if (
-                                                scaled_edge.shape[0]
-                                                <= roi_edges.shape[0]
-                                                and scaled_edge.shape[1]
-                                                <= roi_edges.shape[1]
-                                            ):
-                                                edge_score = self._match_template(
-                                                    roi_edges, scaled_edge
-                                                )
-                                                if edge_score > best_edge_score:
-                                                    best_edge_score = edge_score
-
-                                        # Tăng edge threshold lên 0.35 để giảm false positive
-                                        if best_edge_score >= 0.35:
-                                            stun2_matches.append(match)
-
-                        # Nếu tìm thấy match (puzzle, violet, captcha, stun hoặc stun2)
+                        # Nếu tìm thấy match (puzzle hoặc violet)
                         puzzle_detected = len(puzzle_matches) > 0
                         violet_detected = len(violet_matches) > 0
-                        captcha_detected = len(captcha_matches) > 0
-                        stun_detected = len(stun_matches) > 0
-                        stun2_detected = len(stun2_matches) > 0
 
-                        if (
-                            puzzle_detected
-                            or violet_detected
-                            or captcha_detected
-                            or stun_detected
-                            or stun2_detected
-                        ):
+                        if puzzle_detected or violet_detected:
                             # Xác định loại lie detector và thông tin chi tiết
                             detected_types = []
                             if puzzle_detected:
@@ -717,33 +425,6 @@ class Notifier:
                                 )
                                 detected_types.append(
                                     f"VIOLET (matches={len(violet_matches)}, max_score={violet_max_score:.3f})"
-                                )
-                            if captcha_detected:
-                                captcha_max_score = (
-                                    max([match[2] for match in captcha_matches])
-                                    if captcha_matches
-                                    else 0.0
-                                )
-                                detected_types.append(
-                                    f"CAPTCHA (matches={len(captcha_matches)}, max_score={captcha_max_score:.3f})"
-                                )
-                            if stun_detected:
-                                stun_max_score = (
-                                    max([match[2] for match in stun_matches])
-                                    if stun_matches
-                                    else 0.0
-                                )
-                                detected_types.append(
-                                    f"STUN (matches={len(stun_matches)}, max_score={stun_max_score:.3f})"
-                                )
-                            if stun2_detected:
-                                stun2_max_score = (
-                                    max([match[2] for match in stun2_matches])
-                                    if stun2_matches
-                                    else 0.0
-                                )
-                                detected_types.append(
-                                    f"STUN2 (matches={len(stun2_matches)}, max_score={stun2_max_score:.3f})"
                                 )
 
                             lie_type_str = " + ".join(detected_types)

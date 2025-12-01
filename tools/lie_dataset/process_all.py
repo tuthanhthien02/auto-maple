@@ -482,8 +482,8 @@ def detect_violet_window(frame: np.ndarray, debug=False) -> tuple:
     if debug:
         print("    Debug: No ROI detected")
 
-    # No match found
-    return None
+        # No match found
+        return None
 
 
 def crop_roi(frame: np.ndarray, window_bbox: tuple, padding: int = 0) -> np.ndarray:
