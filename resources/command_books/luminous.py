@@ -854,33 +854,37 @@ class Move(Command):
 
         return False
 
-    def _recover_from_stuck(self):
-        """Attempt a simple jump to recover from stuck state."""
+    def _recover_from_stuck(self, direction):
+        """Attempt recovery from stuck state using hold direction + jump (useful for rope/vine climbing)."""
         try:
-            log.info("Move: Attempting stuck recovery jump")
+            log.info("Move: Attempting stuck recovery with hold direction + jump")
             if self.prev_direction:
                 key_up(self.prev_direction)
                 self.prev_direction = ""
 
-            # Hold a horizontal nudge first to build momentum before jump
-            nudge_direction = random.choice([Key.left, Key.right])
-            key_down(nudge_direction)
+            # Hold direction key to build momentum
+            key_down(direction)
             time.sleep(random.uniform(0.03, 0.06))
 
-            # Perform a quick jump tap while holding nudge
+            # Perform a quick jump tap while holding direction
             press(Key.jump, 1, down_time=0.08, up_time=0.08)
             time.sleep(random.uniform(0.06, 0.12))
 
-            # Release nudge after jump completes
-            key_up(nudge_direction)
-        except Exception as exc:
-            log.error("Move: Stuck recovery jump failed: %s", exc)
-            return False
-        finally:
+            # Release direction after jump completes
+            key_up(direction)
+
             # Reset stuck tracking so detector can re-evaluate
             self._stuck_position = config.player_pos
             self._stuck_attempts = 0
-        return True
+            return True
+        except Exception as exc:
+            log.error("Move: Stuck recovery failed: %s", exc)
+            # Ensure keys are released on error
+            try:
+                key_up(direction)
+            except Exception:
+                pass
+            return False
 
     def _handle_floor_transition_retry(self, direction, point):
         """Handle floor transition retry logic with X-axis adjustment."""
@@ -974,10 +978,8 @@ class Move(Command):
                 and local_error > settings.move_tolerance
                 and global_error > settings.move_tolerance
             ):
-                # Check stuck state before executing axis logic so both axes are covered
+                # Check if bot is stuck
                 if self._detect_stuck(point):
-                    if self._recover_from_stuck():
-                        continue
                     log.warning("Move: Breaking due to stuck detection")
                     break
 
@@ -990,10 +992,6 @@ class Move(Command):
                             key = "right"
                         self._new_direction(key)
                         step(key, point)
-                        # Small delay to allow position update from capture thread (prevent step-over)
-                        time.sleep(
-                            0.06
-                        )  # 60ms delay to sync with position update (0.05s interval when active)
                         if settings.record_layout:
                             config.layout.add(*config.player_pos)
                         counter -= 1
@@ -1008,6 +1006,15 @@ class Move(Command):
                             key = "down"
                         self._new_direction(key)
 
+                        # Check if bot is stuck - try recovery for rope/vine climbing
+                        if self._detect_stuck(point):
+                            # Try recovery with hold direction + jump (useful for rope/vine)
+                            if self._recover_from_stuck(key):
+                                # Recovery attempted, continue to next iteration
+                                continue
+                            log.warning("Move: Breaking due to stuck detection")
+                            break
+
                         # Check if this is a floor transition
                         is_floor_transition = (
                             abs(d_y)
@@ -1019,12 +1026,6 @@ class Move(Command):
                             initial_y = self._handle_floor_transition_retry(key, point)
 
                         step(key, point)
-                        # Small delay to allow position update from capture thread (prevent step-over)
-                        # Vertical movements already have longer delay in step(), but add extra sync delay
-                        if is_floor_transition:
-                            time.sleep(0.08)  # Extra delay for floor transitions
-                        else:
-                            time.sleep(0.06)  # 60ms delay to sync with position update
 
                         # Check floor transition success after step
                         # Note: step() already includes delay for vertical movement
@@ -1038,8 +1039,6 @@ class Move(Command):
                         counter -= 1
                         if i < len(path) - 1:
                             time.sleep(0.05)
-                # Small delay before re-checking position to allow capture thread to update
-                time.sleep(0.05)  # 50ms delay to sync with position update
                 local_error = utils.distance(config.player_pos, point)
                 global_error = utils.distance(config.player_pos, self.target)
                 toggle = not toggle
@@ -1098,7 +1097,7 @@ def step(direction, target, distance=None, waypoint_jumped=False):
                 press(
                     Key.jump,
                     1,
-                    down_time=random.uniform(0.08, 0.1),
+                    down_time=random.uniform(0.08, 0.12),
                     up_time=random.uniform(0.04, 0.06),
                 )
         except Exception as e:
@@ -1108,8 +1107,8 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         press(
             Key.teleport,
             1,
-            down_time=random.uniform(0.8, 0.1),
-            up_time=random.uniform(0.05, 0.08),
+            down_time=random.uniform(0.05, 0.10),
+            up_time=random.uniform(0.02, 0.04),
         )
     except Exception as e:
         log.error(f"step: Error pressing teleport key: {e}")
@@ -1120,11 +1119,6 @@ def step(direction, target, distance=None, waypoint_jumped=False):
         time.sleep(random.uniform(0.4, 0.5))  # Longer delay for vertical movement
     else:
         time.sleep(random.uniform(0.3, 0.4))  # Shorter delay for horizontal movement
-
-    # Additional small delay to ensure position is updated by capture thread (prevent step-over)
-    time.sleep(
-        0.06
-    )  # 60ms delay to sync with position update (0.05s interval when active)
 
 
 # ==================== RANDOM ACTIONS ====================

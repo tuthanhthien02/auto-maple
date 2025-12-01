@@ -188,7 +188,7 @@ class _KeyStateTracker:
         # key_name (lowercase str) -> bool (True if currently down)
         self._is_down = {}
         # Flag to temporarily disable tracking for debugging
-        self._enabled = True  # Enabled by default
+        self._enabled = False  # Disabled - key state tracking causes step over issues
 
     def is_down(self, key: str) -> bool:
         if not self._enabled:
@@ -428,10 +428,13 @@ def key_down(key):
     """
     key = key.lower()
 
-    # Prevent double-press: if key is already marked down, ignore new request
-    if _key_state_tracker.is_down(key):
-        action_log.debug("key_down('%s') ignored (already down)", key)
-        return
+    # If key is already down, release it first then press down again
+    if _key_state_tracker._enabled and _key_state_tracker.is_down(key):
+        action_log.debug("key_down('%s'): key already down, releasing first", key)
+        # Release the key first
+        _force_key_up(key)
+        # Small delay to ensure key is fully released
+        time.sleep(0.01)
 
     if getattr(config, "key_output_mode", "sendinput") == "tcp":
         if _send_tcp_command("down", key):
@@ -486,7 +489,8 @@ def _force_key_up(key):
     key = key.lower()
 
     # Prevent double-release: only release if we believe the key is down
-    if not _key_state_tracker.is_down(key):
+    # Skip check if tracker is disabled (always release to prevent stuck keys)
+    if _key_state_tracker._enabled and not _key_state_tracker.is_down(key):
         action_log.debug("key_up('%s') ignored (already up)", key)
         return False
 
@@ -619,7 +623,8 @@ def press(key, n, down_time=0.05, up_time=0.1):
     key = key.lower()
 
     # If key is currently held down (via key_down), avoid conflicting press pattern.
-    if _key_state_tracker.is_down(key):
+    # Skip check if tracker is disabled (always allow press to prevent stuck keys)
+    if _key_state_tracker._enabled and _key_state_tracker.is_down(key):
         action_log.debug("press('%s', ...) ignored because key is already down", key)
         return
 
