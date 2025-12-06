@@ -115,13 +115,16 @@
       "key_output": {
         "mode": "tcp",
         "tcp": {
-          "host": "192.168.1.8",
+          "host": "192.168.1.184",
           "port": 12345
         }
       },
       "mirror_input": {
         "enabled": false,
-        "auto_connect": true
+        "auto_connect": true,
+        "host": "192.168.1.84",
+        "port": 12345,
+        "block_original_input": false
       },
       "routine_randomization": {
         "dynamic_paths": {

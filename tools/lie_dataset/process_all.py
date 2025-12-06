@@ -1,9 +1,12 @@
 """Main tool to process videos: extract frames, detect ROI, and auto-label."""
 
-import os
-import sys
 import argparse
+import math
+import os
+import shutil
+import sys
 from pathlib import Path
+
 import cv2
 import numpy as np
 
@@ -11,10 +14,10 @@ import numpy as np
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.modules.notifier import get_asset_path  # noqa: E402
 from src.common.utils import multi_match_multi_scale  # noqa: E402
-from tools.lie_dataset.extract_frames import extract_frames_from_video  # noqa: E402
+from src.modules.notifier import get_asset_path  # noqa: E402
 from tools.lie_dataset.auto_label_puzzle import auto_label_puzzle_frame  # noqa: E402
+from tools.lie_dataset.extract_frames import extract_frames_from_video  # noqa: E402
 
 
 def get_template_path(template_name: str) -> str:
@@ -486,16 +489,28 @@ def detect_violet_window(frame: np.ndarray, debug=False) -> tuple:
         return None
 
 
-def crop_roi(frame: np.ndarray, window_bbox: tuple, padding: int = 0) -> np.ndarray:
-    """Crop ROI from frame with optional padding."""
+def crop_roi(
+    frame: np.ndarray,
+    window_bbox: tuple,
+    padding: int = 0,
+    padding_top: int | None = None,
+    padding_bottom: int | None = None,
+    padding_left: int | None = None,
+    padding_right: int | None = None,
+) -> np.ndarray:
+    """Crop ROI from frame with optional padding on each side."""
     x, y, w, h = window_bbox
     height, width = frame.shape[:2]
 
-    # Add minimal padding if needed (default 0 for puzzle since ROI is already calculated precisely)
-    x0 = max(0, x - padding)
-    y0 = max(0, y - padding)
-    x1 = min(width, x + w + padding)
-    y1 = min(height, y + h + padding)
+    pad_top = padding_top if padding_top is not None else padding
+    pad_bottom = padding_bottom if padding_bottom is not None else padding
+    pad_left = padding_left if padding_left is not None else padding
+    pad_right = padding_right if padding_right is not None else padding
+
+    x0 = max(0, x - pad_left)
+    y0 = max(0, y - pad_top)
+    x1 = min(width, x + w + pad_right)
+    y1 = min(height, y + h + pad_bottom)
 
     return frame[y0:y1, x0:x1]
 
@@ -522,8 +537,10 @@ def process_video(
     """
     video_name = Path(video_path).stem
 
-    # Create temp directory for extracted frames
+    # Create temp directory for extracted frames (clean if exists to avoid stale frames)
     temp_dir = os.path.join(output_base_dir, "temp", video_name)
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir, ignore_errors=True)
     os.makedirs(temp_dir, exist_ok=True)
 
     print(f"Processing {video_path}...")
@@ -583,9 +600,17 @@ def process_video(
 
         # Crop ROI
         # Puzzle: no padding (ROI is calculated precisely from templates)
-        # Violetta: small padding for safety
-        padding = 5 if puzzle_type == "violetta" else 0
-        roi = crop_roi(frame, window_bbox, padding=padding)
+        # Violetta: add extra padding on top/left to avoid cutting UI
+        if puzzle_type == "violetta":
+            roi = crop_roi(
+                frame,
+                window_bbox,
+                padding=5,
+                padding_top=25,
+                padding_left=25,
+            )
+        else:
+            roi = crop_roi(frame, window_bbox, padding=0)
 
         # Save processed frame
         output_dir = os.path.join(
@@ -650,7 +675,15 @@ def load_video_config(config_path: str) -> dict:
         config_path: Path to config JSON file
 
     Returns:
-        Dict mapping video filename to config: {video_name: {start_time, duration}}
+        Dict mapping video filename to config:
+            {
+                video_name: {
+                    "start_time": float | null,
+                    "duration": float | null,
+                    "fps": float | null,
+                    ...
+                }
+            }
     """
     import json
 
@@ -664,6 +697,9 @@ def load_video_config(config_path: str) -> dict:
     except Exception as e:
         print(f"Warning: Error loading config file {config_path}: {e}")
         return {}
+
+
+DEFAULT_FPS = 1.0
 
 
 def main():
@@ -689,7 +725,7 @@ def main():
     parser.add_argument(
         "--fps",
         type=float,
-        default=1.0,
+        default=DEFAULT_FPS,
         help="Frames per second to extract (default: 1.0)",
     )
     parser.add_argument(
@@ -787,7 +823,7 @@ def main():
     print(f"Type: {args.type}")
     print(f"Output: {args.output}")
     if video_config:
-        print(f"Config: {len(video_config)} video(s) with time ranges")
+        print(f"Config: {len(video_config)} video(s) with time ranges / fps")
     if args.config_only:
         print("Mode: Config-only (only videos in config will be processed)")
     print()
@@ -800,6 +836,7 @@ def main():
         # Get time range from config or command line args
         start_time = args.start_time
         duration = args.duration
+        fps = args.fps
 
         # Override with config if available
         if video_name in video_config:
@@ -808,6 +845,18 @@ def main():
                 start_time = config.get("start_time")
             if duration is None:
                 duration = config.get("duration")
+            # FPS: allow per-video override from config when user did not
+            # explicitly change the default CLI fps.
+            cfg_fps = config.get("fps")
+            if cfg_fps is not None:
+                try:
+                    cfg_fps = float(cfg_fps)
+                except (ValueError, TypeError):
+                    cfg_fps = None
+            # Only use config fps when CLI fps is at its default value,
+            # so user can still override with --fps when needed.
+            if cfg_fps is not None and math.isclose(args.fps, DEFAULT_FPS):
+                fps = cfg_fps
 
         # Convert None to actual None (in case config has null)
         if start_time is not None:
@@ -826,7 +875,7 @@ def main():
             str(video_file),
             args.output,
             args.type,
-            fps=args.fps,
+            fps=fps,
             start_time=start_time,
             duration=duration,
             debug=args.debug,

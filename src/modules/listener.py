@@ -253,8 +253,13 @@ class Listener(Configurable):
 
     @staticmethod
     def toggle_mirror_input():
-        """Toggle mirror input on/off via hotkey - calls GUI button handler."""
+        """Toggle mirror input on/off via hotkey - calls GUI button handler. Plays a sound to notify the user."""
         log.info("Toggle mirror input hotkey pressed (Del)")
+
+        # Check current state before toggling
+        mirror = getattr(config, "mirror_input", None)
+        was_running = mirror.is_running() if mirror is not None else False
+
         try:
             if hasattr(config, "gui") and config.gui:
                 if hasattr(config.gui, "view") and config.gui.view:
@@ -262,6 +267,13 @@ class Listener(Configurable):
                         # Call the same function as the GUI button
                         config.gui.view.status._on_toggle_mirror()
                         log.info("Mirror input toggled via hotkey - GUI updated")
+
+                        # Play sound based on new state (opposite of was_running)
+                        if was_running:
+                            winsound.Beep(523, 333)  # C5 - disabled
+                        else:
+                            winsound.Beep(784, 333)  # G5 - enabled
+
                         time.sleep(
                             0.267
                         )  # Same delay as toggle_enabled to prevent multiple toggles
@@ -271,7 +283,6 @@ class Listener(Configurable):
             log.error(f"Failed to toggle mirror input via hotkey: {exc}", exc_info=True)
 
         # Fallback: direct module call if GUI not available
-        mirror = getattr(config, "mirror_input", None)
         if mirror is None:
             log.warning("Mirror input module unavailable")
             return
@@ -280,6 +291,7 @@ class Listener(Configurable):
             mirror.stop()
             config.update_mirror_input_settings(enabled=False)
             log.info("Mirror input disabled via hotkey")
+            winsound.Beep(523, 333)  # C5 - disabled
         else:
             block = getattr(config, "mirror_input_block_original", False)
             mirror.configure(
@@ -291,6 +303,7 @@ class Listener(Configurable):
                 mirror.start()
                 config.update_mirror_input_settings(enabled=True)
                 log.info("Mirror input enabled via hotkey")
+                winsound.Beep(784, 333)  # G5 - enabled
             except Exception as exc:
                 log.error(f"Mirror start failed: {exc}")
 

@@ -1,0 +1,100 @@
+# Routine: Custom Tree 2-Floor Training Path
+# Updated with custom coordinates extracted from image.
+
+Label,start_routine
+
+# ========================================
+# FLOOR 1: LEFT -> RIGHT (0.112 -> 0.325)
+# ========================================
+Comment,=== FLOOR 1 START: Move Left -> Right ===
+
+*,0.112,0.081,adjust=True,frequency=1
+Label,f1_pos_0
+face_right
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.152,0.081,adjust=False,frequency=1
+Label,f1_pos_1
+face_left,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.19,0.071,adjust=False,frequency=1
+Label,f1_pos_2
+face_left,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.23,0.071,adjust=False,frequency=1
+Label,f1_pos_3
+face_left,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.268,0.067,adjust=False,frequency=1
+Label,f1_pos_4
+face_left,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.306,0.064,adjust=False,frequency=1
+Label,f1_pos_5
+face_left,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.325,0.064,adjust=True,frequency=1
+Label,f1_pos_6
+face_left,25
+Comment,Floor 1 End: Reflection Mix Random (auto-jump to Floor 2 via Adjust)
+reflection_mix_random,75
+wait_random,0.1,0.3
+
+# ========================================
+# FLOOR 2: RIGHT -> LEFT (0.325 -> 0.121)
+# ========================================
+Comment,=== FLOOR 2 START: Move Right -> Left ===
+
+*,0.325,0.01,adjust=False,frequency=1
+Label,f2_pos_0
+face_left
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.287,0.01,adjust=False,frequency=1
+Label,f2_pos_1
+face_right,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.247,0.01,adjust=False,frequency=1
+Label,f2_pos_2
+face_right,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.2,0.019,adjust=False,frequency=1
+Label,f2_pos_3
+face_right,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.159,0.019,adjust=False,frequency=1
+Label,f2_pos_4
+face_right,25
+reflection_mix_random,75
+wait_random,0.2,0.5
+
+*,0.121,0.019,adjust=True,frequency=1
+Label,f2_pos_5
+face_right,25
+Comment,Floor 2 End: Reflection Mix Random (auto-jump to Floor 1 via Adjust)
+reflection_mix_random,75
+wait_random,0.1,0.3
+
+# ========================================
+# LOOP BACK TO START
+# ========================================
+Comment,=== ROUTINE COMPLETE: Loop Back to Floor 1 Pos 0 ===
+Jump,f1_pos_0
